@@ -8,10 +8,24 @@ public class PatientDashboard extends JFrame {
     private JPanel sidebar;
     private JButton logoutBtn;
     private JButton bookBtn, viewBtn, historyBtn, profileBtn;
-    private JPanel contentArea; // Move this to a class variable
+    private JPanel contentArea;
+    private int pID;
+    private String pfName, pmName, plName, pdob,pAge, pAddress, pContact, pUsername;
 
-    public PatientDashboard(String patientName) {
-        setTitle("Dental Clinic - Patient Portal");
+    public PatientDashboard(int pID, String fName, String mName, String lName, String dob, String age, String addr, String phone, String user) {
+        this.pID = pID; // Save the ID here!
+        this.pfName = fName;
+        this.pmName = mName;
+        this.plName = lName;
+        this.pdob = dob;
+        this.pAge = age;
+        this.pAddress = addr;
+        this.pContact = phone;
+        this.pUsername = user;
+
+    // ... rest of your existing setup code (setTitle, setSize, etc.)
+
+    // ... rest of your existing setup code (setTitle, setSize, etc.)        setTitle("Dental Clinic - Patient Portal");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -59,7 +73,7 @@ public class PatientDashboard extends JFrame {
         welcomePanel.setLayout(new BoxLayout(welcomePanel, BoxLayout.Y_AXIS));
         welcomePanel.setBackground(new Color(236, 240, 241));
 
-        JLabel welcomeMsg = new JLabel("Welcome, " + patientName);
+        JLabel welcomeMsg = new JLabel("Welcome, " + pfName);
         welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
         welcomeMsg.setForeground(new Color(52, 73, 94));
         welcomeMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -75,25 +89,22 @@ public class PatientDashboard extends JFrame {
 
         // Add the welcome panel to the contentArea initially
         contentArea.add(welcomePanel);
-mainPanel.add(contentArea, BorderLayout.CENTER);
+        mainPanel.add(contentArea, BorderLayout.CENTER);
 
         // Logout Action
         logoutBtn.addActionListener(e -> { 
             new LoginPage(); 
             dispose(); 
         });
-                // Action for Book Appointment Button
         bookBtn.addActionListener(e -> {
-            // 1. Clear the welcome message
-            contentArea.removeAll(); 
+            contentArea.removeAll();
+            contentArea.setLayout(new BorderLayout());
 
-            // 2. Change layout to BorderLayout so the form fills the space
-            contentArea.setLayout(new BorderLayout()); 
+            // ADDED: 'pID' as the very first parameter
+            contentArea.add(new com.dentalclinic.patient.BookAppointmentPanel(
+                pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
+            ), BorderLayout.CENTER);
 
-            // 3. Add the BookAppointmentPanel (The one we made in the previous step)
-            contentArea.add(new com.dentalclinic.patient.BookAppointmentPanel(), BorderLayout.CENTER);
-
-            // 4. Refresh the UI to show changes
             contentArea.revalidate();
             contentArea.repaint();
         });

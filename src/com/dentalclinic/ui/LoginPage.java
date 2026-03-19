@@ -89,16 +89,25 @@ public class LoginPage extends JFrame {
                         pstmt.setString(2, password);
 
                         ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    // 1. Get ALL the data from the database
+                    int pID = rs.getInt("patient_id");
+                    String fName = rs.getString("first_name");
+                    String mName = rs.getString("middle_name");
+                    String lName = rs.getString("last_name");
+                    String dob   = rs.getString("birth_date");
+                    int age      = rs.getInt("age");
+                    String addr  = rs.getString("address");
+                    String phone = rs.getString("contact_number");
+                    String user  = rs.getString("username");
 
-                    if (rs.next()) {
-                       // Success! Patient found in DB
-                       String name = rs.getString("first_name");
-                       JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + name);
+                    JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + fName);
 
-                       // Call the new Patient Dashboard and pass the name
-                       new PatientDashboard(name); 
-                       dispose();
-                   }else {
+                    // 2. Pass EVERYTHING to the Dashboard constructor
+                    // 2. Pass EVERYTHING (including the ID) to the Dashboard constructor
+                    new PatientDashboard(pID, fName, mName, lName, dob, String.valueOf(age), addr, phone, user);
+                    dispose();
+                }else {
                             // No match found in hardcoded list OR database
                             JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Login Failed", JOptionPane.ERROR_MESSAGE);
                         }
