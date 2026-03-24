@@ -29,7 +29,7 @@ public class SystemLogPanel extends JPanel {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setOpaque(false);
 
-        JLabel titleLabel = new JLabel("System Maintenance Logs");
+        JLabel titleLabel = new JLabel("System Logs");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
         titleLabel.setForeground(new Color(44, 62, 80));
         

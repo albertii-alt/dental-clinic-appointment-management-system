@@ -13,10 +13,15 @@ public class DentistDashboard extends JFrame {
     private JPanel scheduleSubMenu, appointmentsSubMenu;
     private boolean isScheduleOpen = false;
     private boolean isAppMenuOpen = false;
+    private int staffId;
+    private String staffName;
+    private String role = "Dentist";
 
     private final int LOGOUT_Y = 600;
 
-    public DentistDashboard() {
+    public DentistDashboard(int staffId, String staffName) {
+        this.staffId = staffId;
+        this.staffName = staffName;
         setTitle("Dental Clinic - Dentist Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -62,10 +67,12 @@ public class DentistDashboard extends JFrame {
         sidebar.add(historyBtn);
 
         // 3. Block Time Slots
+        // 3. Block Time Slots
         blockBtn = createSidebarButton("Block Time Slots", 200);
-        blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel()));
+        // PASS THE ID, NAME, AND ROLE HERE
+        blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel(staffId, staffName, role)));
         sidebar.add(blockBtn);
-
+        
         // Logout
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
         logoutBtn.setBackground(new Color(192, 57, 43));
@@ -87,7 +94,7 @@ public class DentistDashboard extends JFrame {
 
     private void showWelcomeScreen() {
         JPanel welcomePanel = new JPanel(new GridBagLayout());
-        JLabel welcomeMsg = new JLabel("Welcome, Dr. Dentist");
+        JLabel welcomeMsg = new JLabel("Welcome, Dr. " + staffName); // Use the variable
         welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
         welcomePanel.add(welcomeMsg);
         switchPanel(welcomePanel);

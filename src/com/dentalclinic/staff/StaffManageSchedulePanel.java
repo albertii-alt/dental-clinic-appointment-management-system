@@ -13,12 +13,19 @@ import com.dentalclinic.dao.AppointmentDAO;
 public class StaffManageSchedulePanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
     private AppointmentDAO appDAO = new AppointmentDAO(); // To access the new block methods
+    private String currentStaffName;
     
     private JDateChooser datePicker;
     private JPanel slotsContainer;
     private JLabel statusLabel;
+    private int currentStaffId;
+    private String currentRole;
 
-    public StaffManageSchedulePanel() {
+    public StaffManageSchedulePanel(int staffId, String staffName, String role) {
+            this.currentStaffId = staffId;
+            this.currentStaffName = staffName; // INITIALIZE IT
+            this.currentRole = role;
+        // Inside StaffDashboard.java
         setLayout(new BorderLayout());
         setBackground(new Color(236, 240, 241));
 
@@ -52,17 +59,27 @@ public class StaffManageSchedulePanel extends JPanel {
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
                     String[] allSlots = appDAO.getDynamicTimeSlots();
-                    appDAO.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots);
+                    // Pass the ID and Role here
+                    appDAO.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots, currentStaffId, currentRole);
                     refreshSchedule();
                 } catch (SQLException ex) { ex.printStackTrace(); }
             }
         });
 
+        // Inside the constructor of StaffManageSchedulePanel.java
         clearAllBtn.addActionListener(e -> {
-            try {
-                appDAO.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()));
-                refreshSchedule();
-            } catch (SQLException ex) { ex.printStackTrace(); }
+            int confirm = JOptionPane.showConfirmDialog(this, "Clear all blocks for this day?", "Confirm", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try {
+                    // Updated call to pass ID and Role
+                    appDAO.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()), currentStaffId, currentRole);
+                    refreshSchedule();
+                    JOptionPane.showMessageDialog(this, "All blocks cleared and recorded.");
+                } catch (SQLException ex) { 
+                    ex.printStackTrace(); 
+                    JOptionPane.showMessageDialog(this, "Error clearing blocks: " + ex.getMessage());
+                }
+            }
         });
 
         header.add(blockAllBtn);
@@ -160,10 +177,10 @@ public class StaffManageSchedulePanel extends JPanel {
         row.add(actionPanel, BorderLayout.EAST);
         return row;
     }
-
+    
     private void handleBlock(java.sql.Date date, String slot) {
         try {
-            if (appDAO.blockSlot(date, slot, "Staff Manual Block")) {
+            if (appDAO.blockSlot(date, slot, "Staff Manual Block", currentStaffId, currentRole)) {
                 refreshSchedule();
             }
         } catch (SQLException e) { e.printStackTrace(); }
@@ -171,7 +188,7 @@ public class StaffManageSchedulePanel extends JPanel {
 
     private void handleUnblock(java.sql.Date date, String slot) {
         try {
-            if (appDAO.unblockSlot(date, slot)) {
+            if (appDAO.unblockSlot(date, slot, currentStaffId, currentRole)) {
                 refreshSchedule();
             }
         } catch (SQLException e) { e.printStackTrace(); }

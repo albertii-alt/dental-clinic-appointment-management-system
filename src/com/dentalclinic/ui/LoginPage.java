@@ -97,10 +97,12 @@ public class LoginPage extends JFrame {
                         new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper);
                     } 
                     else if (role.equalsIgnoreCase("DENTIST")) {
-                        new com.dentalclinic.ui.DentistDashboard();
-                    } 
+                        // Change staffId to loggedId AND staffName to fullName
+                        new com.dentalclinic.ui.DentistDashboard(loggedId, fullName); 
+                    }
                     else if (role.equalsIgnoreCase("STAFF")) {
-                        new com.dentalclinic.ui.StaffDashboard();
+                        // Pass both loggedId and fullName (from your data[3] extraction)
+                        new com.dentalclinic.ui.StaffDashboard(loggedId, fullName); 
                     }
                     
                     dispose(); // Close login page

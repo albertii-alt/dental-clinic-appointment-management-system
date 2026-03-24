@@ -13,8 +13,13 @@ public class StaffDashboard extends JFrame {
     private JPanel mainPanel; // Moved to class level
     private JPanel currentContent; // To track what's currently in the center
     private JButton logoutBtn;
+    private int staffId;
+    private String staffName;
+    private String role = "Staff";
 
-    public StaffDashboard() {
+    public StaffDashboard(int staffId, String staffName) {
+        this.staffId = staffId;
+        this.staffName = staffName;
         setTitle("Dental Clinic - Staff Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -75,7 +80,7 @@ public class StaffDashboard extends JFrame {
         sidebar.add(historyBtn);
         
         JButton manageSchedBtn = createSidebarButton("Manage Schedule", 480);
-        manageSchedBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffManageSchedulePanel()));
+        manageSchedBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffManageSchedulePanel(staffId, staffName, role)));
         sidebar.add(manageSchedBtn);
 
         logoutBtn = createSidebarButton("Logout", 600);
@@ -111,7 +116,7 @@ public class StaffDashboard extends JFrame {
         JPanel welcomePanel = new JPanel(new GridBagLayout());
         welcomePanel.setBackground(new Color(236, 240, 241));
         
-        JLabel welcomeMsg = new JLabel("Welcome, Staff Member");
+        JLabel welcomeMsg = new JLabel("Welcome, " + staffName);
         welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
         welcomeMsg.setForeground(new Color(52, 73, 94));
         

@@ -351,23 +351,33 @@ public class AppointmentDAO {
         }
         return blocked;
     }
-
-    public boolean blockSlot(java.sql.Date date, String slot, String reason) throws SQLException {
+    
+    public boolean blockSlot(java.sql.Date date, String slot, String reason, int staffId, String role) throws SQLException {
         String sql = "INSERT INTO blocked_slots (block_date, time_slot, reason) VALUES (?, ?, ?)";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setDate(1, date);
             pstmt.setString(2, slot);
             pstmt.setString(3, reason);
-            return pstmt.executeUpdate() > 0;
+            boolean success = pstmt.executeUpdate() > 0;
+            if (success) {
+                new com.dentalclinic.service.LogService().record(staffId, role, "Block Time Slot", 
+                    "Service: Slot Management | Details: Blocked " + slot + " on " + date + " Reason: " + reason);
+            }
+            return success;
         }
     }
 
-    public boolean unblockSlot(java.sql.Date date, String slot) throws SQLException {
+    public boolean unblockSlot(java.sql.Date date, String slot, int staffId, String role) throws SQLException {
         String sql = "DELETE FROM blocked_slots WHERE block_date = ? AND time_slot = ?";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setDate(1, date);
             pstmt.setString(2, slot);
-            return pstmt.executeUpdate() > 0;
+            boolean success = pstmt.executeUpdate() > 0;
+            if (success) {
+                new com.dentalclinic.service.LogService().record(staffId, role, "Unblock Time Slot", 
+                    "Service: Slot Management | Details: Unblocked " + slot + " on " + date);
+            }
+            return success;
         }
     }
     
@@ -489,27 +499,39 @@ public class AppointmentDAO {
     }
     
     // Method to block every single slot for a specific date
-    public void blockAllDay(java.sql.Date date, String[] allSlots) throws SQLException {
+    public void blockAllDay(java.sql.Date date, String[] allSlots, int staffId, String role) throws SQLException {
         String sql = "INSERT IGNORE INTO blocked_slots (block_date, time_slot, reason) VALUES (?, ?, ?)";
-        try (Connection conn = DBConnection.getConnection(); 
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             for (String slot : allSlots) {
                 pstmt.setDate(1, date);
                 pstmt.setString(2, slot);
                 pstmt.setString(3, "Staff Manual Block (All Day)");
-                pstmt.addBatch(); // Batching makes it much faster
+                pstmt.addBatch();
             }
             pstmt.executeBatch();
+            new com.dentalclinic.service.LogService().record(staffId, role, "Block Day", 
+                "Service: Slot Management | Details: Blocked all slots for date: " + date);
         }
     }
 
     // Method to remove all blocks for a specific date
-    public void unblockAllDay(java.sql.Date date) throws SQLException {
-        String sql = "DELETE FROM blocked_slots WHERE block_date = ?";
-        try (Connection conn = DBConnection.getConnection(); 
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+    public boolean unblockAllDay(java.sql.Date date, int staffId, String role) throws SQLException {
+        String query = "DELETE FROM blocked_slots WHERE block_date = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setDate(1, date);
-            pstmt.executeUpdate();
+            int affected = pstmt.executeUpdate();
+
+            if (affected > 0) {
+                // Record the action in activity_logs
+                new com.dentalclinic.service.LogService().record(
+                    staffId, 
+                    role, 
+                    "Clear All Blocks", 
+                    "Service: Schedule | Details: Removed all blocks for " + date.toString()
+                );
+            }
+            return affected > 0;
         }
     }
     

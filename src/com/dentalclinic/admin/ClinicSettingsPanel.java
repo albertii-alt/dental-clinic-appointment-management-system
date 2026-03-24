@@ -160,8 +160,8 @@ public class ClinicSettingsPanel extends JPanel {
                     price = Double.parseDouble(priceStr);
                 }
 
-                if (configDAO.addService(name, desc, price)) {
-                    JOptionPane.showMessageDialog(this, "Service Added!");
+                if (configDAO.addService(name, desc, price, 1, "Admin")) { // Added 1 and "Admin"
+                JOptionPane.showMessageDialog(this, "Service Added!");
                     serviceNameField.setText("");
                     serviceDescField.setText("");
                     servicePriceField.setText("");
@@ -224,15 +224,21 @@ public class ClinicSettingsPanel extends JPanel {
             e.printStackTrace(); 
         }
     }
-    
     private void saveSettings() {
         try {
-            configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue());
+            // --- ADD THESE VARIABLES (or get them from your login session) ---
+            int adminId = 1; // Default Admin ID
+            String adminRole = "Admin";
 
+            // 1. Update Lead Time (Now passing 3 arguments)
+            configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue(), adminId, adminRole);
+
+            // 2. Update Operating Days (Now passing 4 arguments)
             for (int i = 0; i < days.length; i++) {
-                configDAO.updateDayStatus(days[i], dayChecks[i].isSelected());
+                configDAO.updateDayStatus(days[i], dayChecks[i].isSelected(), adminId, adminRole);
             }
 
+            // 3. Update Time Slots (This one already matches your DAO)
             for (JCheckBox cb : timeChecks) {
                 configDAO.updateTimeSlotStatus(cb.getText(), cb.isSelected());
             }

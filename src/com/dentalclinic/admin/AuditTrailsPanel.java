@@ -22,7 +22,7 @@ public class AuditTrailsPanel extends JPanel {
         JPanel headerPanel = new JPanel(new BorderLayout());
         headerPanel.setBackground(Color.WHITE);
 
-        JLabel titleLabel = new JLabel("System Activity Logs");
+        JLabel titleLabel = new JLabel("Audit Trails");
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
         titleLabel.setForeground(new Color(44, 62, 80));
         
