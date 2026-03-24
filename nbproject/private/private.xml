@@ -2,13 +2,6 @@
 <project-private xmlns="http://www.netbeans.org/ns/project-private/1">
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
-        <group>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/patient/RegisterPatientForm.java</file>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/util/DBConnection.java</file>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/ui/LoginPage.java</file>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/main/Main.java</file>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/ui/PatientDashboard.java</file>
-            <file>file:/home/ivylxvie/Downloads/DentalClinicAppointmentSystem/src/com/dentalclinic/patient/BookAppointmentPanel.java</file>
-        </group>
+        <group/>
     </open-files>
 </project-private>

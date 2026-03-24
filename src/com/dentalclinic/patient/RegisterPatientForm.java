@@ -1,14 +1,12 @@
 package com.dentalclinic.patient;
 
 import com.dentalclinic.ui.LoginPage;
-import com.dentalclinic.util.DBConnection; // Import our bridge
+import com.dentalclinic.util.DBConnection; 
 import com.toedter.calendar.JDateChooser;
 
 import javax.swing.*;
 import java.awt.*;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import com.dentalclinic.dao.PatientDAO;
 
 public class RegisterPatientForm extends JFrame {
 
@@ -139,70 +137,54 @@ public class RegisterPatientForm extends JFrame {
     return java.time.Period.between(birth, now).getYears();
     }
 
-        private void handleRegistration() {
-                String fName = firstNameField.getText();
-                String mName = middleNameField.getText();
-                String lName = lastNameField.getText();
-                String address = addressField.getText();
-                String contact = contactField.getText(); 
-                String email = emailField.getText();
-                String user = usernameField.getText();
-                String pass = new String(passwordField.getPassword());
-                String confirmPass = new String(confirmPasswordField.getPassword());
+    private void handleRegistration() {
+        // Collect data from fields (KEEP YOUR EXISTING DATA COLLECTION)
+        String fName = firstNameField.getText();
+        String mName = middleNameField.getText();
+        String lName = lastNameField.getText();
+        String address = addressField.getText();
+        String contact = contactField.getText(); 
+        String email = emailField.getText();
+        String user = usernameField.getText();
+        String pass = new String(passwordField.getPassword());
 
-                // 1. Validation (Add address and contact to check)
-                if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
-                    JOptionPane.showMessageDialog(this, "All required fields must be filled!");
-                    return;
-                }
-                // Add this after your empty field checks
-                if (contact.length() != 11) {
-                    JOptionPane.showMessageDialog(this, "Contact number must be exactly 11 digits (e.g., 09123456789)");
-                    return;
-                }
+        // 1. Keep your existing Validation logic (Empty check, contact length check)
+        if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
+            JOptionPane.showMessageDialog(this, "All required fields must be filled!");
+            return;
+        }
 
-                // Optional: Check if it's only numbers
-                if (!contact.matches("\\d+")) {
-                    JOptionPane.showMessageDialog(this, "Contact number must only contain digits.");
-                    return;
-                }
+        if (contact.length() != 11) {
+            JOptionPane.showMessageDialog(this, "Contact number must be exactly 11 digits.");
+            return;
+        }
+    try {
+            // Use the SERVICE instead of the DAO
+            com.dentalclinic.service.AuthService authService = new com.dentalclinic.service.AuthService();
 
-        // 2. Database Insertion
-        String query = "INSERT INTO patients (first_name, middle_name, last_name, birth_date, age, address, contact_number, email, username, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query)) {
-            
-            pstmt.setString(1, fName);
-            pstmt.setString(2, mName);
-            pstmt.setString(3, lName);
-            
-            // Convert JDateChooser date to SQL date
             java.util.Date utilDate = birthDatePicker.getDate();
             java.sql.Date sqlDate = new java.sql.Date(utilDate.getTime());
-            pstmt.setDate(4, sqlDate);
-            pstmt.setInt(5, Integer.parseInt(ageField.getText()));
-            pstmt.setString(6, address);
-            pstmt.setString(7, contact);
-            pstmt.setString(8, email);
-            pstmt.setString(9, user);
-            pstmt.setString(10, pass); // Note: In real apps, we'd hash this!
+            int ageValue = Integer.parseInt(ageField.getText());
 
-            int rowsAffected = pstmt.executeUpdate();
-            
-            if (rowsAffected > 0) {
-                JOptionPane.showMessageDialog(this, "Registration Successful for " + fName + " " + lName);
+            // Call the Service
+            boolean success = authService.registerNewPatient(
+                fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass
+            );
+
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Registration Successful for " + fName);
                 new LoginPage();
                 dispose();
             }
-
-        } catch (SQLException ex) {
-            if (ex.getErrorCode() == 1062) { // MySQL Duplicate Entry Error
+        } catch (java.sql.SQLException ex) {
+            // Catch duplicate username error or database issues
+            if (ex.getMessage().contains("Duplicate entry")) {
                 JOptionPane.showMessageDialog(this, "Username already exists. Please choose another.");
             } else {
                 JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
             }
-            ex.printStackTrace();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "An error occurred: " + ex.getMessage());
         }
     }
 }

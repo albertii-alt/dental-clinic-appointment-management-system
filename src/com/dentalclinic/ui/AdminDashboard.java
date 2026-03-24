@@ -2,120 +2,154 @@ package com.dentalclinic.ui;
 
 import javax.swing.*;
 import java.awt.*;
+import com.dentalclinic.admin.AdminDashboardPanel;
+import com.dentalclinic.admin.ClinicSettingsPanel;
+import com.dentalclinic.admin.ManageUsersPanel;
+
 
 public class AdminDashboard extends JFrame {
 
     private JPanel sidebar;
+    private JPanel mainContent; // The dedicated area for our panels
     private JButton accessControlBtn, sysLogsBtn, auditBtn, logoutBtn;
     private JPanel subMenuPanel;
     private boolean isOpen = false;
-
-    // Fixed Y positions for buttons to keep absolute positioning consistent
-    private final int LOGS_Y = 285;
-    private final int AUDIT_Y = 335;
+    private JButton clinicConfigBtn;
+    
+    private int currentAdminId;
+    private boolean isSuperAdmin;
+    private ManageUsersPanel manageUsersPanel;
+    private AdminDashboardPanel dashboardStatsPanel;
+    
+    // Y-Coordinates for Sidebar Buttons
+    private final int CONFIG_Y = 200; 
+    private final int ACCESS_Y = 250; 
+    private final int LOGS_Y = 305;   
+    private final int AUDIT_Y = 355;  
     private final int LOGOUT_Y = 600;
 
-    public AdminDashboard() {
+    public AdminDashboard(int loggedUserId, boolean isSuper) {
+        this.currentAdminId = loggedUserId;
+        this.isSuperAdmin = isSuper;
+        
+        // Initialize the panel now that we have the ID
+        this.manageUsersPanel = new ManageUsersPanel(this.currentAdminId, this.isSuperAdmin);
+        this.dashboardStatsPanel = new AdminDashboardPanel();
+
         setTitle("Dental Clinic - Administrator Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        add(mainPanel);
+        // --- MAIN LAYOUT ---
+        setLayout(new BorderLayout());
 
-        // --- SIDEBAR PANEL ---
+        // --- SIDEBAR ---
         sidebar = new JPanel();
         sidebar.setBackground(new Color(44, 62, 80));
         sidebar.setPreferredSize(new Dimension(250, 700));
         sidebar.setLayout(null);
 
-        // Sidebar Header (Logo) - Added "Admin Panel" per your request
         JLabel logoLabel = new JLabel("Admin Panel");
         logoLabel.setForeground(Color.WHITE);
         logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
         logoLabel.setBounds(50, 30, 150, 30);
         sidebar.add(logoLabel);
 
-        // --- FIXED BUTTONS ---
-        sidebar.add(createSidebarButton("My Dashboard", 100));
-        sidebar.add(createSidebarButton("User Activity Logs", 150));
+        // --- SIDEBAR BUTTONS ---
+        JButton myDashBtn = createSidebarButton("My Dashboard", 100);
+        myDashBtn.addActionListener(e -> {
+            showPanel(dashboardStatsPanel);
+            dashboardStatsPanel.refreshStats(); // Ensure numbers are fresh
+        });
+        sidebar.add(myDashBtn);
+        
+        JButton logsBtn = createSidebarButton("Audit Trails", 150);
+        sidebar.add(logsBtn);
+        logsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel()));
+        
+        clinicConfigBtn = createSidebarButton("Clinic Configuration", CONFIG_Y);
+        sidebar.add(clinicConfigBtn);
+        clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel()));
 
-        // --- DROPDOWN BUTTON ---
-        accessControlBtn = createSidebarButton("Access Control  ⌄", 230);
+        accessControlBtn = createSidebarButton("Access Control  ⌄", ACCESS_Y);
         sidebar.add(accessControlBtn);
+        accessControlBtn.addActionListener(e -> toggleMenu());
 
-        // --- SUB-MENU PANEL (Nested modern style) ---
+        // Sub-Menu
         subMenuPanel = new JPanel();
         subMenuPanel.setLayout(null);
         subMenuPanel.setBackground(new Color(34, 49, 63)); 
-        subMenuPanel.setBounds(20, 275, 210, 80); 
+        subMenuPanel.setBounds(20, 295, 210, 80); 
         subMenuPanel.setVisible(false);
 
-        subMenuPanel.add(createSubButton("Manage Users", 5));
-        subMenuPanel.add(createSubButton("Roles & Permissions", 40));
+        JButton manageUsersBtn = createSubButton("Manage Users", 5);
+        manageUsersBtn.addActionListener(e -> {
+            showPanel(manageUsersPanel);
+            manageUsersPanel.refreshTable();
+        });
+        
+        JButton rolesBtn = createSubButton("Roles & Permissions", 40);
+        rolesBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming soon!"));
+
+        subMenuPanel.add(manageUsersBtn);
+        subMenuPanel.add(rolesBtn);
         sidebar.add(subMenuPanel);
 
-        // --- BUTTONS THAT MOVE ---
+        // Lower Buttons
         sysLogsBtn = createSidebarButton("System Logs", LOGS_Y);
-        auditBtn = createSidebarButton("Audit Trails", AUDIT_Y);
-        logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
-        logoutBtn.setBackground(new Color(41, 128, 185));
+        // Add this action listener to make the button work
+        sysLogsBtn.addActionListener(e -> {
+            // 1. Create the panel, passing the logged-in user's session data
+            com.dentalclinic.admin.SystemLogPanel logsPanel = new com.dentalclinic.admin.SystemLogPanel(currentAdminId, isSuperAdmin);
 
-        sidebar.add(sysLogsBtn);
-        sidebar.add(auditBtn);
-        sidebar.add(logoutBtn);
+            // 2. Use the existing showPanel helper to display it in the mainContent area
+            showPanel(logsPanel);
+        });
 
-        // --- ACTION LOGIC ---
-        accessControlBtn.addActionListener(e -> toggleMenu());
         
+        JButton myAccountBtn = createSidebarButton("My Account Settings", 550);
+        myAccountBtn.setBackground(new Color(52, 73, 94));
+        myAccountBtn.addActionListener(e -> openMyProfile());
+
+        logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
+        logoutBtn.setBackground(new Color(192, 57, 43)); // Red for Logout
         logoutBtn.addActionListener(e -> {
             new LoginPage();
             dispose();
         });
 
-        mainPanel.add(sidebar, BorderLayout.WEST);
+        sidebar.add(sysLogsBtn);
+        sidebar.add(myAccountBtn);
+        sidebar.add(logoutBtn);
 
-        // --- CONTENT AREA ---
-        JPanel contentArea = new JPanel(new GridBagLayout());
-        contentArea.setBackground(new Color(236, 240, 241));
+        // --- MAIN CONTENT AREA ---
+        mainContent = new JPanel(new BorderLayout());
+        mainContent.setBackground(new Color(236, 240, 241));
         
-        // Introductory Message Panel
-        JPanel welcomePanel = new JPanel();
-        welcomePanel.setLayout(new BoxLayout(welcomePanel, BoxLayout.Y_AXIS));
-        welcomePanel.setBackground(new Color(236, 240, 241));
-
-        JLabel welcomeMsg = new JLabel("Welcome to Your Dashboard");
-        welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
-        welcomeMsg.setForeground(new Color(52, 73, 94));
-        welcomeMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
+        showPanel(dashboardStatsPanel);
         
-        JLabel subMsg = new JLabel("Select an option from the sidebar to get started");
-        subMsg.setFont(new Font("Arial", Font.PLAIN, 18));
-        subMsg.setForeground(Color.GRAY);
-        subMsg.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        welcomePanel.add(welcomeMsg);
-        welcomePanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        welcomePanel.add(subMsg);
-
-        contentArea.add(welcomePanel);
-        mainPanel.add(contentArea, BorderLayout.CENTER);
-
+        // Add both to the frame
+        add(sidebar, BorderLayout.WEST);
+        add(mainContent, BorderLayout.CENTER);
+        
+        
         setVisible(true);
+    }
+
+    private void showPanel(JPanel panel) {
+        mainContent.removeAll();
+        mainContent.add(panel, BorderLayout.CENTER);
+        mainContent.revalidate();
+        mainContent.repaint();
     }
 
     private void toggleMenu() {
         isOpen = !isOpen;
         subMenuPanel.setVisible(isOpen);
-        
-        // Shift logic: If open, push lower buttons down by 85px
         int shift = isOpen ? 85 : 0;
-        
         accessControlBtn.setText(isOpen ? "Access Control  ⌃" : "Access Control  ⌄");
         sysLogsBtn.setLocation(sysLogsBtn.getX(), LOGS_Y + shift);
-        auditBtn.setLocation(auditBtn.getX(), AUDIT_Y + shift);
-        
         sidebar.repaint();
     }
 
@@ -140,7 +174,11 @@ public class AdminDashboard extends JFrame {
         btn.setBorderPainted(false);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setFont(new Font("Arial", Font.PLAIN, 12));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
+    }
+
+    private void openMyProfile() {
+        // Logic to open EditUserDialog with currentAdminId details
+        JOptionPane.showMessageDialog(this, "Fetching your profile...");
     }
 }

@@ -2,13 +2,12 @@ package com.dentalclinic.ui;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import com.dentalclinic.util.DBConnection;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.ui.PatientDashboard;// Ensure this import exists
+import com.dentalclinic.service.AuthService;
+import com.dentalclinic.model.Patient;
 
 public class LoginPage extends JFrame {
 
@@ -16,10 +15,11 @@ public class LoginPage extends JFrame {
     private JPasswordField passwordField;
     private JButton loginButton;
     private JButton registerButton;
+    private JComboBox<String> roleDropdown;
 
     public LoginPage() {
         setTitle("Dental Clinic Appointment Management System");
-        setSize(400, 300); // Reverted height since Role Selection is removed
+        setSize(400, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
@@ -49,77 +49,90 @@ public class LoginPage extends JFrame {
         passwordField = new JPasswordField();
         passwordField.setBounds(140, 120, 180, 25);
         panel.add(passwordField);
+        
+        // --- ADD THIS ABOVE THE BUTTONS IN THE CONSTRUCTOR ---
+        JLabel roleLabel = new JLabel("Login as:");
+        roleLabel.setBounds(50, 150, 80, 25);
+        panel.add(roleLabel);
+
+        String[] roles = {"Patient", "Staff", "Dentist", "Admin"};
+        roleDropdown = new JComboBox<>(roles);
+        roleDropdown.setBounds(140, 150, 180, 25);
+        panel.add(roleDropdown);
+
 
         // --- BUTTONS ---
         loginButton = new JButton("Login");
-        loginButton.setBounds(140, 170, 80, 30);
+        loginButton.setBounds(120, 200, 80, 30);
         panel.add(loginButton);
 
         registerButton = new JButton("Register");
-        registerButton.setBounds(240, 170, 90, 30);
+        registerButton.setBounds(220, 200, 90, 30);
         panel.add(registerButton);
-
+ 
         add(panel);
 
-        // Login button action
-        loginButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                String username = usernameField.getText();
-                String password = new String(passwordField.getPassword());
+        loginButton.addActionListener(e -> {
+            String username = usernameField.getText();
+            String password = new String(passwordField.getPassword());
+            String selectedRole = (String) roleDropdown.getSelectedItem();
 
-                // 1. Check for Hardcoded System Users first
-                if (username.equals("admin") && password.equals("1234")) {
-                    new AdminDashboard();
-                    dispose();
-                } else if (username.equals("dentist") && password.equals("1234")) {
-                    new DentistDashboard();
-                    dispose();
-                } else if (username.equals("staff") && password.equals("1234")) {
-                    new StaffDashboard();
-                    dispose();
-                } 
-                // 2. Check Database for Patient Credentials
-                else {
-                    String query = "SELECT * FROM patients WHERE username = ? AND password = ?";
+            AuthService authService = new AuthService();
 
-                    try (Connection conn = DBConnection.getConnection();
-                         PreparedStatement pstmt = conn.prepareStatement(query)) {
+            try {
+                Object result = authService.login(username, password, selectedRole);
 
-                        pstmt.setString(1, username);
-                        pstmt.setString(2, password);
+                if (result instanceof Object[]) {
+                    Object[] data = (Object[]) result;
+                    int loggedId = (int) data[0];      // staff_id
+                    String role = (String) data[1];    // role (ADMIN/STAFF/DENTIST)
+                    boolean isSuper = (boolean) data[2];
+                    String fullName = (String) data[3]; // The real name from the updated StaffDAO
 
-                        ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    // 1. Get ALL the data from the database
-                    int pID = rs.getInt("patient_id");
-                    String fName = rs.getString("first_name");
-                    String mName = rs.getString("middle_name");
-                    String lName = rs.getString("last_name");
-                    String dob   = rs.getString("birth_date");
-                    int age      = rs.getInt("age");
-                    String addr  = rs.getString("address");
-                    String phone = rs.getString("contact_number");
-                    String user  = rs.getString("username");
+                    // 1. Initialize the Global Session so logs know WHO is doing the action
+                    com.dentalclinic.util.UserSession.initialize(loggedId, fullName, role);
 
-                    JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + fName);
-
-                    // 2. Pass EVERYTHING to the Dashboard constructor
-                    // 2. Pass EVERYTHING (including the ID) to the Dashboard constructor
-                    new PatientDashboard(pID, fName, mName, lName, dob, String.valueOf(age), addr, phone, user);
-                    dispose();
-                }else {
-                            // No match found in hardcoded list OR database
-                            JOptionPane.showMessageDialog(null, "Invalid Username or Password", "Login Failed", JOptionPane.ERROR_MESSAGE);
-                        }
-
-                    } catch (SQLException ex) {
-                        JOptionPane.showMessageDialog(null, "Database Error: " + ex.getMessage());
-                        ex.printStackTrace();
+                    // 2. Route to the correct Dashboard
+                    if (role.equalsIgnoreCase("ADMIN")) {
+                        new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper);
+                    } 
+                    else if (role.equalsIgnoreCase("DENTIST")) {
+                        new com.dentalclinic.ui.DentistDashboard();
+                    } 
+                    else if (role.equalsIgnoreCase("STAFF")) {
+                        new com.dentalclinic.ui.StaffDashboard();
                     }
+                    
+                    dispose(); // Close login page
+                } 
+                else if (result instanceof Patient) {
+                    Patient p = (Patient) result;
+                    
+                    // Initialize Session for Patient
+                    String patientFullName = p.getFirstName() + " " + p.getLastName();
+                    com.dentalclinic.util.UserSession.initialize(p.getPatientId(), patientFullName, "PATIENT");
+
+                    JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + p.getFirstName());
+                    
+                    new PatientDashboard(
+                        p.getPatientId(), p.getFirstName(), p.getMiddleName(), 
+                        p.getLastName(), p.getBirthDate().toString(), 
+                        String.valueOf(p.getAge()), p.getAddress(), 
+                        p.getContactNumber(), p.getUsername()
+                    );
+                    
+                    dispose(); // Close login page
+                } 
+                else {
+                    JOptionPane.showMessageDialog(null, "Invalid Username or Password for the selected role.", 
+                                                  "Login Failed", JOptionPane.ERROR_MESSAGE);
                 }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(null, "Database Connection Error: " + ex.getMessage());
+                ex.printStackTrace();
             }
         });
-
+        
         registerButton.addActionListener(e -> {
             new com.dentalclinic.patient.RegisterPatientForm();
             dispose();

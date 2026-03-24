@@ -10,7 +10,15 @@ public class DBConnection {
     private static final String USER = "root"; 
     private static final String PASS = ""; 
 
+    // Inside DBConnection.java
     public static Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(URL, USER, PASS);
+        try {
+            return DriverManager.getConnection(URL, USER, PASS);
+        } catch (SQLException e) {
+            // You could call a static method here to insert this error 
+            // into the system_logs table (if the DB is even reachable)
+            System.err.println("DATABASE ERROR: " + e.getMessage());
+            throw e;
+        }
     }
 }

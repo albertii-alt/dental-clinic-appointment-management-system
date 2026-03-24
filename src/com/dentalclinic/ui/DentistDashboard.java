@@ -2,15 +2,18 @@ package com.dentalclinic.ui;
 
 import javax.swing.*;
 import java.awt.*;
+import com.dentalclinic.staff.*; // Import panels from the staff package
 
 public class DentistDashboard extends JFrame {
 
     private JPanel sidebar;
-    private JButton manageScheduleBtn, logoutBtn;
-    private JPanel scheduleSubMenu;
+    private JPanel mainPanel;
+    private JPanel currentContent;
+    private JButton manageScheduleBtn, logoutBtn, viewAppBtn, historyBtn, blockBtn;
+    private JPanel scheduleSubMenu, appointmentsSubMenu;
     private boolean isScheduleOpen = false;
+    private boolean isAppMenuOpen = false;
 
-    // Base Y positions for elements below the dropdown
     private final int LOGOUT_Y = 600;
 
     public DentistDashboard() {
@@ -19,10 +22,9 @@ public class DentistDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        JPanel mainPanel = new JPanel(new BorderLayout());
+        mainPanel = new JPanel(new BorderLayout());
         add(mainPanel);
 
-        // --- SIDEBAR PANEL ---
         sidebar = new JPanel();
         sidebar.setBackground(new Color(44, 62, 80)); 
         sidebar.setPreferredSize(new Dimension(250, 700));
@@ -34,66 +36,75 @@ public class DentistDashboard extends JFrame {
         logoLabel.setBounds(50, 30, 150, 30);
         sidebar.add(logoLabel);
 
-        // --- BUTTONS BASED ON USE CASE ---
-        sidebar.add(createSidebarButton("Today's Schedule", 100));
-        sidebar.add(createSidebarButton("Upcoming Treatments", 150));
-        sidebar.add(createSidebarButton("View Appointments", 200));
-        sidebar.add(createSidebarButton("Update Treatment Record", 250));
-        sidebar.add(createSidebarButton("View Patient History", 300));
+        // 1. View Appointments Dropdown
+        viewAppBtn = createSidebarButton("View Appointments ⌄", 100);
+        viewAppBtn.addActionListener(e -> toggleAppMenu());
+        sidebar.add(viewAppBtn);
 
-        // --- MANAGE SCHEDULE DROPDOWN (Accordion Style) ---
-        manageScheduleBtn = createSidebarButton("Manage Schedule  ⌄", 350);
-        sidebar.add(manageScheduleBtn);
+        appointmentsSubMenu = new JPanel(null);
+        appointmentsSubMenu.setBackground(new Color(34, 49, 63));
+        appointmentsSubMenu.setBounds(20, 145, 210, 80);
+        appointmentsSubMenu.setVisible(false);
 
-        // Sub-menu Panel
-        scheduleSubMenu = new JPanel();
-        scheduleSubMenu.setLayout(null);
-        scheduleSubMenu.setBackground(new Color(34, 49, 63)); // Darker inset background
-        scheduleSubMenu.setBounds(20, 395, 210, 80); // Height fits 2 sub-buttons
-        scheduleSubMenu.setVisible(false);
+        JButton todayBtn = createSubButton("Today's Schedule", 5);
+        JButton upcomingBtn = createSubButton("Upcoming Treatments", 40);
 
-        scheduleSubMenu.add(createSubButton("Set Working Hours", 5));
-        scheduleSubMenu.add(createSubButton("Block Time Slots", 40));
-        sidebar.add(scheduleSubMenu);
+        todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel())); 
+        upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
 
-        // --- LOGOUT (The only button below the dropdown in this case) ---
+        appointmentsSubMenu.add(todayBtn);
+        appointmentsSubMenu.add(upcomingBtn);
+        sidebar.add(appointmentsSubMenu);
+
+        // 2. View Patient History
+        historyBtn = createSidebarButton("View Patient History", 150); 
+        historyBtn.addActionListener(e -> switchPanel(new PatientHistoryPanel(true))); 
+        sidebar.add(historyBtn);
+
+        // 3. Block Time Slots
+        blockBtn = createSidebarButton("Block Time Slots", 200);
+        blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel()));
+        sidebar.add(blockBtn);
+
+        // Logout
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
-        logoutBtn.setBackground(new Color(41, 128, 185));
+        logoutBtn.setBackground(new Color(192, 57, 43));
+        logoutBtn.addActionListener(e -> { new LoginPage(); dispose(); });
         sidebar.add(logoutBtn);
 
-        // Dropdown Toggle Logic
-        manageScheduleBtn.addActionListener(e -> toggleScheduleMenu());
-
         mainPanel.add(sidebar, BorderLayout.WEST);
-
-        // --- CONTENT AREA ---
-        JPanel contentArea = new JPanel(new GridBagLayout());
-        contentArea.setBackground(new Color(236, 240, 241));
-        
-        JLabel welcomeMsg = new JLabel("Welcome, Dr. Dentist");
-        welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
-        welcomeMsg.setForeground(new Color(52, 73, 94));
-        
-        contentArea.add(welcomeMsg);
-        mainPanel.add(contentArea, BorderLayout.CENTER);
-
-        logoutBtn.addActionListener(e -> { new LoginPage(); dispose(); });
-        
+        showWelcomeScreen();
         setVisible(true);
     }
 
-    private void toggleScheduleMenu() {
-        isScheduleOpen = !isScheduleOpen;
-        scheduleSubMenu.setVisible(isScheduleOpen);
-        manageScheduleBtn.setText(isScheduleOpen ? "Manage Schedule  ⌃" : "Manage Schedule  ⌄");
-        
-        // Note: In this specific layout, only the logout is below. 
-        // If you add more buttons between Manage Schedule and Logout later, 
-        // you would shift them here using .setLocation()
+    private void switchPanel(JPanel newPanel) {
+        if (currentContent != null) mainPanel.remove(currentContent);
+        currentContent = newPanel;
+        mainPanel.add(currentContent, BorderLayout.CENTER);
+        mainPanel.revalidate();
+        mainPanel.repaint();
+    }
+
+    private void showWelcomeScreen() {
+        JPanel welcomePanel = new JPanel(new GridBagLayout());
+        JLabel welcomeMsg = new JLabel("Welcome, Dr. Dentist");
+        welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
+        welcomePanel.add(welcomeMsg);
+        switchPanel(welcomePanel);
+    }
+
+    private void toggleAppMenu() {
+        isAppMenuOpen = !isAppMenuOpen;
+        appointmentsSubMenu.setVisible(isAppMenuOpen);
+        viewAppBtn.setText(isAppMenuOpen ? "View Appointments  ⌃" : "View Appointments  ⌄");
+
+        int offset = isAppMenuOpen ? 85 : 0;
+        // Shift buttons below the submenu
+        historyBtn.setLocation(historyBtn.getX(), 150 + offset);
+        blockBtn.setLocation(blockBtn.getX(), 200 + offset);
         sidebar.repaint();
     }
 
-    // Standard Sidebar Button Style
     private JButton createSidebarButton(String text, int yPos) {
         JButton button = new JButton(text);
         button.setBounds(20, yPos, 210, 40);
@@ -106,7 +117,6 @@ public class DentistDashboard extends JFrame {
         return button;
     }
 
-    // Inset Sub-menu Button Style
     private JButton createSubButton(String text, int y) {
         JButton btn = new JButton(text);
         btn.setBounds(10, y, 190, 30);
