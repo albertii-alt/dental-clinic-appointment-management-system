@@ -11,8 +11,12 @@ public class AuditTrailsPanel extends JPanel {
     private JTable logTable;
     private DefaultTableModel tableModel;
     private LogService logService = new LogService();
+    private int currentAdminId;
+    private boolean isSuperAdmin;
 
-    public AuditTrailsPanel() {
+    public AuditTrailsPanel(int adminId, boolean isSuper) {
+        this.currentAdminId = adminId;
+        this.isSuperAdmin = isSuper;
         // Set layout and the exact padding/margin used in previous panels (20px)
         setLayout(new BorderLayout(10, 10));
         setBorder(new EmptyBorder(20, 20, 20, 20));
@@ -77,10 +81,30 @@ public class AuditTrailsPanel extends JPanel {
 
     private void loadLogData() {
         try {
-            tableModel.setRowCount(0); // Clear existing
-            List<Object[]> logs = logService.getActivityLogs();
+            tableModel.setRowCount(0); 
+            List<Object[]> logs = logService.getActivityLogs(); 
+
             for (Object[] row : logs) {
-                tableModel.addRow(row);
+
+                int performerId = (int) row[1]; // Adjust index based on your LogService SQL
+                String performerName = row[2].toString();
+
+                // --- THE "YOU" LOGIC ---
+                if (performerId == currentAdminId) {
+                    row[2] = "You"; 
+                }
+
+                // Create a clean row for the table (skipping the hidden User ID)
+                Object[] displayRow = new Object[] {
+                    row[0], // Log ID
+                    row[2], // Name (now says "You" if applicable)
+                    row[3], // Role
+                    row[4], // Action
+                    row[5], // Details
+                    row[6]  // Timestamp
+                };
+
+                tableModel.addRow(displayRow);
             }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error loading logs: " + e.getMessage());

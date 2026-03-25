@@ -14,13 +14,19 @@ public class EditUserDialog extends JDialog {
     private JPasswordField passField;
     private boolean isTargetSuperAdmin;
     private boolean iAmSuperAdmin;  
+    
+    // NEW FIELDS for Audit Trail
+    private int adminId;
+    private String adminRole;
 
     public EditUserDialog(Frame parent, int id, String name, String user, String email, String role, 
-                              boolean isTargetSuper, boolean amISuper) {
-            super(parent, "Edit Staff Member", true);
-            this.userId = id;
-            this.isTargetSuperAdmin = isTargetSuper;
-            this.iAmSuperAdmin = amISuper;
+                          boolean isTargetSuper, boolean amISuper, int adminId, String adminRole) {
+        super(parent, "Edit Staff Member", true);
+        this.userId = id;
+        this.isTargetSuperAdmin = isTargetSuper;
+        this.iAmSuperAdmin = amISuper;
+        this.adminId = adminId;
+        this.adminRole = adminRole;
         
         setLayout(new GridBagLayout());
         getContentPane().setBackground(Color.WHITE);
@@ -28,7 +34,6 @@ public class EditUserDialog extends JDialog {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // Initialize and Set Current Data
         nameField = new JTextField(name, 20);
         userField = new JTextField(user, 20);
         passField = new JPasswordField(20);
@@ -37,14 +42,12 @@ public class EditUserDialog extends JDialog {
         roleCombo = new JComboBox<>(new String[]{"Admin", "Dentist", "Staff"});
         roleCombo.setSelectedItem(role);
 
-        // UI Layout
         addLabelAndField("Full Name:", nameField, 0, gbc);
         addLabelAndField("Username:", userField, 1, gbc);
         addLabelAndField("New Password:", passField, 2, gbc);
         addLabelAndField("Email:", emailField, 3, gbc);
         addLabelAndField("Role:", roleCombo, 4, gbc);
 
-        // Buttons
         updateBtn = new JButton("Update Changes");
         cancelBtn = new JButton("Cancel");
 
@@ -52,11 +55,10 @@ public class EditUserDialog extends JDialog {
         cancelBtn.addActionListener(e -> dispose());
 
         JPanel bp = new JPanel();
+        bp.setBackground(Color.WHITE);
         bp.add(updateBtn);
         bp.add(cancelBtn);
-        bp.setBackground(Color.WHITE); // Keep it clean
-        bp.add(updateBtn);
-        bp.add(cancelBtn);
+        
         gbc.gridx = 0; gbc.gridy = 5; gbc.gridwidth = 2;
         add(bp, gbc);
         
@@ -73,21 +75,35 @@ public class EditUserDialog extends JDialog {
     }
     
     private void applySecurityRestrictions() {
-        // Rule: Only a Super Admin can edit another Super Admin's core details.
-        // If a Sub-Admin somehow opens this for a Super Admin, we lock the fields.
-        if (isTargetSuperAdmin && !iAmSuperAdmin) {
-            nameField.setEditable(false);
-            userField.setEditable(false);
-            emailField.setEditable(false);
-            passField.setEnabled(false);
-            roleCombo.setEnabled(false);
-            updateBtn.setEnabled(false);
-            updateBtn.setText("Locked (Super Admin Only)");
-        }
-        
-        // Rule: Even a Super Admin shouldn't demote themselves accidentally
-        // (Optional: you can disable roleCombo if userId == currentAdminId)
-    }
+       // 1. Existing Super Admin Protection
+       if (isTargetSuperAdmin && !iAmSuperAdmin) {
+           nameField.setEditable(false);
+           userField.setEditable(false);
+           emailField.setEditable(false);
+           passField.setEnabled(false);
+           roleCombo.setEnabled(false);
+           updateBtn.setEnabled(false);
+           updateBtn.setText("Locked (Super Admin Only)");
+       }
+
+       // 2. SELF-EDIT PROTECTION: Lock everything if this is the logged-in admin
+       if (userId == adminId) {
+           nameField.setEditable(false);
+           userField.setEditable(false);
+           emailField.setEditable(false);
+           passField.setEnabled(false);
+           roleCombo.setEnabled(false);
+
+           updateBtn.setEnabled(false);
+           updateBtn.setText("Use 'Account Settings' to Edit Self");
+
+           // Add a helpful tooltip to the fields
+           String hint = "To edit your own account, please go to 'My Account Settings' on the sidebar.";
+           nameField.setToolTipText(hint);
+           userField.setToolTipText(hint);
+           emailField.setToolTipText(hint);
+       }
+   }
 
     private void handleUpdate() {
        try {
@@ -97,8 +113,8 @@ public class EditUserDialog extends JDialog {
            String role = (String) roleCombo.getSelectedItem();
            String newPass = new String(passField.getPassword()).trim();
 
-           // Call the updated DAO method
-           if (staffDAO.updateStaff(userId, name, user, email, role, newPass)) {
+           // UPDATED: Now passing adminId and adminRole for the Audit Trail
+           if (staffDAO.updateStaff(userId, name, user, email, role, newPass, adminId, adminRole)) {
                result = true;
                dispose();
            }

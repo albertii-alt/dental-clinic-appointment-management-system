@@ -15,13 +15,19 @@ public class DentistDashboard extends JFrame {
     private boolean isAppMenuOpen = false;
     private int staffId;
     private String staffName;
+    private int loggedId;
+    private String fullName;
+    private String username;
+    private String email;
     private String role = "Dentist";
 
     private final int LOGOUT_Y = 600;
 
-    public DentistDashboard(int staffId, String staffName) {
+    public DentistDashboard(int staffId, String staffName, String user, String mail) {
         this.staffId = staffId;
         this.staffName = staffName;
+        this.username = user;
+        this.email = mail;
         setTitle("Dental Clinic - Dentist Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -72,6 +78,16 @@ public class DentistDashboard extends JFrame {
         // PASS THE ID, NAME, AND ROLE HERE
         blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel(staffId, staffName, role)));
         sidebar.add(blockBtn);
+        
+        // My Account Settings Button (Placed at Y = 550, above Logout)
+        JButton settingsBtn = createSidebarButton("My Account Settings", 550);
+        settingsBtn.addActionListener(e -> {
+            // Use switchPanel (your dashboard's specific method)
+            switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
+                staffId, role, staffName, username, email
+            ));
+        });
+        sidebar.add(settingsBtn);
         
         // Logout
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);

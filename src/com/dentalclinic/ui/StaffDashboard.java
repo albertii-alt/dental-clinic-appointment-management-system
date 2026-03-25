@@ -15,11 +15,15 @@ public class StaffDashboard extends JFrame {
     private JButton logoutBtn;
     private int staffId;
     private String staffName;
+    private String username;
+    private String email;
     private String role = "Staff";
 
-    public StaffDashboard(int staffId, String staffName) {
+    public StaffDashboard(int staffId, String staffName, String user, String mail) {
         this.staffId = staffId;
         this.staffName = staffName;
+        this.username = user;
+        this.email = mail;
         setTitle("Dental Clinic - Staff Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -61,28 +65,38 @@ public class StaffDashboard extends JFrame {
         sidebar.add(upcomingBtn);
         
         
+        // --- MANAGEMENT SECTION ---
         JLabel patientLabel = new JLabel("Management");
         patientLabel.setForeground(new Color(171, 183, 183));
-        patientLabel.setBounds(25, 305, 150, 20);
+        patientLabel.setBounds(25, 310, 150, 20); // Adjusted Y
         sidebar.add(patientLabel);
 
-        JButton regBtn = createSidebarButton("Register Patient", 330);
+        JButton regBtn = createSidebarButton("Register Patient", 340); // Adjusted Y
         regBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.RegisterPatientPanel()));
         sidebar.add(regBtn);
         
-        JButton createBtn = createSidebarButton("Create Appointment", 380);
+        JButton createBtn = createSidebarButton("Create Appointment", 390); // Adjusted Y
         createBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffBookAppointmentPanel()));
         sidebar.add(createBtn);
         
-        JButton historyBtn = createSidebarButton("View Patient History", 430);
-        // False because Staff cannot edit clinical records
+        JButton historyBtn = createSidebarButton("View Patient History", 440); // Adjusted Y
         historyBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.PatientHistoryPanel(false)));
         sidebar.add(historyBtn);
         
-        JButton manageSchedBtn = createSidebarButton("Manage Schedule", 480);
+        JButton manageSchedBtn = createSidebarButton("Manage Schedule", 490); // Adjusted Y
         manageSchedBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffManageSchedulePanel(staffId, staffName, role)));
         sidebar.add(manageSchedBtn);
-
+        
+        // --- SETTINGS AND LOGOUT ---
+        JButton settingsBtn = createSidebarButton("My Settings", 540); // Adjusted Y to avoid overlap
+        settingsBtn.addActionListener(e -> {
+            // Use switchPanel instead of showPanel for consistency
+            switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
+                this.staffId, "STAFF", this.staffName, this.username, this.email
+            ));
+        });
+        sidebar.add(settingsBtn);
+        
         logoutBtn = createSidebarButton("Logout", 600);
         logoutBtn.setBackground(new Color(192, 57, 43));
         sidebar.add(logoutBtn);
@@ -144,5 +158,10 @@ public class StaffDashboard extends JFrame {
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return button;
     }
-    
+    private void showPanel(JPanel panel) {
+        mainPanel.removeAll();
+        mainPanel.add(panel, BorderLayout.CENTER);
+        mainPanel.revalidate();
+        mainPanel.repaint();
+    }
 }

@@ -88,21 +88,22 @@ public class LoginPage extends JFrame {
                     String role = (String) data[1];    // role (ADMIN/STAFF/DENTIST)
                     boolean isSuper = (boolean) data[2];
                     String fullName = (String) data[3]; // The real name from the updated StaffDAO
+                    String userEmail = (data.length > 4) ? (String) data[4] : "No Email";
 
                     // 1. Initialize the Global Session so logs know WHO is doing the action
                     com.dentalclinic.util.UserSession.initialize(loggedId, fullName, role);
 
                     // 2. Route to the correct Dashboard
                     if (role.equalsIgnoreCase("ADMIN")) {
-                        new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper);
+                        new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper, fullName, userEmail, username);
                     } 
                     else if (role.equalsIgnoreCase("DENTIST")) {
                         // Change staffId to loggedId AND staffName to fullName
-                        new com.dentalclinic.ui.DentistDashboard(loggedId, fullName); 
+                        new com.dentalclinic.ui.DentistDashboard(loggedId, fullName, username, userEmail);
                     }
                     else if (role.equalsIgnoreCase("STAFF")) {
                         // Pass both loggedId and fullName (from your data[3] extraction)
-                        new com.dentalclinic.ui.StaffDashboard(loggedId, fullName); 
+                        new com.dentalclinic.ui.StaffDashboard(loggedId, fullName, username, userEmail);
                     }
                     
                     dispose(); // Close login page

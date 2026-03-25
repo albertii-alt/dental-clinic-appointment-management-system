@@ -16,13 +16,19 @@ public class ClinicSettingsPanel extends JPanel {
     private JPanel timePanel;
     private JPanel servicePanel;
     private JTextField serviceNameField, serviceDescField, servicePriceField;
+    private int currentAdminId;
+    private boolean isSuperAdmin;
+    private String currentRole;
     
     private String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
     private AppointmentService appService = new AppointmentService();
     private ClinicConfigDAO configDAO = new ClinicConfigDAO();
 
-    public ClinicSettingsPanel() {
+    public ClinicSettingsPanel(int adminId, boolean isSuper) {
+        this.currentAdminId = adminId;
+        this.isSuperAdmin = isSuper;
+        this.currentRole = isSuper ? "Super Admin" : "Admin";
         setLayout(new BorderLayout());
         setBackground(Color.WHITE);
 
@@ -98,23 +104,21 @@ public class ClinicSettingsPanel extends JPanel {
         
         addTimeBtn.addActionListener(e -> {
             String timeInput = newTimeField.getText().trim().toUpperCase();
-
-            // Simple validation for AM/PM format
             if (!timeInput.matches("^(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$")) {
-                JOptionPane.showMessageDialog(this, "Please use format: HH:MM AM/PM (e.g. 09:30 AM)");
+                JOptionPane.showMessageDialog(this, "Please use format: HH:MM AM/PM");
                 return;
             }
-
-        try {
-            if (configDAO.addTimeSlot(timeInput)) {
-                JOptionPane.showMessageDialog(this, "New time slot added!");
-                newTimeField.setText("");
-                refreshTimeSlotsUI();
+            try {
+                // FIXED: Explicitly catch SQLException which is thrown by the DAO
+                if (configDAO.addTimeSlot(timeInput, currentAdminId, currentRole)) {
+                    JOptionPane.showMessageDialog(this, "New time slot added!");
+                    newTimeField.setText("");
+                    refreshTimeSlotsUI();
+                }
+            } catch (java.sql.SQLException ex) { 
+                JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
+                ex.printStackTrace(); 
             }
-        } catch (Exception ex) { // Change SQLException to Exception
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-        }
         });
 
         addTimePanel.add(new JLabel("New Slot:"));
@@ -145,26 +149,31 @@ public class ClinicSettingsPanel extends JPanel {
                 String desc = serviceDescField.getText().trim();
                 String priceStr = servicePriceField.getText().trim();
 
-                // Name is the only strictly required field
+                // 1. Validation Logic
                 if (name.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "Service Name is required.");
                     return;
                 }
 
-                // If description is empty, use a default
+                // 2. Defaulting Logic
                 if (desc.isEmpty()) desc = "No description provided.";
 
-                // If price is empty, default to 0.00
                 double price = 0.0;
                 if (!priceStr.isEmpty()) {
                     price = Double.parseDouble(priceStr);
                 }
 
-                if (configDAO.addService(name, desc, price, 1, "Admin")) { // Added 1 and "Admin"
-                JOptionPane.showMessageDialog(this, "Service Added!");
+                // 3. DAO Call with Dynamic Admin Info
+                // We use currentAdminId and currentRole passed from the constructor
+                if (configDAO.addService(name, desc, price, currentAdminId, currentRole)) {
+                    JOptionPane.showMessageDialog(this, "Service Added!");
+
+                    // 4. Reset UI Fields
                     serviceNameField.setText("");
                     serviceDescField.setText("");
                     servicePriceField.setText("");
+
+                    // 5. Refresh List
                     buildServiceList(); 
                 }
             } catch (NumberFormatException ex) {
@@ -226,21 +235,16 @@ public class ClinicSettingsPanel extends JPanel {
     }
     private void saveSettings() {
         try {
-            // --- ADD THESE VARIABLES (or get them from your login session) ---
-            int adminId = 1; // Default Admin ID
-            String adminRole = "Admin";
+            // USE THE PASSED VARIABLES INSTEAD OF HARDCODED ONES
+            configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue(), currentAdminId, currentRole);
 
-            // 1. Update Lead Time (Now passing 3 arguments)
-            configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue(), adminId, adminRole);
-
-            // 2. Update Operating Days (Now passing 4 arguments)
             for (int i = 0; i < days.length; i++) {
-                configDAO.updateDayStatus(days[i], dayChecks[i].isSelected(), adminId, adminRole);
+                configDAO.updateDayStatus(days[i], dayChecks[i].isSelected(), currentAdminId, currentRole);
             }
 
-            // 3. Update Time Slots (This one already matches your DAO)
             for (JCheckBox cb : timeChecks) {
-                configDAO.updateTimeSlotStatus(cb.getText(), cb.isSelected());
+                // Ensure updateTimeSlotStatus in DAO is updated to accept ID/Role
+                configDAO.updateTimeSlotStatus(cb.getText(), cb.isSelected(), currentAdminId, currentRole);
             }
 
             JOptionPane.showMessageDialog(this, "Clinic settings successfully updated!");
@@ -248,6 +252,7 @@ public class ClinicSettingsPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Error saving settings: " + e.getMessage());
         }
     }
+    
     private void refreshTimeSlotsUI() {
         buildTimeSlotCheckboxes();
     }
@@ -321,8 +326,14 @@ public class ClinicSettingsPanel extends JPanel {
             int confirm = JOptionPane.showConfirmDialog(this, "Delete " + slot + "?", "Confirm", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    if (configDAO.deleteTimeSlot(slot)) refreshTimeSlotsUI();
-                } catch (Exception ex) { ex.printStackTrace(); }
+                    // FIXED: Explicitly handle the SQLException here as well
+                    if (configDAO.deleteTimeSlot(slot, currentAdminId, currentRole)) {
+                        refreshTimeSlotsUI();
+                    }
+                } catch (java.sql.SQLException ex) { 
+                    JOptionPane.showMessageDialog(this, "Error deleting slot: " + ex.getMessage());
+                    ex.printStackTrace(); 
+                }
             }
         });
         row.add(delBtn, BorderLayout.EAST);
@@ -370,7 +381,7 @@ public class ClinicSettingsPanel extends JPanel {
                     try {
                         // 3. Logic: Flip whatever the CURRENT status is
                         boolean targetStatus = !isActive; 
-                        if (configDAO.updateServiceStatus(name, targetStatus)) {
+                        if (configDAO.updateServiceStatus(name, targetStatus, currentAdminId, currentRole)) {
                             buildServiceList(); // REFRESH UI
                         }
                     } catch (Exception ex) { 
@@ -381,11 +392,15 @@ public class ClinicSettingsPanel extends JPanel {
                 JButton delBtn = new JButton("Delete");
                 delBtn.setForeground(Color.RED);
                 delBtn.setFont(new Font("Arial", Font.PLAIN, 10));
+                // Inside buildServiceList loop
                 delBtn.addActionListener(e -> {
                     int confirm = JOptionPane.showConfirmDialog(this, "Delete " + name + "?", "Confirm", JOptionPane.YES_NO_OPTION);
                     if (confirm == JOptionPane.YES_OPTION) {
                         try {
-                            if (configDAO.deleteService(name)) buildServiceList();
+                            // UPDATED: Added currentAdminId and currentRole
+                            if (configDAO.deleteService(name, currentAdminId, currentRole)) {
+                                buildServiceList();
+                            }
                         } catch (Exception ex) { ex.printStackTrace(); }
                     }
                 });

@@ -18,6 +18,9 @@ public class AdminDashboard extends JFrame {
     
     private int currentAdminId;
     private boolean isSuperAdmin;
+    private String currentAdminName;  // Add this
+    private String currentAdminEmail; // Add this
+    private String currentAdminUsername;
     private ManageUsersPanel manageUsersPanel;
     private AdminDashboardPanel dashboardStatsPanel;
     
@@ -28,9 +31,12 @@ public class AdminDashboard extends JFrame {
     private final int AUDIT_Y = 355;  
     private final int LOGOUT_Y = 600;
 
-    public AdminDashboard(int loggedUserId, boolean isSuper) {
+    public AdminDashboard(int loggedUserId, boolean isSuper, String fullName, String email, String username) {
         this.currentAdminId = loggedUserId;
         this.isSuperAdmin = isSuper;
+        this.currentAdminName = fullName; 
+        this.currentAdminEmail = email; 
+        this.currentAdminUsername = username;
         
         // Initialize the panel now that we have the ID
         this.manageUsersPanel = new ManageUsersPanel(this.currentAdminId, this.isSuperAdmin);
@@ -66,11 +72,12 @@ public class AdminDashboard extends JFrame {
         
         JButton logsBtn = createSidebarButton("Audit Trails", 150);
         sidebar.add(logsBtn);
-        logsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel()));
+        // Pass the session data here
+        logsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel(currentAdminId, isSuperAdmin)));
         
         clinicConfigBtn = createSidebarButton("Clinic Configuration", CONFIG_Y);
         sidebar.add(clinicConfigBtn);
-        clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel()));
+        clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel(currentAdminId, isSuperAdmin)));
 
         accessControlBtn = createSidebarButton("Access Control  ⌄", ACCESS_Y);
         sidebar.add(accessControlBtn);
@@ -109,8 +116,12 @@ public class AdminDashboard extends JFrame {
 
         
         JButton myAccountBtn = createSidebarButton("My Account Settings", 550);
-        myAccountBtn.setBackground(new Color(52, 73, 94));
-        myAccountBtn.addActionListener(e -> openMyProfile());
+        myAccountBtn.addActionListener(e -> {
+            String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
+            showPanel(new com.dentalclinic.admin.AccountSettingsPanel(
+                currentAdminId, roleStr, currentAdminName, currentAdminUsername, currentAdminEmail
+            ));
+        });
 
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
         logoutBtn.setBackground(new Color(192, 57, 43)); // Red for Logout

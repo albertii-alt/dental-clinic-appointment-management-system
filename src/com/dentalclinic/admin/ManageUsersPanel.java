@@ -28,7 +28,6 @@ public class ManageUsersPanel extends JPanel {
         add(createTableArea(), BorderLayout.CENTER);
         refreshTable();
         
-        
         userTable.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -41,6 +40,9 @@ public class ManageUsersPanel extends JPanel {
                 int id = (int) tableModel.getValueAt(row, 0);
                 String name = (String) tableModel.getValueAt(row, 1);
                 boolean targetIsSuper = (boolean) tableModel.getValueAt(row, 6);
+
+                // Define this here so it can be used in all actions below
+                String adminRoleStr = iAmSuperAdmin ? "Super Admin" : "Admin";
 
                 // --- LOGIC: PERMANENT DELETE (Column 6) ---
                 if (column == 6 && iAmSuperAdmin) {
@@ -55,7 +57,8 @@ public class ManageUsersPanel extends JPanel {
 
                     if (confirm == JOptionPane.YES_OPTION) {
                         try {
-                            if (staffDAO.deleteStaff(id)) {
+                            // Correctly passing the 4 required parameters to deleteStaff
+                            if (staffDAO.deleteStaff(id, name, currentAdminId, adminRoleStr)) {
                                 refreshTable();
                                 JOptionPane.showMessageDialog(ManageUsersPanel.this, "User deleted from system.");
                             }
@@ -63,7 +66,7 @@ public class ManageUsersPanel extends JPanel {
                             JOptionPane.showMessageDialog(ManageUsersPanel.this, "Database Error: " + ex.getMessage());
                         }
                     }
-                    return; // Exit after delete attempt so we don't trigger Edit modal
+                    return; 
                 }
 
                 // --- LOGIC: STATUS TOGGLE (Column 5) ---
@@ -84,7 +87,7 @@ public class ManageUsersPanel extends JPanel {
                     int confirm = JOptionPane.showConfirmDialog(ManageUsersPanel.this, "Are you sure you want to " + action + " " + name + "?", "Confirm Status Change", JOptionPane.YES_NO_OPTION);
                     if (confirm == JOptionPane.YES_OPTION) {
                         try {
-                            if (staffDAO.toggleStaffStatus(id, isActive)) {
+                            if (staffDAO.toggleStaffStatus(id, isActive, currentAdminId, adminRoleStr)) {
                                 refreshTable();
                             }
                         } catch (java.sql.SQLException ex) {
@@ -100,7 +103,13 @@ public class ManageUsersPanel extends JPanel {
                     String role = (String) tableModel.getValueAt(row, 4);
 
                     Window parentWindow = SwingUtilities.windowForComponent(ManageUsersPanel.this);
-                    EditUserDialog dialog = new EditUserDialog((Frame)parentWindow, id, name, user, email, role, targetIsSuper, iAmSuperAdmin);
+
+                    // UPDATED: Now passing all 10 parameters to match the new EditUserDialog constructor
+                    EditUserDialog dialog = new EditUserDialog(
+                        (Frame)parentWindow, id, name, user, email, role, 
+                        targetIsSuper, iAmSuperAdmin, currentAdminId, adminRoleStr
+                    );
+
                     dialog.setVisible(true);
 
                     if (dialog.isUpdated()) {
@@ -146,8 +155,10 @@ public class ManageUsersPanel extends JPanel {
         btnPanel.setBackground(Color.WHITE);
         saveBtn = new JButton("Save User");
         saveBtn.addActionListener(e -> {
+            String adminRoleStr = iAmSuperAdmin ? "Super Admin" : "Admin";
             String name = nameField.getText().trim();
             String user = userField.getText().trim();
+            String pass = new String(passField.getPassword());
             String email = emailField.getText().trim();
             String role = (String) roleCombo.getSelectedItem();
 
@@ -158,20 +169,16 @@ public class ManageUsersPanel extends JPanel {
 
             try {
                 if (selectedUserId == -1) {
-                    // --- ADD MODE ---
-                    String pass = new String(passField.getPassword()).trim();
-                    if (pass.isEmpty()) {
-                        JOptionPane.showMessageDialog(this, "Password is required for new users!");
-                        return;
-                    }
-                    if (staffDAO.addStaff(name, user, pass, email, role)) {
-                        JOptionPane.showMessageDialog(this, "Staff added!");
+                    // ADD MODE - Pass the 2 extra audit parameters
+                    if (staffDAO.addStaff(name, user, pass, email, role, currentAdminId, adminRoleStr)) {
+                        JOptionPane.showMessageDialog(this, "Staff added and logged!");
                     }
                 } else {
-                if (staffDAO.updateStaff(selectedUserId, name, user, email, role, "")) { 
-                    JOptionPane.showMessageDialog(this, "Staff updated!");
+                    // UPDATE MODE - Pass the 2 extra audit parameters
+                    if (staffDAO.updateStaff(selectedUserId, name, user, email, role, "", currentAdminId, adminRoleStr)) {
+                        JOptionPane.showMessageDialog(this, "Staff updated and logged!");
+                    }
                 }
-            }
 
                 resetForm(); // Helper to clear fields and reset selectedUserId
                 refreshTable();
