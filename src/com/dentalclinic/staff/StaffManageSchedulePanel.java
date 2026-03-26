@@ -2,6 +2,7 @@ package com.dentalclinic.staff;
 
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.List;
@@ -12,95 +13,116 @@ import com.dentalclinic.dao.AppointmentDAO;
 
 public class StaffManageSchedulePanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
-    private AppointmentDAO appDAO = new AppointmentDAO(); // To access the new block methods
+    private AppointmentDAO appDAO = new AppointmentDAO();
     private String currentStaffName;
-    
-    private JDateChooser datePicker;
-    private JPanel slotsContainer;
-    private JLabel statusLabel;
     private int currentStaffId;
     private String currentRole;
 
+    private JDateChooser datePicker;
+    private JPanel slotsContainer;
+    private JLabel statusLabel;
+
+    // THEME SYNC (Matching StaffBookAppointmentPanel)
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color DANGER = new Color(231, 76, 60);
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color BORDER_COLOR = new Color(220, 220, 220);
+
     public StaffManageSchedulePanel(int staffId, String staffName, String role) {
-            this.currentStaffId = staffId;
-            this.currentStaffName = staffName; // INITIALIZE IT
-            this.currentRole = role;
-        // Inside StaffDashboard.java
+        this.currentStaffId = staffId;
+        this.currentStaffName = staffName;
+        this.currentRole = role;
+
         setLayout(new BorderLayout());
-        setBackground(new Color(236, 240, 241));
+        setBackground(BG);
 
         // --- TOP HEADER ---
-        JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 15));
-        header.setBackground(Color.WHITE);
-        header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, Color.LIGHT_GRAY));
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CARD);
+        header.setBorder(new CompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, BORDER_COLOR),
+                new EmptyBorder(15, 25, 15, 25)
+        ));
 
+        // Title Section
+        JPanel titlePanel = new JPanel(new GridLayout(2, 1));
+        titlePanel.setBackground(CARD);
         JLabel title = new JLabel("Manage Daily Schedule");
-        title.setFont(new Font("Arial", Font.BOLD, 18));
-        header.add(title);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setForeground(TEXT);
+        
+        statusLabel = new JLabel("Select a date to manage slots");
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        statusLabel.setForeground(Color.GRAY);
+        
+        titlePanel.add(title);
+        titlePanel.add(statusLabel);
+        header.add(titlePanel, BorderLayout.WEST);
+
+        // Controls Section
+        JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 5));
+        controls.setBackground(CARD);
 
         datePicker = new JDateChooser(new java.util.Date());
-        datePicker.setPreferredSize(new Dimension(180, 30));
-        // Refresh slots whenever the date changes
+        datePicker.setPreferredSize(new Dimension(180, 35));
+        datePicker.setDateFormatString("MMMM d, yyyy");
         datePicker.addPropertyChangeListener("date", evt -> refreshSchedule());
-        header.add(new JLabel("Select Date:"));
-        header.add(datePicker);
         
-                // --- QUICK ACTIONS ---
         JButton blockAllBtn = new JButton("Block All Day");
-        blockAllBtn.setBackground(new Color(231, 76, 60)); // Red-ish
-        blockAllBtn.setForeground(Color.WHITE);
-
+        styleButton(blockAllBtn, DANGER);
+        
         JButton clearAllBtn = new JButton("Clear All Blocks");
-        clearAllBtn.setBackground(new Color(46, 204, 113)); // Green-ish
-        clearAllBtn.setForeground(Color.WHITE);
+        styleButton(clearAllBtn, SUCCESS);
 
-        blockAllBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Block all available slots for this day?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                try {
-                    String[] allSlots = appDAO.getDynamicTimeSlots();
-                    // Pass the ID and Role here
-                    appDAO.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots, currentStaffId, currentRole);
-                    refreshSchedule();
-                } catch (SQLException ex) { ex.printStackTrace(); }
-            }
-        });
-
-        // Inside the constructor of StaffManageSchedulePanel.java
-        clearAllBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Clear all blocks for this day?", "Confirm", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                try {
-                    // Updated call to pass ID and Role
-                    appDAO.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()), currentStaffId, currentRole);
-                    refreshSchedule();
-                    JOptionPane.showMessageDialog(this, "All blocks cleared and recorded.");
-                } catch (SQLException ex) { 
-                    ex.printStackTrace(); 
-                    JOptionPane.showMessageDialog(this, "Error clearing blocks: " + ex.getMessage());
-                }
-            }
-        });
-
-        header.add(blockAllBtn);
-        header.add(clearAllBtn);
-
-        statusLabel = new JLabel("Select a date to manage slots");
-        statusLabel.setForeground(Color.GRAY);
-        header.add(statusLabel);
+        controls.add(new JLabel("Date:"));
+        controls.add(datePicker);
+        controls.add(blockAllBtn);
+        controls.add(clearAllBtn);
+        header.add(controls, BorderLayout.EAST);
 
         add(header, BorderLayout.NORTH);
 
         // --- CENTER SLOTS AREA ---
         slotsContainer = new JPanel();
         slotsContainer.setLayout(new BoxLayout(slotsContainer, BoxLayout.Y_AXIS));
-        slotsContainer.setBackground(new Color(236, 240, 241));
+        slotsContainer.setBackground(BG);
+        slotsContainer.setBorder(new EmptyBorder(20, 40, 20, 40));
 
         JScrollPane scrollPane = new JScrollPane(slotsContainer);
         scrollPane.setBorder(null);
+        scrollPane.getVerticalScrollBar().setUnitIncrement(16);
+        scrollPane.setBackground(BG);
         add(scrollPane, BorderLayout.CENTER);
 
-        // Initial Load
+        // --- ACTION LISTENERS ---
+        blockAllBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, "Block all available slots for this day?", "Confirm Block", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try {
+                    String[] allSlots = appDAO.getDynamicTimeSlots();
+                    appDAO.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots, currentStaffId, currentRole);
+                    refreshSchedule();
+                } catch (SQLException ex) { ex.printStackTrace(); }
+            }
+        });
+
+        clearAllBtn.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, "Clear all manual blocks for this day?", "Confirm Clear", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                try {
+                    appDAO.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()), currentStaffId, currentRole);
+                    refreshSchedule();
+                    JOptionPane.showMessageDialog(this, "All blocks cleared.");
+                } catch (SQLException ex) { 
+                    ex.printStackTrace(); 
+                    JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+                }
+            }
+        });
+
         refreshSchedule();
     }
 
@@ -111,23 +133,18 @@ public class StaffManageSchedulePanel extends JPanel {
         java.sql.Date selectedDate = new java.sql.Date(datePicker.getDate().getTime());
         
         try {
-            // 1. Get ALL slots from clinic_hours (Master List)
             String[] allSlots = appDAO.getDynamicTimeSlots();
-            
-            // 2. Get Occupied slots (Booked by patients)
             List<String> occupied = appDAO.getOccupiedSlots(selectedDate);
             Set<String> occupiedSet = new HashSet<>(occupied);
-
-            // 3. Get Blocked slots (Manually locked by staff)
             List<String> blocked = appDAO.getBlockedSlotsByDate(selectedDate);
             Set<String> blockedSet = new HashSet<>(blocked);
 
             for (String slot : allSlots) {
                 slotsContainer.add(createSlotRow(slot, selectedDate, occupiedSet.contains(slot), blockedSet.contains(slot)));
-                slotsContainer.add(Box.createRigidArea(new Dimension(0, 5)));
+                slotsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
             }
             
-            statusLabel.setText("Viewing schedule for: " + selectedDate.toString());
+            statusLabel.setText("Currently managing: " + selectedDate.toString());
 
         } catch (SQLException e) {
             e.printStackTrace();
@@ -140,35 +157,34 @@ public class StaffManageSchedulePanel extends JPanel {
 
     private JPanel createSlotRow(String slot, java.sql.Date date, boolean isOccupied, boolean isBlocked) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setMaximumSize(new Dimension(800, 50));
-        row.setBackground(Color.WHITE);
-        row.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        row.setMaximumSize(new Dimension(1000, 60));
+        row.setBackground(CARD);
+        row.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(10, 20, 10, 20)
+        ));
 
+        // Time Label
         JLabel timeLbl = new JLabel(slot);
-        timeLbl.setFont(new Font("Arial", Font.BOLD, 14));
+        timeLbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        timeLbl.setForeground(TEXT);
         row.add(timeLbl, BorderLayout.WEST);
 
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        actionPanel.setBackground(Color.WHITE);
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        actionPanel.setBackground(CARD);
 
         if (isOccupied) {
-            // If already booked by a patient, staff can't "block" it
-            JLabel bookedLbl = new JLabel("BOOKED BY PATIENT");
-            bookedLbl.setForeground(new Color(231, 76, 60)); // Red
-            bookedLbl.setFont(new Font("Arial", Font.ITALIC, 12));
+            JLabel bookedLbl = new JLabel("OCCUPIED BY APPOINTMENT");
+            bookedLbl.setForeground(DANGER);
+            bookedLbl.setFont(new Font("Segoe UI", Font.BOLD | Font.ITALIC, 12));
             actionPanel.add(bookedLbl);
         } else {
-            // Toggle Button for Blocking/Unblocking
             JButton toggleBtn = new JButton(isBlocked ? "Unblock Slot" : "Block Slot");
-            toggleBtn.setFocusPainted(false);
+            styleButton(toggleBtn, isBlocked ? PRIMARY : new Color(160, 170, 180));
             
             if (isBlocked) {
-                toggleBtn.setBackground(new Color(52, 152, 219)); // Blue for Unblock
-                toggleBtn.setForeground(Color.WHITE);
                 toggleBtn.addActionListener(e -> handleUnblock(date, slot));
             } else {
-                toggleBtn.setBackground(new Color(149, 165, 166)); // Gray for Block
-                toggleBtn.setForeground(Color.WHITE);
                 toggleBtn.addActionListener(e -> handleBlock(date, slot));
             }
             actionPanel.add(toggleBtn);
@@ -176,6 +192,15 @@ public class StaffManageSchedulePanel extends JPanel {
 
         row.add(actionPanel, BorderLayout.EAST);
         return row;
+    }
+
+    private void styleButton(JButton btn, Color color) {
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(8, 15, 8, 15));
     }
     
     private void handleBlock(java.sql.Date date, String slot) {

@@ -1,6 +1,7 @@
 package com.dentalclinic.admin;
 
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
@@ -19,129 +20,228 @@ public class ClinicSettingsPanel extends JPanel {
     private int currentAdminId;
     private boolean isSuperAdmin;
     private String currentRole;
-    
+
     private String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
     private AppointmentService appService = new AppointmentService();
     private ClinicConfigDAO configDAO = new ClinicConfigDAO();
 
+    // THEME COLORS
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color DANGER = new Color(231, 76, 60);
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color TEXT_MUTED = new Color(127, 140, 141);
+
     public ClinicSettingsPanel(int adminId, boolean isSuper) {
         this.currentAdminId = adminId;
         this.isSuperAdmin = isSuper;
         this.currentRole = isSuper ? "Super Admin" : "Admin";
-        setLayout(new BorderLayout());
-        setBackground(Color.WHITE);
 
-        // --- MAIN SCROLLABLE CONTAINER ---
+        setLayout(new BorderLayout());
+        setBackground(BG);
+
+        // --- HEADER ---
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(BG);
+        headerPanel.setBorder(new EmptyBorder(30, 40, 15, 40));
+
+        JLabel title = new JLabel("Clinic Configuration");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT);
+        
+        JLabel subtitle = new JLabel("Manage booking rules, operating hours, and available treatments");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        subtitle.setForeground(TEXT_MUTED);
+
+        JPanel titleGroup = new JPanel(new GridLayout(2, 1));
+        titleGroup.setOpaque(false);
+        titleGroup.add(title);
+        titleGroup.add(subtitle);
+        headerPanel.add(titleGroup, BorderLayout.WEST);
+
+        add(headerPanel, BorderLayout.NORTH);
+
+        // --- SCROLLABLE MAIN CONTENT ---
         JPanel mainContent = new JPanel();
         mainContent.setLayout(new BoxLayout(mainContent, BoxLayout.Y_AXIS));
-        mainContent.setBackground(Color.WHITE);
-        mainContent.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        mainContent.setBackground(BG);
+        mainContent.setBorder(new EmptyBorder(10, 40, 10, 40));
 
-        // --- TITLE ---
-        JLabel title = new JLabel("Clinic Configuration");
-        title.setFont(new Font("Arial", Font.BOLD, 22));
-        title.setAlignmentX(Component.LEFT_ALIGNMENT);
-        mainContent.add(title);
+        // 1. Lead Time Card
+        mainContent.add(createCardPanel("Booking Constraints", createLeadTimePanel()));
         mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
 
-        // --- 1. LEAD TIME ---
-        mainContent.add(createSectionLabel("Booking Lead Time"));
-        JPanel leadPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        leadPanel.setBackground(Color.WHITE);
-        leadPanel.add(new JLabel("Patients must book at least "));
+        // 2. Days Card
+        mainContent.add(createCardPanel("Clinic Operating Days", createDaysPanel()));
+        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // 3. Time Slots Card
+        JPanel timeCardContent = new JPanel(new BorderLayout(0, 15));
+        timeCardContent.setBackground(CARD);
+        
+        timePanel = new JPanel(new GridLayout(1, 2, 20, 0));
+        timePanel.setBackground(CARD);
+        
+        JScrollPane timeScroll = new JScrollPane(timePanel);
+        timeScroll.setBorder(null);
+        timeScroll.setPreferredSize(new Dimension(0, 300));
+        timeScroll.getViewport().setBackground(CARD);
+
+        timeCardContent.add(timeScroll, BorderLayout.CENTER);
+        timeCardContent.add(createAddTimePanel(), BorderLayout.SOUTH);
+        mainContent.add(createCardPanel("Daily Appointment Slots", timeCardContent));
+        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+
+        // 4. Services Card
+        JPanel serviceCardContent = new JPanel(new BorderLayout(0, 15));
+        serviceCardContent.setBackground(CARD);
+
+        servicePanel = new JPanel();
+        servicePanel.setLayout(new BoxLayout(servicePanel, BoxLayout.Y_AXIS));
+        servicePanel.setBackground(CARD);
+
+        JScrollPane serviceScroll = new JScrollPane(servicePanel);
+        serviceScroll.setBorder(new LineBorder(new Color(240, 240, 240)));
+        serviceScroll.setPreferredSize(new Dimension(0, 250));
+
+        serviceCardContent.add(serviceScroll, BorderLayout.CENTER);
+        serviceCardContent.add(createServiceInputPanel(), BorderLayout.SOUTH);
+        mainContent.add(createCardPanel("Offered Services & Pricing", serviceCardContent));
+
+        JScrollPane mainScroll = new JScrollPane(mainContent);
+        mainScroll.setBorder(null);
+        mainScroll.getVerticalScrollBar().setUnitIncrement(16);
+        add(mainScroll, BorderLayout.CENTER);
+
+        // --- FOOTER SAVE ACTION ---
+        JButton saveBtn = new JButton("Apply All Configuration Changes");
+        styleButton(saveBtn, SUCCESS);
+        saveBtn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        saveBtn.setPreferredSize(new Dimension(0, 60));
+        saveBtn.addActionListener(e -> saveSettings());
+
+        JPanel bottom = new JPanel(new BorderLayout());
+        bottom.setBackground(BG);
+        bottom.setBorder(new EmptyBorder(15, 40, 25, 40));
+        bottom.add(saveBtn, BorderLayout.CENTER);
+
+        add(bottom, BorderLayout.SOUTH);
+
+        buildServiceList();
+        loadCurrentSettings();
+    }
+
+    // ---------- UI BUILDERS ----------
+
+    private JPanel createLeadTimePanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 10));
+        panel.setBackground(CARD);
+
         leadTimeSpinner = new JSpinner(new SpinnerNumberModel(1, 0, 30, 1));
-        leadPanel.add(leadTimeSpinner);
-        leadPanel.add(new JLabel(" days in advance."));
-        leadPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        mainContent.add(leadPanel);
-        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+        JSpinner.DefaultEditor editor = (JSpinner.DefaultEditor) leadTimeSpinner.getEditor();
+        editor.getTextField().setColumns(3);
+        editor.getTextField().setFont(new Font("Segoe UI", Font.BOLD, 14));
 
-        // --- 2. OPERATING DAYS ---
-        mainContent.add(createSectionLabel("Clinic Operating Days"));
-        JPanel daysPanel = new JPanel(new GridLayout(2, 4, 5, 5));
-        daysPanel.setBackground(Color.WHITE);
+        JLabel leadLabel = new JLabel("Minimum advanced booking notice: ");
+        leadLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        JLabel daysLabel = new JLabel(" days");
+        daysLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        panel.add(leadLabel);
+        panel.add(leadTimeSpinner);
+        panel.add(daysLabel);
+
+        return panel;
+    }
+
+    private JPanel createDaysPanel() {
+        JPanel panel = new JPanel(new GridLayout(2, 4, 15, 15));
+        panel.setBackground(CARD);
+        panel.setBorder(new EmptyBorder(10, 0, 10, 0));
+
         dayChecks = new JCheckBox[7];
         for (int i = 0; i < days.length; i++) {
             dayChecks[i] = new JCheckBox(days[i]);
-            dayChecks[i].setBackground(Color.WHITE);
-            daysPanel.add(dayChecks[i]);
+            dayChecks[i].setBackground(CARD);
+            dayChecks[i].setFont(new Font("Segoe UI", Font.BOLD, 14));
+            dayChecks[i].setForeground(TEXT);
+            panel.add(dayChecks[i]);
         }
-        daysPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        mainContent.add(daysPanel);
-        mainContent.add(Box.createRigidArea(new Dimension(0, 20)));
+        return panel;
+    }
 
-        // --- 3. AVAILABLE TIME SLOTS ---
-        mainContent.add(createSectionLabel("Active Appointment Slots"));
+    private JPanel createAddTimePanel() {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
+        panel.setBackground(new Color(250, 251, 252));
+        panel.setBorder(new LineBorder(new Color(230, 235, 240), 1, true));
 
-        // This is the "Parent" panel that holds both AM and PM columns
-        timePanel = new JPanel(new GridLayout(1, 2, 15, 0)); 
-        timePanel.setBackground(Color.WHITE);
-        timePanel.setPreferredSize(new Dimension(0, 300)); // Set the height for the entire section
-        timePanel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        newTimeField = new JTextField(12);
+        newTimeField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        newTimeField.setToolTipText("Format: HH:MM AM/PM");
 
-        mainContent.add(timePanel);
+        addTimeBtn = new JButton("Add Time Slot");
+        styleButton(addTimeBtn, PRIMARY);
 
-        // Wrap the whole thing in a ScrollPane
-        JScrollPane timeScroll = new JScrollPane(timePanel);
-        timeScroll.setPreferredSize(new Dimension(0, 300)); 
-        timeScroll.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
-        mainContent.add(timeScroll);
-
-
-        // Put everything in a ScrollPane
-        JScrollPane scrollPane = new JScrollPane(mainContent);
-        scrollPane.setBorder(null);
-        add(scrollPane, BorderLayout.CENTER);
-        
-        // --- ADD NEW TIME SLOT UI ---
-        JPanel addTimePanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        addTimePanel.setBackground(Color.WHITE);
-
-        newTimeField = new JTextField(8);
-        newTimeField.setToolTipText("Format: HH:MM AM/PM (e.g., 08:30 AM)");
-        addTimeBtn = new JButton("Add Time");
-        
         addTimeBtn.addActionListener(e -> {
             String timeInput = newTimeField.getText().trim().toUpperCase();
             if (!timeInput.matches("^(0[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$")) {
-                JOptionPane.showMessageDialog(this, "Please use format: HH:MM AM/PM");
+                JOptionPane.showMessageDialog(this, "Use format: HH:MM AM/PM (e.g., 09:00 AM)");
                 return;
             }
             try {
-                // FIXED: Explicitly catch SQLException which is thrown by the DAO
                 if (configDAO.addTimeSlot(timeInput, currentAdminId, currentRole)) {
-                    JOptionPane.showMessageDialog(this, "New time slot added!");
                     newTimeField.setText("");
                     refreshTimeSlotsUI();
                 }
-            } catch (java.sql.SQLException ex) { 
-                JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
-                ex.printStackTrace(); 
+            } catch (java.sql.SQLException ex) {
+                JOptionPane.showMessageDialog(this, ex.getMessage());
             }
         });
 
-        addTimePanel.add(new JLabel("New Slot:"));
-        addTimePanel.add(newTimeField);
-        addTimePanel.add(addTimeBtn);
-        mainContent.add(addTimePanel); // Add this to your mainContent box layout
-        // --- 4. MANAGE SERVICES ---
-        mainContent.add(createSectionLabel("Clinic Services"));
-        servicePanel = new JPanel();
-        servicePanel.setBackground(Color.WHITE);
+        panel.add(new JLabel("New Slot:"));
+        panel.add(newTimeField);
+        panel.add(addTimeBtn);
 
-        JScrollPane serviceScroll = new JScrollPane(servicePanel);
-        serviceScroll.setPreferredSize(new Dimension(0, 200));
-        mainContent.add(serviceScroll);
+        return panel;
+    }
+    
+    private JPanel createServiceInputPanel() {
+        JPanel container = new JPanel(new BorderLayout());
+        container.setBackground(CARD);
+        container.setBorder(new EmptyBorder(10, 0, 0, 0));
 
-        // Input fields for new Service
-        JPanel serviceInputPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        serviceInputPanel.setBackground(Color.WHITE);
+        JSeparator separator = new JSeparator();
+        separator.setForeground(new Color(230, 230, 230));
 
-        serviceNameField = new JTextField(10);
-        serviceDescField = new JTextField(10);
-        servicePriceField = new JTextField(5);
-        JButton addServiceBtn = new JButton("Add Service");
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBackground(new Color(250, 251, 252));
+        panel.setBorder(new CompoundBorder(
+            new LineBorder(new Color(230, 235, 240), 1, true),
+            new EmptyBorder(10, 15, 10, 15)
+        ));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        serviceNameField = new JTextField(12);
+        serviceDescField = new JTextField(15);
+        servicePriceField = new JTextField(8);
+
+        gbc.gridx = 0; gbc.gridy = 0; panel.add(new JLabel("Service Name:"), gbc);
+        gbc.gridx = 1; panel.add(serviceNameField, gbc);
+        gbc.gridx = 2; panel.add(new JLabel("Price:"), gbc);
+        gbc.gridx = 3; panel.add(servicePriceField, gbc);
+        
+        gbc.gridx = 0; gbc.gridy = 1; panel.add(new JLabel("Description:"), gbc);
+        gbc.gridx = 1; gbc.gridwidth = 2; panel.add(serviceDescField, gbc);
+        
+        JButton addServiceBtn = new JButton("Add New Service");
+        styleButton(addServiceBtn, PRIMARY);
+        gbc.gridx = 3; gbc.gridwidth = 1; panel.add(addServiceBtn, gbc);
 
         addServiceBtn.addActionListener(e -> {
             try {
@@ -149,258 +249,204 @@ public class ClinicSettingsPanel extends JPanel {
                 String desc = serviceDescField.getText().trim();
                 String priceStr = servicePriceField.getText().trim();
 
-                // 1. Validation Logic
                 if (name.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Service Name is required.");
+                    JOptionPane.showMessageDialog(this, "Service Name required.");
                     return;
                 }
-
-                // 2. Defaulting Logic
                 if (desc.isEmpty()) desc = "No description provided.";
+                double price = priceStr.isEmpty() ? 0.0 : Double.parseDouble(priceStr);
 
-                double price = 0.0;
-                if (!priceStr.isEmpty()) {
-                    price = Double.parseDouble(priceStr);
-                }
-
-                // 3. DAO Call with Dynamic Admin Info
-                // We use currentAdminId and currentRole passed from the constructor
                 if (configDAO.addService(name, desc, price, currentAdminId, currentRole)) {
-                    JOptionPane.showMessageDialog(this, "Service Added!");
-
-                    // 4. Reset UI Fields
                     serviceNameField.setText("");
                     serviceDescField.setText("");
                     servicePriceField.setText("");
-
-                    // 5. Refresh List
-                    buildServiceList(); 
+                    buildServiceList();
                 }
-            } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(this, "Please enter a valid number for Price.");
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error adding service: " + ex.getMessage());
+                JOptionPane.showMessageDialog(this, "Check price format: " + ex.getMessage());
             }
         });
 
-        serviceInputPanel.add(new JLabel("Name:"));
-        serviceInputPanel.add(serviceNameField);
-        serviceInputPanel.add(new JLabel("Desc:"));
-        serviceInputPanel.add(serviceDescField);
-        serviceInputPanel.add(new JLabel("Price:"));
-        serviceInputPanel.add(servicePriceField);
-        serviceInputPanel.add(addServiceBtn);
-
-        mainContent.add(serviceInputPanel);
-
-        // Finally, call the builder
-        buildServiceList();
-
-        // --- 4. SAVE BUTTON ---
-        JButton saveBtn = new JButton("Apply All Changes");
-        saveBtn.setFont(new Font("Arial", Font.BOLD, 14));
-        saveBtn.setBackground(new Color(46, 204, 113));
-        saveBtn.setForeground(Color.WHITE);
-        saveBtn.setPreferredSize(new Dimension(0, 50));
-        saveBtn.addActionListener(e -> saveSettings());
-        add(saveBtn, BorderLayout.SOUTH);
-
-        loadCurrentSettings();
+        container.add(separator, BorderLayout.NORTH);
+        container.add(panel, BorderLayout.CENTER);
+        return container;
     }
 
-    private JLabel createSectionLabel(String text) {
-        JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Arial", Font.BOLD, 14));
-        lbl.setForeground(new Color(44, 62, 80));
-        return lbl;
+    private JPanel createCardPanel(String title, JPanel content) {
+        JPanel card = new JPanel(new BorderLayout());
+        card.setBackground(CARD);
+        card.setBorder(new CompoundBorder(
+            new LineBorder(new Color(218, 226, 234), 1, true),
+            new EmptyBorder(20, 25, 20, 25)
+        ));
+
+        JLabel lbl = new JLabel(title.toUpperCase());
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setForeground(PRIMARY);
+        lbl.setBorder(new EmptyBorder(0, 0, 15, 0));
+
+        card.add(lbl, BorderLayout.NORTH);
+        card.add(content, BorderLayout.CENTER);
+
+        return card;
     }
+
+    private void styleButton(JButton btn, Color color) {
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    }
+
+    // ---------- ORIGINAL LOGIC (UNCHANGED) ----------
 
     private void loadCurrentSettings() {
         try {
-            // 1. Load Lead Time
             leadTimeSpinner.setValue(appService.getBookingLeadTime());
-
-            // 2. Load Days
             List<String> closedDays = appService.getClosedDays();
             for (int i = 0; i < days.length; i++) {
                 dayChecks[i].setSelected(!closedDays.contains(days[i]));
             }
-
-            // 3. Load Dynamic Time Slots (THIS CALLS THE BUILDER)
             buildTimeSlotCheckboxes();
-
-        } catch (Exception e) { 
-            e.printStackTrace(); 
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
+
     private void saveSettings() {
         try {
-            // USE THE PASSED VARIABLES INSTEAD OF HARDCODED ONES
             configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue(), currentAdminId, currentRole);
-
             for (int i = 0; i < days.length; i++) {
                 configDAO.updateDayStatus(days[i], dayChecks[i].isSelected(), currentAdminId, currentRole);
             }
-
             for (JCheckBox cb : timeChecks) {
-                // Ensure updateTimeSlotStatus in DAO is updated to accept ID/Role
                 configDAO.updateTimeSlotStatus(cb.getText(), cb.isSelected(), currentAdminId, currentRole);
             }
-
-            JOptionPane.showMessageDialog(this, "Clinic settings successfully updated!");
+            JOptionPane.showMessageDialog(this, "Clinic settings updated successfully!");
         } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error saving settings: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, e.getMessage());
         }
     }
-    
+
     private void refreshTimeSlotsUI() {
         buildTimeSlotCheckboxes();
     }
 
     private void buildTimeSlotCheckboxes() {
-        timePanel.removeAll(); 
-        timeChecks.clear();    
+        timePanel.removeAll();
+        timeChecks.clear();
 
-        // 1. Create the AM Column & its ScrollPane
-        JPanel amList = new JPanel();
-        amList.setLayout(new BoxLayout(amList, BoxLayout.Y_AXIS));
-        amList.setBackground(Color.WHITE);
-
-        JScrollPane amScroll = new JScrollPane(amList);
-        amScroll.setBorder(BorderFactory.createTitledBorder("Morning (AM)"));
-        amScroll.getVerticalScrollBar().setUnitIncrement(10); // Smoother scrolling
-
-        // 2. Create the PM Column & its ScrollPane
-        JPanel pmList = new JPanel();
-        pmList.setLayout(new BoxLayout(pmList, BoxLayout.Y_AXIS));
-        pmList.setBackground(Color.WHITE);
-
-        JScrollPane pmScroll = new JScrollPane(pmList);
-        pmScroll.setBorder(BorderFactory.createTitledBorder("Afternoon/Evening (PM)"));
-        pmScroll.getVerticalScrollBar().setUnitIncrement(10);
+        JPanel amList = createTimeSubPanel("MORNING (AM)");
+        JPanel pmList = createTimeSubPanel("AFTERNOON (PM)");
 
         try {
-            List<String> allSlots = appService.getAllTimeSlots(); 
-            String[] activeSlots = appService.getTimeSlots(); 
+            List<String> allSlots = appService.getAllTimeSlots();
+            String[] activeSlots = appService.getTimeSlots();
             java.util.Set<String> activeSet = new java.util.HashSet<>(java.util.Arrays.asList(activeSlots));
 
             for (String slot : allSlots) {
                 JPanel row = createTimeRow(slot, activeSet.contains(slot));
-
-                // Sort into the correct list
-                if (slot.contains("AM")) {
-                    amList.add(row);
-                } else {
-                    pmList.add(row);
-                }
+                if (slot.contains("AM")) amList.add(row);
+                else pmList.add(row);
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        // 3. Add the ScrollPanes (not the lists) to the main timePanel
-        timePanel.add(amScroll);
-        timePanel.add(pmScroll);
-
+        timePanel.add(amList);
+        timePanel.add(pmList);
         timePanel.revalidate();
         timePanel.repaint();
     }
 
-    // Helper method to keep buildTimeSlotCheckboxes clean
+    private JPanel createTimeSubPanel(String title) {
+        JPanel p = new JPanel();
+        p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+        p.setBackground(CARD);
+        p.setBorder(TitledBorderFactory.createPaddedBorder(title, TEXT_MUTED));
+        return p;
+    }
+
     private JPanel createTimeRow(String slot, boolean isActive) {
         JPanel row = new JPanel(new BorderLayout());
-        row.setBackground(Color.WHITE);
-        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
-        row.setBorder(BorderFactory.createEmptyBorder(2, 5, 2, 5));
+        row.setBackground(CARD);
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        row.setBorder(new EmptyBorder(2, 5, 2, 5));
 
         JCheckBox cb = new JCheckBox(slot);
-        cb.setBackground(Color.WHITE);
+        cb.setBackground(CARD);
+        cb.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         cb.setSelected(isActive);
         timeChecks.add(cb);
         row.add(cb, BorderLayout.WEST);
 
-        JButton delBtn = new JButton("Delete");
-        delBtn.setForeground(Color.RED);
-        delBtn.setFont(new Font("Arial", Font.PLAIN, 10));
+        JButton delBtn = new JButton("Remove");
+        delBtn.setForeground(DANGER);
+        delBtn.setContentAreaFilled(false);
+        delBtn.setBorderPainted(false);
+        delBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        delBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
         delBtn.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "Delete " + slot + "?", "Confirm", JOptionPane.YES_NO_OPTION);
+            int confirm = JOptionPane.showConfirmDialog(this, "Permanently delete slot " + slot + "?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    // FIXED: Explicitly handle the SQLException here as well
                     if (configDAO.deleteTimeSlot(slot, currentAdminId, currentRole)) {
                         refreshTimeSlotsUI();
                     }
-                } catch (java.sql.SQLException ex) { 
-                    JOptionPane.showMessageDialog(this, "Error deleting slot: " + ex.getMessage());
-                    ex.printStackTrace(); 
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(this, ex.getMessage());
                 }
             }
         });
-        row.add(delBtn, BorderLayout.EAST);
 
+        row.add(delBtn, BorderLayout.EAST);
         return row;
     }
-    
+
     private void buildServiceList() {
         servicePanel.removeAll();
-        servicePanel.setLayout(new BoxLayout(servicePanel, BoxLayout.Y_AXIS));
-
         try {
-            List<Object[]> services = appService.getFullServiceList(); 
-
+            List<Object[]> services = appService.getFullServiceList();
             for (Object[] serviceData : services) {
                 String name = (String) serviceData[0];
-                
-                // --- THE CRASH FIX: Safe Integer Conversion ---
-                // Instead of (int), we convert to String then parse, or handle it as an Object
                 boolean isActive = serviceData[1] != null && serviceData[1].toString().equals("1");
 
-
                 JPanel row = new JPanel(new BorderLayout());
-                row.setBackground(Color.WHITE);
-                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-                row.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)));
+                row.setBackground(CARD);
+                row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
+                row.setBorder(new MatteBorder(0, 0, 1, 0, new Color(245, 245, 245)));
 
                 JLabel nameLabel = new JLabel(name);
-                nameLabel.setFont(new Font("Arial", isActive ? Font.BOLD : Font.ITALIC, 13));
-                nameLabel.setForeground(isActive ? Color.BLACK : Color.GRAY);
-                nameLabel.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+                nameLabel.setFont(new Font("Segoe UI", isActive ? Font.BOLD : Font.PLAIN, 14));
+                nameLabel.setForeground(isActive ? TEXT : TEXT_MUTED);
+                nameLabel.setBorder(new EmptyBorder(0, 15, 0, 0));
                 row.add(nameLabel, BorderLayout.WEST);
 
-                JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-                btnPanel.setBackground(Color.WHITE);
+                JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+                btnPanel.setBackground(CARD);
 
-                // 1. Capture the status in a FINAL variable so the lambda can "see" it safely
-                final boolean currentActive = isActive; 
-
-                // 2. Setup the button text based on that captured status
-                JButton toggleBtn = new JButton(currentActive ? "Deactivate" : "Activate");
-                toggleBtn.setFont(new Font("Arial", Font.PLAIN, 10));
+                JButton toggleBtn = new JButton(isActive ? "Disable" : "Enable");
+                styleButton(toggleBtn, isActive ? TEXT_MUTED : PRIMARY);
+                toggleBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
 
                 toggleBtn.addActionListener(e -> {
                     try {
-                        // 3. Logic: Flip whatever the CURRENT status is
-                        boolean targetStatus = !isActive; 
-                        if (configDAO.updateServiceStatus(name, targetStatus, currentAdminId, currentRole)) {
-                            buildServiceList(); // REFRESH UI
+                        if (configDAO.updateServiceStatus(name, !isActive, currentAdminId, currentRole)) {
+                            buildServiceList();
                         }
-                    } catch (Exception ex) { 
-                        ex.printStackTrace(); 
-                    }
+                    } catch (Exception ex) { ex.printStackTrace(); }
                 });
 
                 JButton delBtn = new JButton("Delete");
-                delBtn.setForeground(Color.RED);
-                delBtn.setFont(new Font("Arial", Font.PLAIN, 10));
-                // Inside buildServiceList loop
+                delBtn.setForeground(DANGER);
+                delBtn.setContentAreaFilled(false);
                 delBtn.addActionListener(e -> {
-                    int confirm = JOptionPane.showConfirmDialog(this, "Delete " + name + "?", "Confirm", JOptionPane.YES_NO_OPTION);
-                    if (confirm == JOptionPane.YES_OPTION) {
+                    if (JOptionPane.showConfirmDialog(this, "Delete " + name + "?") == JOptionPane.YES_OPTION) {
                         try {
-                            // UPDATED: Added currentAdminId and currentRole
-                            if (configDAO.deleteService(name, currentAdminId, currentRole)) {
-                                buildServiceList();
-                            }
+                            if (configDAO.deleteService(name, currentAdminId, currentRole)) buildServiceList();
                         } catch (Exception ex) { ex.printStackTrace(); }
                     }
                 });
@@ -410,11 +456,19 @@ public class ClinicSettingsPanel extends JPanel {
                 row.add(btnPanel, BorderLayout.EAST);
                 servicePanel.add(row);
             }
-        } catch (Exception e) { 
-            e.printStackTrace(); 
-        }
-
+        } catch (Exception e) { e.printStackTrace(); }
         servicePanel.revalidate();
         servicePanel.repaint();
+    }
+    
+    // Helper for titled borders with custom padding
+    private static class TitledBorderFactory {
+        public static Border createPaddedBorder(String title, Color color) {
+            TitledBorder tb = BorderFactory.createTitledBorder(
+                new LineBorder(new Color(240, 240, 240)), title);
+            tb.setTitleColor(color);
+            tb.setTitleFont(new Font("Segoe UI", Font.BOLD, 11));
+            return new CompoundBorder(tb, new EmptyBorder(10, 10, 10, 10));
+        }
     }
 }

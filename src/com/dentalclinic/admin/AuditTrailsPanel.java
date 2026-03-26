@@ -1,8 +1,8 @@
 package com.dentalclinic.admin;
 
 import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.border.*;
+import javax.swing.table.*;
 import java.awt.*;
 import java.util.List;
 import com.dentalclinic.service.LogService;
@@ -14,26 +14,31 @@ public class AuditTrailsPanel extends JPanel {
     private int currentAdminId;
     private boolean isSuperAdmin;
 
+    // UI Style Constants
+    private final Color PRIMARY_BLUE = new Color(41, 128, 185);
+    private final Color COLUMN_SHADE = new Color(242, 245, 249); // Subtle background shade
+    private final Color NAME_TEXT_COLOR = new Color(41, 128, 185);
+    private final Color TEXT_DARK = new Color(44, 62, 80);
+    private final Color BG_LIGHT = new Color(245, 247, 250);
+
     public AuditTrailsPanel(int adminId, boolean isSuper) {
         this.currentAdminId = adminId;
         this.isSuperAdmin = isSuper;
-        // Set layout and the exact padding/margin used in previous panels (20px)
-        setLayout(new BorderLayout(10, 10));
-        setBorder(new EmptyBorder(20, 20, 20, 20));
-        setBackground(Color.WHITE);
+
+        setLayout(new BorderLayout(20, 20));
+        setBorder(new EmptyBorder(30, 40, 30, 40));
+        setBackground(BG_LIGHT);
 
         // --- HEADER SECTION ---
         JPanel headerPanel = new JPanel(new BorderLayout());
-        headerPanel.setBackground(Color.WHITE);
+        headerPanel.setOpaque(false);
 
         JLabel titleLabel = new JLabel("Audit Trails");
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 22));
-        titleLabel.setForeground(new Color(44, 62, 80));
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        titleLabel.setForeground(TEXT_DARK);
         
         JButton refreshButton = new JButton("Refresh Logs");
-        refreshButton.setFocusable(false);
-        refreshButton.setBackground(new Color(52, 152, 219));
-        refreshButton.setForeground(Color.WHITE);
+        styleHeaderButton(refreshButton);
         refreshButton.addActionListener(e -> loadLogData());
 
         headerPanel.add(titleLabel, BorderLayout.WEST);
@@ -48,21 +53,8 @@ public class AuditTrailsPanel extends JPanel {
         };
 
         logTable = new JTable(tableModel);
-        logTable.setRowHeight(30);
-        logTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 12));
-        logTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        styleTable(logTable);
         
-        // Customizing column widths for better "Good UI" feel
-        logTable.getColumnModel().getColumn(0).setPreferredWidth(50);  // ID
-        logTable.getColumnModel().getColumn(1).setPreferredWidth(150); // Name
-        logTable.getColumnModel().getColumn(3).setPreferredWidth(150); // Action
-        logTable.getColumnModel().getColumn(4).setPreferredWidth(250); // Details
-
-        JScrollPane scrollPane = new JScrollPane(logTable);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
-        add(scrollPane, BorderLayout.CENTER);
-        
-        // --- DOUBLE CLICK LISTENER ---
         logTable.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -75,48 +67,105 @@ public class AuditTrailsPanel extends JPanel {
             }
         });
 
-        // Initial load
+        JScrollPane scrollPane = new JScrollPane(logTable);
+        scrollPane.setBorder(new LineBorder(new Color(220, 220, 220)));
+        scrollPane.getViewport().setBackground(Color.WHITE);
+        add(scrollPane, BorderLayout.CENTER);
+
         loadLogData();
+    }
+
+    private void styleHeaderButton(JButton btn) {
+        btn.setFocusable(false);
+        btn.setBackground(PRIMARY_BLUE);
+        btn.setForeground(Color.WHITE);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(8, 15, 8, 15));
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setShowVerticalLines(false);
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setSelectionForeground(Color.BLACK);
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setBackground(Color.WHITE);
+        header.setPreferredSize(new Dimension(0, 40));
+
+        // --- 1. SPECIAL HEADER RENDERER (For the "User Name" Header Background) ---
+        table.getColumnModel().getColumn(1).setHeaderRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                l.setBackground(COLUMN_SHADE); // Shaded background like your image
+                l.setForeground(TEXT_DARK);
+                l.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                l.setHorizontalAlignment(SwingConstants.CENTER);
+                l.setBorder(BorderFactory.createMatteBorder(0, 0, 2, 1, new Color(220, 220, 220)));
+                return l;
+            }
+        });
+
+        // --- 2. SPECIAL CELL RENDERER (For the User Name Data Cells) ---
+        table.getColumnModel().getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel c = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                c.setHorizontalAlignment(SwingConstants.CENTER);
+                if (!isSelected) {
+                    c.setBackground(COLUMN_SHADE); // Keeps the column shaded down the rows
+                    c.setForeground(NAME_TEXT_COLOR); // Blue text as requested
+                    c.setFont(c.getFont().deriveFont(Font.BOLD));
+                }
+                return c;
+            }
+        });
+
+        // Column Widths
+        table.getColumnModel().getColumn(0).setPreferredWidth(60); 
+        table.getColumnModel().getColumn(1).setPreferredWidth(160);
+        table.getColumnModel().getColumn(3).setPreferredWidth(140);
+        table.getColumnModel().getColumn(4).setPreferredWidth(300);
     }
 
     private void loadLogData() {
         try {
             tableModel.setRowCount(0); 
             List<Object[]> logs = logService.getActivityLogs(); 
-                if (logs.isEmpty()) {   
-                    // Optional: Show a message if no appointments today
-                    setLayout(new GridBagLayout());
-                    removeAll();
-                    JLabel noApp = new JLabel("No logs yet.");
-                    noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                    noApp.setForeground(Color.GRAY);
-                    add(noApp);
-                } else {
-            for (Object[] row : logs) {
+            
+            if (logs.isEmpty()) {   
+                showNoDataScreen();
+            } else {
+                for (Object[] row : logs) {
+                    int performerId = (int) row[1]; 
+                    if (performerId == currentAdminId) {
+                        row[2] = "You"; 
+                    }
 
-                int performerId = (int) row[1]; // Adjust index based on your LogService SQL
-                String performerName = row[2].toString();
-
-                // --- THE "YOU" LOGIC ---
-                if (performerId == currentAdminId) {
-                    row[2] = "You"; 
+                    Object[] displayRow = new Object[] {
+                        row[0], row[2], row[3], row[4], row[5], row[6]
+                    };
+                    tableModel.addRow(displayRow);
                 }
-
-                // Create a clean row for the table (skipping the hidden User ID)
-                Object[] displayRow = new Object[] {
-                    row[0], // Log ID
-                    row[2], // Name (now says "You" if applicable)
-                    row[3], // Role
-                    row[4], // Action
-                    row[5], // Details
-                    row[6]  // Timestamp
-                };
-
-                tableModel.addRow(displayRow);
-            }}
+            }
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error loading logs: " + e.getMessage());
         }
+    }
+
+    private void showNoDataScreen() {
+        removeAll();
+        setLayout(new GridBagLayout());
+        JLabel noApp = new JLabel("No logs available yet.");
+        noApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        noApp.setForeground(new Color(189, 195, 199));
+        add(noApp);
+        revalidate();
+        repaint();
     }
     
     private void showLogDetailModal(int row) {
@@ -127,70 +176,63 @@ public class AuditTrailsPanel extends JPanel {
         String rawDetails = tableModel.getValueAt(row, 4).toString();
         String timestamp = tableModel.getValueAt(row, 5).toString();
 
-        // --- EXTRACTION LOGIC ---
         String serviceDisplay = "N/A";
         String cleanDetails = rawDetails;
 
-        // Check if the log contains our new separator
         if (rawDetails.contains("Service: ") && rawDetails.contains(" | ")) {
             int serviceStart = rawDetails.indexOf("Service: ") + 9;
             int separatorIdx = rawDetails.indexOf(" | ");
-
             serviceDisplay = rawDetails.substring(serviceStart, separatorIdx);
-            cleanDetails = rawDetails.substring(separatorIdx + 3); // Take everything after the " | "
+            cleanDetails = rawDetails.substring(separatorIdx + 3);
         }
 
-        // --- UI CODE (As we designed before) ---
-        JDialog detailDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Log Details", true);
+        JDialog detailDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Activity Details", true);
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
+        contentPanel.setBorder(new EmptyBorder(25, 40, 25, 40));
         contentPanel.setBackground(Color.WHITE);
 
-        Font labelFont = new Font("SansSerif", Font.BOLD, 12);
-        Font valueFont = new Font("SansSerif", Font.PLAIN, 13);
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 12);
+        Font valueFont = new Font("Segoe UI", Font.PLAIN, 14);
 
-        // Header
-        JLabel head = new JLabel("ACTIVITY LOG RECEIPT");
-        head.setFont(new Font("SansSerif", Font.BOLD, 16));
+        JLabel head = new JLabel("LOG ENTRY #" + logId);
+        head.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        head.setForeground(PRIMARY_BLUE);
         head.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(head);
-        contentPanel.add(Box.createVerticalStrut(15));
-
-        // Info Sections (Notice the Service Type is now its own centered section)
-        contentPanel.add(createCenteredLabel("USER", userName + " (" + role + ")", labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(8));
-
-        contentPanel.add(createCenteredLabel("SERVICE TYPE", serviceDisplay, labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(8));
-
-        contentPanel.add(createCenteredLabel("ACTION", action, labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(8));
-
-        contentPanel.add(createCenteredLabel("TIMESTAMP", timestamp, labelFont, valueFont));
         contentPanel.add(Box.createVerticalStrut(20));
 
-        // Description Box
-        JLabel detLabel = new JLabel("FULL DESCRIPTION");
+        contentPanel.add(createCenteredLabel("PERFORMED BY", userName + " (" + role + ")", labelFont, valueFont));
+        contentPanel.add(Box.createVerticalStrut(10));
+        contentPanel.add(createCenteredLabel("SERVICE CATEGORY", serviceDisplay, labelFont, valueFont));
+        contentPanel.add(Box.createVerticalStrut(10));
+        contentPanel.add(createCenteredLabel("ACTION TAKEN", action.toUpperCase(), labelFont, valueFont));
+        contentPanel.add(Box.createVerticalStrut(10));
+        contentPanel.add(createCenteredLabel("TIMESTAMP", timestamp, labelFont, valueFont));
+        contentPanel.add(Box.createVerticalStrut(25));
+
+        JLabel detLabel = new JLabel("DETAILED LOG DESCRIPTION");
         detLabel.setFont(labelFont);
+        detLabel.setForeground(new Color(127, 140, 141));
         detLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(detLabel);
+        contentPanel.add(Box.createVerticalStrut(8));
 
         JTextArea detailsArea = new JTextArea(cleanDetails);
-        detailsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
+        detailsArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         detailsArea.setLineWrap(true);
         detailsArea.setWrapStyleWord(true);
         detailsArea.setEditable(false);
-        detailsArea.setBackground(new Color(248, 249, 249));
-        detailsArea.setMargin(new Insets(10,10,10,10));
+        detailsArea.setBackground(new Color(248, 249, 250));
+        detailsArea.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         JScrollPane detailScroll = new JScrollPane(detailsArea);
-        detailScroll.setPreferredSize(new Dimension(300, 80));
-        detailScroll.setMaximumSize(new Dimension(300, 80));
+        detailScroll.setPreferredSize(new Dimension(350, 100));
+        detailScroll.setBorder(new LineBorder(new Color(230, 230, 230)));
         detailScroll.setAlignmentX(Component.CENTER_ALIGNMENT);
         contentPanel.add(detailScroll);
 
-        contentPanel.add(Box.createVerticalStrut(20));
+        contentPanel.add(Box.createVerticalStrut(25));
         JButton closeBtn = new JButton("Dismiss");
         closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         closeBtn.addActionListener(e -> detailDialog.dispose());
@@ -202,7 +244,6 @@ public class AuditTrailsPanel extends JPanel {
         detailDialog.setVisible(true);
     }
 
-    // New Helper for Centered Stacked Labels
     private JPanel createCenteredLabel(String title, String value, Font lFont, Font vFont) {
         JPanel p = new JPanel();
         p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
@@ -211,14 +252,16 @@ public class AuditTrailsPanel extends JPanel {
 
         JLabel t = new JLabel(title);
         t.setFont(lFont);
-        t.setForeground(Color.GRAY);
+        t.setForeground(new Color(149, 165, 166));
         t.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel v = new JLabel(value);
         v.setFont(vFont);
+        v.setForeground(TEXT_DARK);
         v.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         p.add(t);
+        p.add(Box.createVerticalStrut(2));
         p.add(v);
         return p;
     }

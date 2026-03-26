@@ -1,13 +1,15 @@
 package com.dentalclinic.staff;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.util.UserSession;
 
 public class PendingRequestsPanel extends JPanel {
     private JTable table;
@@ -15,17 +17,48 @@ public class PendingRequestsPanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
     private PatientDAO pDao = new PatientDAO();
 
+    // THEME SYNC
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color WARNING = new Color(243, 156, 18); // Modern Orange
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color BORDER_COLOR = new Color(220, 220, 220);
+
     public PendingRequestsPanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout());
+        setBackground(BG);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
+        // --- MAIN CARD ---
+        JPanel cardContainer = new JPanel(new BorderLayout(0, 20));
+        cardContainer.setBackground(CARD);
+        cardContainer.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(25, 25, 25, 25)
+        ));
+
+        // HEADER SECTION
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CARD);
+        
         JLabel title = new JLabel("Pending Appointment Requests");
-        title.setFont(new Font("Arial", Font.BOLD, 24));
-        add(title, BorderLayout.NORTH);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(PRIMARY);
+        
+        JLabel subtitle = new JLabel("Double-click a row to approve or decline new patient bookings.");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(Color.GRAY);
+        
+        JPanel titleBox = new JPanel(new GridLayout(2, 1));
+        titleBox.setBackground(CARD);
+        titleBox.add(title);
+        titleBox.add(subtitle);
+        header.add(titleBox, BorderLayout.WEST);
 
-        // Updated Columns: Patient Name, Service, Date, Time, Status
-        // Hidden Columns: Index 0 (AppID) and Index 1 (PatientID) for logic
+        cardContainer.add(header, BorderLayout.NORTH);
+
+        // --- TABLE SETUP ---
         String[] columns = {"App ID", "Patient ID", "Patient Name", "Service", "Date", "Time", "Status"};
         model = new DefaultTableModel(columns, 0) {
             @Override
@@ -33,9 +66,9 @@ public class PendingRequestsPanel extends JPanel {
         };
 
         table = new JTable(model);
-        table.setRowHeight(35);
+        styleTable(table);
         
-        // Hide ID columns from view but keep them in the model for double-click logic
+        // Hide logic IDs
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
         table.getColumnModel().getColumn(1).setMinWidth(0);
@@ -55,26 +88,52 @@ public class PendingRequestsPanel extends JPanel {
             }
         });
 
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(new LineBorder(BORDER_COLOR, 1));
+        cardContainer.add(scrollPane, BorderLayout.CENTER);
+
+        add(cardContainer, BorderLayout.CENTER);
         loadPendingData();
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(40);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, 0));
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(PRIMARY);
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setPreferredSize(new Dimension(0, 45));
+        
+        // Render "Pending" in Orange
+        table.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setForeground(WARNING);
+                setFont(getFont().deriveFont(Font.BOLD));
+                setHorizontalAlignment(SwingConstants.CENTER);
+                return c;
+            }
+        });
     }
 
     private void loadPendingData() {
         try {
             model.setRowCount(0);
             List<Object[]> data = appService.getPendingRequestsWithNames();
-              if (data.isEmpty()) {   
-                // Optional: Show a message if no appointments today
-                setLayout(new GridBagLayout());
-                removeAll();
-                JLabel noApp = new JLabel("No bookings yet!");
-                noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                noApp.setForeground(Color.GRAY);
-                add(noApp);
+            
+            if (data.isEmpty()) {   
+                // If empty, the table just stays clear
             } else {
-            for (Object[] row : data) {
-                model.addRow(row);
-            }}
+                for (Object[] row : data) {
+                    model.addRow(row);
+                }
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -86,98 +145,70 @@ public class PendingRequestsPanel extends JPanel {
 
             if (app == null) return;
 
-            // Main Panel with zero vertical gaps
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
-            detailPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+            detailPanel.setBackground(CARD);
+            detailPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-            // Use a consistent font size for a compact look
-            Font headerFont = new Font("Arial", Font.BOLD, 13);
-            Font dataFont = new Font("Arial", Font.PLAIN, 13);
-
-            // --- APPOINTMENT SECTION ---
-            JLabel appTitle = new JLabel("APPOINTMENT SUMMARY");
-            appTitle.setFont(headerFont);
-            appTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-            detailPanel.add(appTitle);
-
-            detailPanel.add(Box.createVerticalStrut(2));
-            JSeparator sep1 = new JSeparator();
-            sep1.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-            detailPanel.add(sep1);
+            // APPOINTMENT SECTION
+            detailPanel.add(createHeaderLabel("APPOINTMENT REQUEST DETAILS"));
+            detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
-
-            // Adding ID fields for Staff reference
-            detailPanel.add(createCompactLabel("Appointment ID: ", String.valueOf(appId), dataFont));
-            detailPanel.add(createCompactLabel("Service Type: ", app.getServiceType(), dataFont));
-            detailPanel.add(createCompactLabel("Date: ", app.getAppointmentDate().toString(), dataFont));
-            detailPanel.add(createCompactLabel("Time Slot: ", app.getAppointmentTime(), dataFont));
-
-            // Status with specific orange color from your image
-            JLabel statusLbl = new JLabel("<html><b>Status: </b><font color='#F39C12'>" + app.getStatus().toUpperCase() + "</font></html>");
-            statusLbl.setFont(new Font("Arial", Font.BOLD, 14));
-            statusLbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+            detailPanel.add(createCompactLabel("Service Requested: ", app.getServiceType()));
+            detailPanel.add(createCompactLabel("Proposed Date: ", app.getAppointmentDate().toString()));
+            detailPanel.add(createCompactLabel("Proposed Time: ", app.getAppointmentTime()));
+            
+            JLabel statusLbl = new JLabel("Status: " + app.getStatus().toUpperCase());
+            statusLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            statusLbl.setForeground(WARNING);
             detailPanel.add(statusLbl);
 
-            detailPanel.add(Box.createVerticalStrut(5));
-            JSeparator sep2 = new JSeparator();
-            sep2.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-            detailPanel.add(sep2);
-            detailPanel.add(Box.createVerticalStrut(15));
+            detailPanel.add(Box.createVerticalStrut(20));
 
-            // --- PATIENT SECTION ---
-            JLabel patTitle = new JLabel("PATIENT INFORMATION");
-            patTitle.setFont(headerFont);
-            patTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
-            detailPanel.add(patTitle);
-
-            detailPanel.add(Box.createVerticalStrut(2));
-            JSeparator sep3 = new JSeparator();
-            sep3.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
-            detailPanel.add(sep3);
+            // PATIENT SECTION
+            detailPanel.add(createHeaderLabel("PATIENT PROFILE"));
+            detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(createCompactLabel("Full Name: ", p.getFirstName() + " " + p.getLastName()));
+            detailPanel.add(createCompactLabel("Age at Booking: ", String.valueOf(app.getAgeAtVisit())));
+            detailPanel.add(createCompactLabel("Primary Contact: ", app.getContactAtVisit()));
+            detailPanel.add(createCompactLabel("Resident Address: ", p.getAddress()));
 
-            detailPanel.add(createCompactLabel("Patient ID: ", String.valueOf(pId), dataFont));
-            detailPanel.add(createCompactLabel("Full Name: ", p.getFirstName() + " " + p.getLastName(), dataFont));
-            detailPanel.add(createCompactLabel("Birthdate: ", p.getBirthDate().toString(), dataFont));
-            detailPanel.add(createCompactLabel("Age at Booking: ", String.valueOf(app.getAgeAtVisit()), dataFont));
-            detailPanel.add(createCompactLabel("Contact No: ", app.getContactAtVisit(), dataFont));
-            detailPanel.add(createCompactLabel("Full Address: ", p.getAddress(), dataFont));
-
-            // Show Dialog - JOptionPane will now auto-shrink to fit this content exactly
             String[] options = {"Approve", "Decline", "Close"};
-            int choice = JOptionPane.showOptionDialog(this, detailPanel, 
-                         "Appointment Request Summary", JOptionPane.DEFAULT_OPTION, 
-                         JOptionPane.PLAIN_MESSAGE, null, options, options[2]);
+            int choice = JOptionPane.showOptionDialog(
+                this, detailPanel, "Intake Review Slip",
+                JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
+                null, options, options[2]
+            );
 
-            // 1. Get the current user session info
-            int actorId = com.dentalclinic.util.UserSession.getUserId();
-            String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+            int actorId = UserSession.getUserId();
+            String actorRole = UserSession.getUserRole();
 
             if (choice == 0) { // Approve
-                // Pass the actorId and actorRole to trigger the log!
                 if (appService.updateAppointmentStatus(appId, "Approved", actorId, actorRole)) {
-                    JOptionPane.showMessageDialog(this, "Appointment Approved!");
+                    JOptionPane.showMessageDialog(this, "Request approved. Patient will be notified.");
                     loadPendingData();
                 }
             } else if (choice == 1) { // Decline
-                // Pass the actorId and actorRole to trigger the log!
                 if (appService.updateAppointmentStatus(appId, "Declined", actorId, actorRole)) {
-                    JOptionPane.showMessageDialog(this, "Appointment Declined.");
+                    JOptionPane.showMessageDialog(this, "Request declined.");
                     loadPendingData();
                 }
             }
-        } catch (Exception ex) { 
-            ex.printStackTrace(); 
-        }
+        } catch (Exception ex) { ex.printStackTrace(); }
     }
 
-    // Helper for tight vertical alignment
-    private JLabel createCompactLabel(String title, String value, Font font) {
-        JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
-        label.setFont(font);
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0)); // Only 5px bottom margin
+    private JLabel createHeaderLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(PRIMARY);
+        return lbl;
+    }
+
+    private JLabel createCompactLabel(String title, String value) {
+        JLabel label = new JLabel("<html><b style='color:#2c3e50'>" + title + "</b> " + value + "</html>");
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        label.setBorder(new EmptyBorder(0, 0, 5, 0));
         return label;
     }
 }

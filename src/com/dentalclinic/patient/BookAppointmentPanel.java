@@ -3,6 +3,7 @@ package com.dentalclinic.patient;
 import com.toedter.calendar.JDateChooser;
 import com.toedter.calendar.IDateEvaluator;
 import javax.swing.*;
+import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.Calendar;
 import java.util.HashSet;
@@ -25,116 +26,131 @@ public class BookAppointmentPanel extends JPanel {
 
     public BookAppointmentPanel(int pID, String fName, String mName, String lName, String dob, String age, String address, String contact) {
         this.patientID = pID;
-        setBackground(new Color(236, 240, 241));
+        setBackground(new Color(245, 247, 250));
         setLayout(null);
 
         int startX = 225; 
 
-        // --- TITLE ---
+        // --- HEADER ---
         JLabel title = new JLabel("Book New Appointment");
-        title.setFont(new Font("Arial", Font.BOLD, 26));
-        title.setForeground(new Color(44, 62, 80));
-        title.setBounds(startX, 20, 400, 40);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(new Color(41, 128, 185));
+        title.setBounds(startX, 20, 450, 40);
         add(title);
 
-        // --- PATIENT INFORMATION SECTION ---
-        JLabel infoTitle = new JLabel("Patient Information (Verify for this visit)");
-        infoTitle.setFont(new Font("Arial", Font.ITALIC, 14));
-        infoTitle.setBounds(startX, 65, 400, 20);
+        JLabel infoTitle = new JLabel("Verify your information for this visit:");
+        infoTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        infoTitle.setForeground(Color.GRAY);
+        infoTitle.setBounds(startX, 60, 400, 20);
         add(infoTitle);
 
-        // Row 1: Names
-        createLabel("First Name:", startX, 90);
-        createLabel("Middle Name:", startX + 135, 90);
-        createLabel("Last Name:", startX + 270, 90);
-        fNameField = createField(fName, startX, 115, 125);
-        mNameField = createField(mName, startX + 135, 115, 125);
-        lNameField = createField(lName, startX + 270, 115, 130);
+        // --- PATIENT INFO FORM ---
+        createLabel("First Name", startX, 95);
+        fNameField = createField(fName, startX, 120, 125);
+        
+        createLabel("Middle Name", startX + 135, 95);
+        mNameField = createField(mName, startX + 135, 120, 125);
+        
+        createLabel("Last Name", startX + 270, 95);
+        lNameField = createField(lName, startX + 270, 120, 130);
 
-        // Row 2: Age and Contact
-        createLabel("Birthdate (Saved):", startX, 150);
-        createLabel("Age:", startX + 160, 150);
-        createLabel("Contact No:", startX + 230, 150);
-        JTextField dobDisplay = createField(dob, startX, 175, 150); // Just for display
+        createLabel("Saved Birthdate", startX, 160);
+        JTextField dobDisplay = createField(dob, startX, 185, 150);
         dobDisplay.setEditable(false);
-        ageField = createField(age, startX + 160, 175, 60);
-        contactField = createField(contact, startX + 230, 175, 170);
+        dobDisplay.setBackground(new Color(230, 230, 230));
 
-        // Row 3: Address
-        createLabel("Full Address:", startX, 210);
-        addressField = createField(address, startX, 235, 400);
+        createLabel("Age", startX + 160, 160);
+        ageField = createField(age, startX + 160, 185, 60);
 
-        // --- SEPARATOR ---
+        createLabel("Current Contact No.", startX + 230, 160);
+        contactField = createField(contact, startX + 230, 185, 170);
+
+        createLabel("Current Full Address", startX, 225);
+        addressField = createField(address, startX, 250, 400);
+
+        // SEPARATOR
         JSeparator sep = new JSeparator();
-        sep.setBounds(startX, 280, 400, 2);
+        sep.setBounds(startX, 300, 400, 2);
         add(sep);
 
-        // --- BOOKING SECTION ---
-        createLabel("Select Service Type:", startX, 295, 14);
+        // --- BOOKING DETAILS ---
         try {
+            createLabel("1. Choose Service", startX, 315, 14);
             serviceTypeCombo = new JComboBox<>(appService.getServiceList());
-            timeSlotCombo = new JComboBox<>(appService.getTimeSlots());
-            
-            List<String> closedDays = appService.getClosedDays();
-            int leadTime = appService.getBookingLeadTime();
-
-            serviceTypeCombo.setBounds(startX, 320, 400, 35);
+            serviceTypeCombo.setBounds(startX, 340, 400, 35);
             add(serviceTypeCombo);
 
-            createLabel("Select Appointment Date:", startX, 365, 14);
+            createLabel("2. Pick a Date", startX, 385, 14);
             appointmentDatePicker = new JDateChooser();
             appointmentDatePicker.setDateFormatString("MMMM d, yyyy");
-            appointmentDatePicker.setBounds(startX, 390, 400, 35);
+            appointmentDatePicker.setBounds(startX, 410, 400, 35);
             
+            // Set min date based on lead time
             Calendar cal = Calendar.getInstance();
-            cal.add(Calendar.DAY_OF_MONTH, leadTime);
+            cal.add(Calendar.DAY_OF_MONTH, appService.getBookingLeadTime());
             appointmentDatePicker.setMinSelectableDate(cal.getTime());
             
-            applyCalendarFilter(closedDays);
+            applyCalendarFilter(appService.getClosedDays());
             add(appointmentDatePicker);
 
-            createLabel("Select Preferred Time:", startX, 435, 14);
-            timeSlotCombo.setBounds(startX, 460, 400, 35);
+            createLabel("3. Select Time Slot", startX, 455, 14);
+            timeSlotCombo = new JComboBox<>(new String[]{"-- Select Date First --"});
+            timeSlotCombo.setBounds(startX, 480, 400, 35);
             add(timeSlotCombo);
+
+            // Listener to update slots when date changes
             appointmentDatePicker.addPropertyChangeListener("date", evt -> {
-                if ("date".equals(evt.getPropertyName())) {
-                    refreshTimeSlots();
-                }
+                if ("date".equals(evt.getPropertyName())) refreshTimeSlots();
             });
 
         } catch (SQLException e) {
             e.printStackTrace();
-            // Fallbacks in case of DB error
-            serviceTypeCombo = new JComboBox<>(new String[]{"Consultation", "Cleaning"});
-            timeSlotCombo = new JComboBox<>(new String[]{"08:00 AM", "01:00 PM"});
         }
 
-        // --- CONFIRM BUTTON ---
+        // CONFIRM BUTTON
         confirmBtn = new JButton("Confirm Appointment Request");
-        confirmBtn.setBounds(startX, 520, 400, 45);
-        confirmBtn.setBackground(new Color(52, 152, 219));
+        confirmBtn.setBounds(startX, 540, 400, 50);
+        confirmBtn.setBackground(new Color(46, 204, 113));
         confirmBtn.setForeground(Color.WHITE);
-        confirmBtn.setFont(new Font("Arial", Font.BOLD, 16));
+        confirmBtn.setFont(new Font("Segoe UI", Font.BOLD, 16));
         confirmBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        add(confirmBtn);
-
         confirmBtn.addActionListener(e -> handleBooking());
+        add(confirmBtn);
     }
+
+    private void refreshTimeSlots() {
+        java.util.Date selectedDate = appointmentDatePicker.getDate();
+        if (selectedDate == null) return;
+
+        try {
+            List<String> available = appService.getAvailableSlotsForDate(selectedDate);
+            timeSlotCombo.removeAllItems();
+
+            if (available.isEmpty()) {
+                timeSlotCombo.addItem("Fully Booked");
+                confirmBtn.setEnabled(false);
+            } else {
+                for (String slot : available) timeSlotCombo.addItem(slot);
+                confirmBtn.setEnabled(true);
+            }
+        } catch (SQLException e) { e.printStackTrace(); }
+    }
+
     private void handleBooking() {
         if (appointmentDatePicker.getDate() == null) {
-            JOptionPane.showMessageDialog(this, "Please select a date first.");
+            JOptionPane.showMessageDialog(this, "Please select a date.");
             return;
         }
 
         String selectedTime = (String) timeSlotCombo.getSelectedItem();
-        if (selectedTime == null || selectedTime.equals("Fully Booked")) {
+        if (selectedTime == null || selectedTime.equals("Fully Booked") || selectedTime.contains("Select Date")) {
             JOptionPane.showMessageDialog(this, "Please select a valid time slot.");
             return;
         }
 
         try {
             if (!appService.canPatientBook(patientID)) {
-                JOptionPane.showMessageDialog(this, "You already have a pending appointment request.");
+                JOptionPane.showMessageDialog(this, "You currently have a request pending approval.");
                 return;
             }
 
@@ -148,39 +164,32 @@ public class BookAppointmentPanel extends JPanel {
                 "Pending"
             );
 
-            // --- UPDATED EXECUTION ---
             int generatedID = appService.createAppointment(newApp); 
 
             if (generatedID != -1) {
                 showBookingSummary(newApp, generatedID); 
                 confirmBtn.setEnabled(false);
-
-                // Quality Service: Logic to auto-switch the user to the "View History" tab
-                // Would you like the code for this navigation too?
             }
 
-        } catch (NumberFormatException nfe) {
-            JOptionPane.showMessageDialog(this, "Please enter a valid age.");
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
     }
 
-    // --- HELPER METHODS ---
-    private void createLabel(String text, int x, int y) {
-        createLabel(text, x, y, 12);
-    }
+    // --- HELPER UI METHODS ---
+    private void createLabel(String text, int x, int y) { createLabel(text, x, y, 12); }
 
     private void createLabel(String text, int x, int y, int fontSize) {
         JLabel lbl = new JLabel(text);
-        lbl.setFont(new Font("Arial", Font.BOLD, fontSize));
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, fontSize));
         lbl.setBounds(x, y, 300, 20);
         add(lbl);
     }
 
     private JTextField createField(String text, int x, int y, int w) {
         JTextField field = new JTextField(text);
-        field.setBounds(x, y, w, 30);
+        field.setBounds(x, y, w, 32);
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         add(field);
         return field;
     }
@@ -188,13 +197,15 @@ public class BookAppointmentPanel extends JPanel {
     private void applyCalendarFilter(List<String> closedDayNames) {
         Set<Integer> closedDays = new HashSet<>();
         for (String day : closedDayNames) {
-            if (day.equalsIgnoreCase("Sunday")) closedDays.add(Calendar.SUNDAY);
-            if (day.equalsIgnoreCase("Monday")) closedDays.add(Calendar.MONDAY);
-            if (day.equalsIgnoreCase("Tuesday")) closedDays.add(Calendar.TUESDAY);
-            if (day.equalsIgnoreCase("Wednesday")) closedDays.add(Calendar.WEDNESDAY);
-            if (day.equalsIgnoreCase("Thursday")) closedDays.add(Calendar.THURSDAY);
-            if (day.equalsIgnoreCase("Friday")) closedDays.add(Calendar.FRIDAY);
-            if (day.equalsIgnoreCase("Saturday")) closedDays.add(Calendar.SATURDAY);
+            switch(day.toLowerCase()) {
+                case "sunday": closedDays.add(Calendar.SUNDAY); break;
+                case "monday": closedDays.add(Calendar.MONDAY); break;
+                case "tuesday": closedDays.add(Calendar.TUESDAY); break;
+                case "wednesday": closedDays.add(Calendar.WEDNESDAY); break;
+                case "thursday": closedDays.add(Calendar.THURSDAY); break;
+                case "friday": closedDays.add(Calendar.FRIDAY); break;
+                case "saturday": closedDays.add(Calendar.SATURDAY); break;
+            }
         }
 
         appointmentDatePicker.getJCalendar().getDayChooser().addDateEvaluator(new IDateEvaluator() {
@@ -208,72 +219,49 @@ public class BookAppointmentPanel extends JPanel {
             @Override public Color getSpecialBackroundColor() { return null; }
             @Override public String getSpecialTooltip() { return "Clinic Closed"; }
             @Override public Color getInvalidForegroundColor() { return Color.RED; }
-            @Override public Color getInvalidBackroundColor() { return new Color(240, 240, 240); }
+            @Override public Color getInvalidBackroundColor() { return new Color(245, 245, 245); }
             @Override public String getInvalidTooltip() { return "Closed"; }
         });
     }
-        private void refreshTimeSlots() {
-        java.util.Date selectedDate = appointmentDatePicker.getDate();
-        if (selectedDate == null) return;
 
-        try {
-            List<String> available = appService.getAvailableSlotsForDate(selectedDate);
-            timeSlotCombo.removeAllItems();
-
-            if (available.isEmpty()) {
-                timeSlotCombo.addItem("Fully Booked");
-                confirmBtn.setEnabled(false);
-            } else {
-                for (String slot : available) {
-                    timeSlotCombo.addItem(slot);
-                }
-                confirmBtn.setEnabled(true);
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-        
     private void showBookingSummary(Appointment app, int refID) {
-        // Create a modal dialog (blocks the main window until closed)
-        JDialog receipt = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Booking Confirmed", true);
+        JDialog receipt = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Success", true);
         receipt.setLayout(new BorderLayout());
-        receipt.setSize(380, 480);
+        receipt.setSize(400, 500);
         receipt.setLocationRelativeTo(this);
 
         JPanel mainP = new JPanel();
         mainP.setLayout(new BoxLayout(mainP, BoxLayout.Y_AXIS));
-        mainP.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
+        mainP.setBorder(new EmptyBorder(25, 35, 25, 35));
         mainP.setBackground(Color.WHITE);
 
-        // Using HTML for easy formatting
-        String receiptText = "<html><div style='text-align: center; font-family: Arial;'>" +
-            "<h2 style='color: #2ecc71;'>Appointment Request Sent!</h2>" +
-            "<p style='color: #7f8c8d;'>Please save your reference details below:</p>" +
-            "<hr><br>" +
-            "<table style='width: 100%; text-align: left;'>" +
-            "<tr><td><b>Reference ID:</b></td><td># " + refID + "</td></tr>" +
-            "<tr><td><b>Service:</b></td><td>" + app.getServiceType() + "</td></tr>" +
-            "<tr><td><b>Date:</b></td><td>" + app.getAppointmentDate() + "</td></tr>" +
-            "<tr><td><b>Time:</b></td><td>" + app.getAppointmentTime() + "</td></tr>" +
-            "<tr><td><b>Status:</b></td><td><b style='color: #e67e22;'>PENDING</b></td></tr>" +
-            "</table>" +
-            "<br><hr>" +
-            "<p style='font-size: 10px; color: #95a5a6;'>Wait for admin approval. Please arrive 15 minutes early.</p>" +
+        String receiptText = "<html><div style='text-align: center; font-family: Segoe UI;'>" +
+            "<h1 style='color: #27ae60; margin-bottom: 0;'>Booking Sent!</h1>" +
+            "<p style='color: #7f8c8d;'>Your request is now in our queue.</p>" +
+            "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px;'>" +
+            "<p style='font-size: 16px;'><b>Ref ID: #" + refID + "</b></p>" +
+            "<table style='width: 100%; margin-top: 10px;'>" +
+            "<tr><td style='color: #95a5a6;'>Service:</td><td>" + app.getServiceType() + "</td></tr>" +
+            "<tr><td style='color: #95a5a6;'>Date:</td><td>" + app.getAppointmentDate() + "</td></tr>" +
+            "<tr><td style='color: #95a5a6;'>Time:</td><td>" + app.getAppointmentTime() + "</td></tr>" +
+            "<tr><td style='color: #95a5a6;'>Status:</td><td style='color: #e67e22;'><b>PENDING</b></td></tr>" +
+            "</table></div>" +
+            "<p style='font-size: 11px; color: #bdc3c7; margin-top: 20px;'>" +
+            "Admin approval is required. You will see an update in your history shortly.</p>" +
             "</div></html>";
 
         JLabel contentLbl = new JLabel(receiptText);
-        contentLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        JButton closeBtn = new JButton("Close and View History");
-        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        closeBtn.setBackground(new Color(52, 152, 219));
+        JButton closeBtn = new JButton("Got it!");
+        closeBtn.setPreferredSize(new Dimension(200, 40));
+        closeBtn.setBackground(new Color(41, 128, 185));
         closeBtn.setForeground(Color.WHITE);
+        closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         closeBtn.addActionListener(e -> receipt.dispose());
 
         mainP.add(contentLbl);
-        mainP.add(Box.createRigidArea(new Dimension(0, 20)));
+        mainP.add(Box.createVerticalStrut(25));
         mainP.add(closeBtn);
+        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         receipt.add(mainP);
         receipt.setVisible(true);

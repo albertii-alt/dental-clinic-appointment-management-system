@@ -1,38 +1,73 @@
 package com.dentalclinic.staff;
 
 import com.dentalclinic.model.Appointment;
+import com.dentalclinic.model.Patient;
+import com.dentalclinic.service.AppointmentService;
+import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.util.UserSession;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
-import com.dentalclinic.service.AppointmentService;
 
 public class TodaysAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private AppointmentService appService = new AppointmentService();
+    private PatientDAO pDao = new PatientDAO();
+
+    // THEME CONSTANTS
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color DANGER = new Color(192, 57, 43);
+    private final Color BORDER_COLOR = new Color(220, 220, 220);
 
     public TodaysAppointmentsPanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout());
+        setBackground(BG);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        // Header with specific Date
-        JLabel title = new JLabel("Today's Schedule");
-        title.setFont(new Font("Arial", Font.BOLD, 24));
-        add(title, BorderLayout.NORTH);
+        // --- MAIN CONTAINER ---
+        JPanel mainCard = new JPanel(new BorderLayout(0, 20));
+        mainCard.setBackground(CARD);
+        mainCard.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(25, 25, 25, 25)
+        ));
 
-        String[] columns = {"ID", "Patient Name", "Service", "Time", "Status"};
+        // HEADER
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CARD);
+        
+        JLabel title = new JLabel("Today's Patient Schedule");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setForeground(PRIMARY);
+        
+        JLabel dateLabel = new JLabel("Operating Date: " + java.time.LocalDate.now().toString());
+        dateLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+        dateLabel.setForeground(Color.GRAY);
+        
+        header.add(title, BorderLayout.NORTH);
+        header.add(dateLabel, BorderLayout.SOUTH);
+        mainCard.add(header, BorderLayout.NORTH);
+
+        // --- TABLE ---
+        String[] columns = {"ID", "Patient Name", "Service", "Scheduled Time", "Status"};
         model = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
         };
 
         table = new JTable(model);
-        table.setRowHeight(40);
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        styleTable(table);
+        
+        // Hide ID
+        table.getColumnModel().getColumn(0).setMinWidth(0);
+        table.getColumnModel().getColumn(0).setMaxWidth(0);
 
-        // Interaction: Single click to show options for arriving patients
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -42,28 +77,54 @@ public class TodaysAppointmentsPanel extends JPanel {
             }
         });
 
+        JScrollPane scroll = new JScrollPane(table);
+        scroll.setBorder(new LineBorder(BORDER_COLOR, 1));
+        mainCard.add(scroll, BorderLayout.CENTER);
+
+        add(mainCard, BorderLayout.CENTER);
         loadData();
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45); // Taller rows for better "Live" visibility
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, 0));
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(PRIMARY);
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        header.setPreferredSize(new Dimension(0, 50));
+        
+        // Center-align the Time column for readability
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+        table.getColumnModel().getColumn(3).setCellRenderer(centerRenderer);
     }
 
     public void loadData() {
         try {
             model.setRowCount(0);
             List<Object[]> data = appService.getTodaysSchedule();
-              if (data.isEmpty()) {   
-                // Optional: Show a message if no appointments today
-                setLayout(new GridBagLayout());
-                removeAll();
-                JLabel noApp = new JLabel("No scheduled appointments for today!");
-                noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                noApp.setForeground(Color.GRAY);
-                add(noApp);
+            if (data.isEmpty()) {
+                showEmptyState();
             } else {
-            for (Object[] row : data) {
-                model.addRow(row);
-            }}
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+                for (Object[] row : data) model.addRow(row);
+            }
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void showEmptyState() {
+        setLayout(new GridBagLayout());
+        removeAll();
+        JLabel noApp = new JLabel("No patients scheduled for today.");
+        noApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        noApp.setForeground(Color.LIGHT_GRAY);
+        add(noApp);
+        revalidate();
+        repaint();
     }
 
     private void handleArrival() {
@@ -74,96 +135,69 @@ public class TodaysAppointmentsPanel extends JPanel {
         String patientName = (String) model.getValueAt(row, 1);
 
         try {
-            List<Appointment> todayList = appService.getTodaysAppointments(); // You have this in Service
-            Appointment app = null;
-            for(Appointment a : todayList) {
-                if(a.getAppointmentId() == appId) {
-                    app = a;
-                    break;
-                }
-            }
-
+            List<Appointment> todayList = appService.getTodaysAppointments();
+            Appointment app = todayList.stream().filter(a -> a.getAppointmentId() == appId).findFirst().orElse(null);
             if (app == null) return;
 
-            // 2. Get Full Patient Data
-            com.dentalclinic.dao.PatientDAO pDao = new com.dentalclinic.dao.PatientDAO();
-            com.dentalclinic.model.Patient p = pDao.getPatientById(app.getPatientId());
+            Patient p = pDao.getPatientById(app.getPatientId());
 
-            // --- UI PANEL (The Modal) ---
+            // --- THE ARRIVAL SLIP UI ---
             JPanel detailPanel = new JPanel();
-            detailPanel.setLayout(new GridLayout(0, 1, 5, 5));
-            detailPanel.setPreferredSize(new Dimension(450, 400));
+            detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
+            detailPanel.setBackground(CARD);
+            detailPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 
-            Font boldFont = new Font("Arial", Font.BOLD, 14);
-            Font plainFont = new Font("Arial", Font.PLAIN, 14);
-
-            // Appointment Info Header
-            JLabel head1 = new JLabel("TODAY'S VISIT DETAILS");
-            head1.setFont(new Font("Arial", Font.BOLD, 16));
-            head1.setForeground(new Color(41, 128, 185));
-            detailPanel.add(head1);
+            detailPanel.add(createHeaderLabel("VISIT SUMMARY"));
             detailPanel.add(new JSeparator());
+            detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime(), SUCCESS));
+            detailPanel.add(createDetailLabel("Service:", app.getServiceType(), PRIMARY));
+            
+            detailPanel.add(Box.createVerticalStrut(20));
 
-            detailPanel.add(createDetailLabel("Scheduled Time:", app.getAppointmentTime(), boldFont));
-            detailPanel.add(createDetailLabel("Service Requested:", app.getServiceType(), boldFont));
-            detailPanel.add(createDetailLabel("Status:", "CHECK-IN READY", new Color(39, 174, 96), boldFont));
-
-            detailPanel.add(new Box.Filler(new Dimension(0, 10), new Dimension(0, 10), new Dimension(0, 10)));
-
-            // Patient Info Header
-            JLabel head2 = new JLabel("PATIENT PROFILE");
-            head2.setFont(new Font("Arial", Font.BOLD, 16));
-            detailPanel.add(head2);
+            detailPanel.add(createHeaderLabel("PATIENT PROFILE"));
             detailPanel.add(new JSeparator());
+            detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(createDetailLabel("Full Name:", patientName, Color.BLACK));
+            detailPanel.add(createDetailLabel("Current Age:", app.getAgeAtVisit() + " yrs", Color.BLACK));
+            detailPanel.add(createDetailLabel("Contact:", app.getContactAtVisit(), Color.BLACK));
+            detailPanel.add(createDetailLabel("Address:", "<html><body style='width: 250px'>" + p.getAddress() + "</body></html>", Color.BLACK));
 
-            detailPanel.add(createDetailLabel("Full Name:", patientName, plainFont));
-            detailPanel.add(createDetailLabel("Age today:", app.getAgeAtVisit() + " years old", plainFont));
-            detailPanel.add(createDetailLabel("Contact No:", app.getContactAtVisit(), plainFont));
-            detailPanel.add(createDetailLabel("Address:", "<html>" + p.getAddress() + "</html>", plainFont));
-
-            // --- OPTIONS ---
-            String[] options = {"Mark Completed", "No-Show (Cancel)", "Close"};
+            String[] options = {"Complete Visit", "Mark No-Show", "Close"};
             int selection = JOptionPane.showOptionDialog(
-                this, detailPanel, "Patient Arrival - " + patientName,
+                this, detailPanel, "Patient Check-In: " + patientName,
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[2]
             );
 
-            // Get session info
-            int actorId = com.dentalclinic.util.UserSession.getUserId();
-            String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+            int actorId = UserSession.getUserId();
+            String actorRole = UserSession.getUserRole();
 
             if (selection == 0) { // Mark Completed
-                // Pass actorId and actorRole
                 if (appService.updateAppointmentStatus(appId, "Completed", actorId, actorRole)) {
-                    JOptionPane.showMessageDialog(this, "Appointment marked as Completed.");
+                    JOptionPane.showMessageDialog(this, "Visit logged as Completed.");
                     loadData();
                 }
             } else if (selection == 1) { // No-Show
-                int confirm = JOptionPane.showConfirmDialog(this, "Mark as No-Show?", "Confirm", JOptionPane.YES_NO_OPTION);
+                int confirm = JOptionPane.showConfirmDialog(this, "Confirm No-Show? (Patient record will reflect cancellation)", "Confirm", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    // Pass actorId and actorRole
                     appService.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole);
                     loadData();
                 }
             }
-
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error loading details: " + ex.getMessage());
-            ex.printStackTrace();
-        }
+        } catch (Exception ex) { ex.printStackTrace(); }
     }
 
-    // Helper for the Labels
-    private JLabel createDetailLabel(String title, String value, Font font) {
-        JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
-        label.setFont(font);
-        return label;
+    private JLabel createHeaderLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(new Color(127, 140, 141));
+        return lbl;
     }
 
-    // Overloaded helper for colored text
-    private JLabel createDetailLabel(String title, String value, Color color, Font font) {
+    private JLabel createDetailLabel(String title, String value, Color color) {
         JLabel label = new JLabel("<html><b>" + title + "</b> <span style='color:rgb(" + color.getRed() + "," + color.getGreen() + "," + color.getBlue() + ")'>" + value + "</span></html>");
-        label.setFont(font);
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        label.setBorder(new EmptyBorder(0, 0, 8, 0));
         return label;
     }
 }

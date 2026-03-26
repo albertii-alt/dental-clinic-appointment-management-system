@@ -1,33 +1,39 @@
 package com.dentalclinic.patient;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
-import java.util.ArrayList; // Added for filtering logic
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.service.AppointmentService;
+import com.dentalclinic.dao.PatientDAO;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
 
 public class ViewAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private AppointmentService appService = new AppointmentService();
-    private List<Appointment> filteredList = new ArrayList<>(); // THE FIX: Keep track of what's actually in the table
+    private List<Appointment> filteredList = new ArrayList<>();
+
+    // UI Style Constants
+    private final Color PRIMARY_BLUE = new Color(41, 128, 185);
+    private final Color PENDING_ORANGE = new Color(230, 126, 34);
+    private final Color DECLINED_RED = new Color(231, 76, 60);
 
     public ViewAppointmentsPanel(int patientID) {
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout(15, 15));
+        setBackground(new Color(245, 247, 250));
+        setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
         // --- TITLE ---
         JLabel title = new JLabel("My Appointment Requests");
-        title.setFont(new Font("Arial", Font.BOLD, 24));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        title.setForeground(new Color(44, 62, 80));
         add(title, BorderLayout.NORTH);
 
         // --- TABLE SETUP ---
@@ -38,13 +44,8 @@ public class ViewAppointmentsPanel extends JPanel {
         };
         
         table = new JTable(model);
-        table.setRowHeight(30);
-        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
+        styleTable(table);
         
-        JScrollPane scrollPane = new JScrollPane(table);
-        add(scrollPane, BorderLayout.CENTER);
-        
-        // --- CLICK LISTENER ---
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -57,7 +58,40 @@ public class ViewAppointmentsPanel extends JPanel {
             }
         });
 
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(new LineBorder(new Color(230, 230, 230)));
+        add(scrollPane, BorderLayout.CENTER);
+
         loadData(patientID);
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setShowVerticalLines(false);
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setSelectionForeground(Color.BLACK);
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setBackground(Color.WHITE);
+        header.setPreferredSize(new Dimension(0, 40));
+
+        // Status Renderer
+        table.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                String status = (value != null) ? value.toString() : "";
+                l.setFont(l.getFont().deriveFont(Font.BOLD));
+                
+                if (status.equalsIgnoreCase("Pending")) l.setForeground(PENDING_ORANGE);
+                else if (status.equalsIgnoreCase("Declined")) l.setForeground(DECLINED_RED);
+                else l.setForeground(PRIMARY_BLUE);
+                
+                return l;
+            }
+        });
     }
 
     private void loadData(int pID) {
@@ -65,113 +99,101 @@ public class ViewAppointmentsPanel extends JPanel {
             model.setRowCount(0);
             List<Appointment> allAppointments = appService.getPatientAppointmentHistory(pID);
 
-            // UPDATE: Remove "Approved" from this filter
             filteredList = allAppointments.stream()
                 .filter(a -> a.getStatus().equalsIgnoreCase("Pending") || 
                              a.getStatus().equalsIgnoreCase("Declined")) 
                 .collect(Collectors.toList());
-              if (filteredList.isEmpty()) {   
-                // Optional: Show a message if no appointments today
-                setLayout(new GridBagLayout());
-                removeAll();
-                JLabel noApp = new JLabel("You have didn't book an appointment yet!");
-                noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                noApp.setForeground(Color.GRAY);
-                add(noApp);
+
+            if (filteredList.isEmpty()) {   
+                showNoDataScreen();
             } else {
-            for (Appointment a : filteredList) {
-                model.addRow(new Object[]{
-                    a.getServiceType(),
-                    a.getAppointmentDate().toString(),
-                    a.getAppointmentTime(),
-                    a.getStatus()
-                });
-            }}
+                for (Appointment a : filteredList) {
+                    model.addRow(new Object[]{
+                        a.getServiceType(),
+                        a.getAppointmentDate().toString(),
+                        a.getAppointmentTime(),
+                        a.getStatus()
+                    });
+                }
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
     
+    private void showNoDataScreen() {
+        removeAll();
+        setLayout(new GridBagLayout());
+        JLabel noApp = new JLabel("You haven't booked an appointment yet!");
+        noApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        noApp.setForeground(new Color(149, 165, 166));
+        add(noApp);
+        revalidate();
+        repaint();
+    }
+    
     private void showAppointmentDetails(int rowIndex, int pID) {
         try {
             Appointment app = filteredList.get(rowIndex);
-            com.dentalclinic.dao.PatientDAO pDao = new com.dentalclinic.dao.PatientDAO();
+            PatientDAO pDao = new PatientDAO();
             com.dentalclinic.model.Patient p = pDao.getPatientById(pID);
 
-            // --- UI PANEL SETUP (Same as before) ---
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
             detailPanel.setBackground(Color.WHITE);
-            detailPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            detailPanel.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
-            Font headerFont = new Font("Arial", Font.BOLD, 16);
-            Font dataFont = new Font("Arial", Font.PLAIN, 14);
-
+            // Summary Section
             JLabel title1 = new JLabel("APPOINTMENT SUMMARY");
-            title1.setFont(new Font("Arial", Font.BOLD, 14));
+            title1.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            title1.setForeground(PRIMARY_BLUE);
             detailPanel.add(title1);
             detailPanel.add(Box.createVerticalStrut(5));
             detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
 
-            detailPanel.add(createDetailLabel("Service Type:", app.getServiceType(), dataFont));
-            detailPanel.add(createDetailLabel("Date:", app.getAppointmentDate().toString(), dataFont));
-            detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime(), dataFont));
+            detailPanel.add(createDetailLabel("Service Type:", app.getServiceType()));
+            detailPanel.add(createDetailLabel("Date:", app.getAppointmentDate().toString()));
+            detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime()));
             
             JLabel statusLbl = new JLabel("Status: " + app.getStatus().toUpperCase());
-            if(app.getStatus().equalsIgnoreCase("Pending")) statusLbl.setForeground(new Color(230, 126, 34));
-            else if(app.getStatus().equalsIgnoreCase("Approved")) statusLbl.setForeground(new Color(46, 204, 113));
-            else statusLbl.setForeground(Color.RED);
-            
-            statusLbl.setFont(headerFont);
+            if(app.getStatus().equalsIgnoreCase("Pending")) statusLbl.setForeground(PENDING_ORANGE);
+            else statusLbl.setForeground(DECLINED_RED);
+            statusLbl.setFont(new Font("Segoe UI", Font.BOLD, 16));
             detailPanel.add(statusLbl);
-            detailPanel.add(Box.createVerticalStrut(15));
 
+            detailPanel.add(Box.createVerticalStrut(20));
+
+            // Patient Section
             JLabel title2 = new JLabel("PATIENT INFORMATION");
-            title2.setFont(new Font("Arial", Font.BOLD, 14));
+            title2.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            title2.setForeground(PRIMARY_BLUE);
             detailPanel.add(title2);
             detailPanel.add(Box.createVerticalStrut(5));
             detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
             
             String fullName = p.getFirstName() + " " + (p.getMiddleName().isEmpty() ? "" : p.getMiddleName() + " ") + p.getLastName();
-            detailPanel.add(createDetailLabel("Full Name:", fullName, dataFont));
-            detailPanel.add(createDetailLabel("Birthdate:", p.getBirthDate().toString(), dataFont));
-            detailPanel.add(createDetailLabel("Age at Booking:", String.valueOf(app.getAgeAtVisit()), dataFont));
-            detailPanel.add(createDetailLabel("Contact No:", app.getContactAtVisit(), dataFont));
-            detailPanel.add(createDetailLabel("Full Address:", "<html><p style='width:250px'>" + p.getAddress() + "</p></html>", dataFont));
+            detailPanel.add(createDetailLabel("Full Name:", fullName));
+            detailPanel.add(createDetailLabel("Contact No:", app.getContactAtVisit()));
+            detailPanel.add(createDetailLabel("Address:", "<html><p style='width:240px'>" + p.getAddress() + "</p></html>"));
 
-            // --- UPDATED BUTTON LOGIC ---
+            // Button Logic
             java.util.List<String> optionsList = new java.util.ArrayList<>();
-            
-            String status = app.getStatus();
-            
-            // 1. Download Receipt only available if Approved
-            if (status.equalsIgnoreCase("Approved")) {
-                optionsList.add("Download Receipt");
-            }
-            
-            // 2. Cancel Request only available if Pending
-            if (status.equalsIgnoreCase("Pending")) {
-                optionsList.add("Cancel Request");
-            }
-            
+            if (app.getStatus().equalsIgnoreCase("Approved")) optionsList.add("Download Receipt");
+            if (app.getStatus().equalsIgnoreCase("Pending")) optionsList.add("Cancel Request");
             optionsList.add("Close");
 
             String[] options = optionsList.toArray(new String[0]);
-            
-            detailPanel.setSize(new Dimension(400, 450));
             layoutComponent(detailPanel);
 
             int selection = JOptionPane.showOptionDialog(
-                this, detailPanel, "Appointment Request Summary", 
+                this, detailPanel, "Request Summary", 
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[options.length - 1]
             );
 
-            // --- UPDATED SELECTION LOGIC (Text-Based) ---
             if (selection != -1) {
                 String selectedValue = options[selection];
-                
                 if (selectedValue.equals("Download Receipt")) {
                     savePanelAsImage(detailPanel, "Receipt_" + app.getAppointmentId());
                 } else if (selectedValue.equals("Cancel Request")) {
@@ -181,18 +203,16 @@ public class ViewAppointmentsPanel extends JPanel {
             
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-            ex.printStackTrace();
         }
     }
 
-    private JLabel createDetailLabel(String title, String value, Font font) {
-        JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
-        label.setFont(font);
-        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+    private JLabel createDetailLabel(String title, String value) {
+        JLabel label = new JLabel("<html><font color='#7f8c8d'><b>" + title + "</b></font> &nbsp;" + value + "</html>");
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        label.setBorder(BorderFactory.createEmptyBorder(3, 0, 3, 0));
         return label;
     }
 
-    // Helper to force layout so image capture isn't blank/messed up
     private void layoutComponent(Component c) {
         synchronized (c.getTreeLock()) {
             c.doLayout();
@@ -218,7 +238,7 @@ public class ViewAppointmentsPanel extends JPanel {
         if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 ImageIO.write(image, "png", fileChooser.getSelectedFile());
-                JOptionPane.showMessageDialog(this, "Receipt saved successfully!");
+                JOptionPane.showMessageDialog(this, "File saved successfully!");
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             }
@@ -232,19 +252,15 @@ public class ViewAppointmentsPanel extends JPanel {
             
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                // 1. Get the patient's session info for the log
-                // Since this is the Patient's panel, the actor is the Patient
                 int actorId = com.dentalclinic.util.UserSession.getUserId();
                 String actorRole = com.dentalclinic.util.UserSession.getUserRole();
 
-                // 2. Call the overloaded method to update status AND log the action
                 if (appService.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
-                    loadData(pID); // Refresh the table
+                    loadData(pID);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
-                ex.printStackTrace();
             }
         }
     }

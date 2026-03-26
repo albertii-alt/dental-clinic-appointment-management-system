@@ -1,13 +1,15 @@
 package com.dentalclinic.staff;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.dao.PatientDAO;
+import com.toedter.calendar.JDateChooser;
 
 public class UpcomingAppointmentsPanel extends JPanel {
     private JTable table;
@@ -15,16 +17,48 @@ public class UpcomingAppointmentsPanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
     private PatientDAO pDao = new PatientDAO();
 
+    // THEME SYNC
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color BORDER_COLOR = new Color(220, 220, 220);
+
     public UpcomingAppointmentsPanel() {
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout());
+        setBackground(BG);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
+        // --- THE MAIN CARD ---
+        JPanel cardContainer = new JPanel(new BorderLayout(0, 20));
+        cardContainer.setBackground(CARD);
+        cardContainer.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(25, 25, 25, 25)
+        ));
+
+        // HEADER SECTION
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(CARD);
+        
         JLabel title = new JLabel("Confirmed Upcoming Appointments");
-        title.setFont(new Font("Arial", Font.BOLD, 24));
-        add(title, BorderLayout.NORTH);
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(PRIMARY);
+        
+        JLabel subtitle = new JLabel("Manage and view all approved patient schedules.");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(Color.GRAY);
+        
+        JPanel titleBox = new JPanel(new GridLayout(2, 1));
+        titleBox.setBackground(CARD);
+        titleBox.add(title);
+        titleBox.add(subtitle);
+        header.add(titleBox, BorderLayout.WEST);
 
-        // Same columns as Pending for consistency
+        cardContainer.add(header, BorderLayout.NORTH);
+
+        // --- TABLE SETUP ---
         String[] columns = {"App ID", "Patient ID", "Patient Name", "Service", "Date", "Time", "Status"};
         model = new DefaultTableModel(columns, 0) {
             @Override
@@ -32,7 +66,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
         };
 
         table = new JTable(model);
-        table.setRowHeight(35);
+        styleTable(table);
         
         // Hide IDs
         table.getColumnModel().getColumn(0).setMinWidth(0);
@@ -54,34 +88,57 @@ public class UpcomingAppointmentsPanel extends JPanel {
             }
         });
 
-        add(new JScrollPane(table), BorderLayout.CENTER);
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(new LineBorder(BORDER_COLOR, 1));
+        cardContainer.add(scrollPane, BorderLayout.CENTER);
+
+        add(cardContainer, BorderLayout.CENTER);
         loadUpcomingData();
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(40);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setSelectionForeground(TEXT);
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, 0));
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(PRIMARY);
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setPreferredSize(new Dimension(0, 45));
+        
+        // Status Color Renderer
+        table.getColumnModel().getColumn(6).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                setForeground(SUCCESS);
+                setFont(getFont().deriveFont(Font.BOLD));
+                setHorizontalAlignment(SwingConstants.CENTER);
+                return c;
+            }
+        });
     }
 
     private void loadUpcomingData() {
         try {
             model.setRowCount(0);
-            // Reusing the DAO logic but filtering for 'Approved'
             List<Appointment> upcoming = appService.getUpcomingAppointments();
-              if (upcoming.isEmpty()) {   
-                // Optional: Show a message if no appointments today
-                setLayout(new GridBagLayout());
-                removeAll();
-                JLabel noApp = new JLabel("No upcoming appointments!");
-                noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                noApp.setForeground(Color.GRAY);
-                add(noApp);
+            if (upcoming.isEmpty()) {   
+                // If empty, the table just shows no rows.
             } else {
-            for (Appointment a : upcoming) {
-                // Fetching name for the table (Staff needs to see who is coming)
-                Patient p = pDao.getPatientById(a.getPatientId());
-                String fullName = p.getFirstName() + " " + p.getLastName();
-                
-                model.addRow(new Object[]{
-                    a.getAppointmentId(), a.getPatientId(), fullName, 
-                    a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus()
-                });
-            }}
+                for (Appointment a : upcoming) {
+                    Patient p = pDao.getPatientById(a.getPatientId());
+                    String fullName = p.getFirstName() + " " + p.getLastName();
+                    model.addRow(new Object[]{
+                        a.getAppointmentId(), a.getPatientId(), fullName, 
+                        a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus()
+                    });
+                }
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -95,177 +152,154 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
-            detailPanel.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
-
-            Font headerFont = new Font("Arial", Font.BOLD, 13);
-            Font dataFont = new Font("Arial", Font.PLAIN, 13);
+            detailPanel.setBackground(CARD);
+            detailPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
             // APPOINTMENT SECTION
-            JLabel appTitle = new JLabel("APPOINTMENT SUMMARY");
-            appTitle.setFont(headerFont);
-            detailPanel.add(appTitle);
-            detailPanel.add(Box.createVerticalStrut(2));
+            detailPanel.add(createHeaderLabel("APPOINTMENT SUMMARY"));
             detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
-
-            detailPanel.add(createCompactLabel("Appointment ID: ", String.valueOf(appId), dataFont));
-            detailPanel.add(createCompactLabel("Service Type: ", app.getServiceType(), dataFont));
-            detailPanel.add(createCompactLabel("Date: ", app.getAppointmentDate().toString(), dataFont));
-            detailPanel.add(createCompactLabel("Time Slot: ", app.getAppointmentTime(), dataFont));
+            detailPanel.add(createCompactLabel("Service Type: ", app.getServiceType()));
+            detailPanel.add(createCompactLabel("Date: ", app.getAppointmentDate().toString()));
+            detailPanel.add(createCompactLabel("Time Slot: ", app.getAppointmentTime()));
             
-            // Status in Green since it's Approved
-            JLabel statusLbl = new JLabel("<html><b>Status: </b><font color='#27ae60'>" + app.getStatus().toUpperCase() + "</font></html>");
-            statusLbl.setFont(new Font("Arial", Font.BOLD, 14));
+            JLabel statusLbl = new JLabel("Status: " + app.getStatus().toUpperCase());
+            statusLbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+            statusLbl.setForeground(SUCCESS);
             detailPanel.add(statusLbl);
 
-            detailPanel.add(Box.createVerticalStrut(15));
+            detailPanel.add(Box.createVerticalStrut(20));
 
             // PATIENT SECTION
-            JLabel patTitle = new JLabel("PATIENT INFORMATION");
-            patTitle.setFont(headerFont);
-            detailPanel.add(patTitle);
-            detailPanel.add(Box.createVerticalStrut(2));
+            detailPanel.add(createHeaderLabel("PATIENT INFORMATION"));
             detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(createCompactLabel("Full Name: ", p.getFirstName() + " " + p.getLastName()));
+            detailPanel.add(createCompactLabel("Age: ", String.valueOf(app.getAgeAtVisit())));
+            detailPanel.add(createCompactLabel("Contact No: ", app.getContactAtVisit()));
+            detailPanel.add(createCompactLabel("Full Address: ", p.getAddress()));
 
-            detailPanel.add(createCompactLabel("Patient ID: ", String.valueOf(pId), dataFont));
-            detailPanel.add(createCompactLabel("Full Name: ", p.getFirstName() + " " + p.getLastName(), dataFont));
-            detailPanel.add(createCompactLabel("Birthdate: ", p.getBirthDate().toString(), dataFont));
-            detailPanel.add(createCompactLabel("Age at Booking: ", String.valueOf(app.getAgeAtVisit()), dataFont));
-            detailPanel.add(createCompactLabel("Contact No: ", app.getContactAtVisit(), dataFont));
-            detailPanel.add(createCompactLabel("Full Address: ", p.getAddress(), dataFont));
-
-            // BUTTONS: Reschedule, Cancel Appointment, Close
             String[] options = {"Reschedule", "Cancel Appointment", "Close"};
-                int choice = JOptionPane.showOptionDialog(
-                this, detailPanel, "Appointment Details",
+            int choice = JOptionPane.showOptionDialog(
+                this, detailPanel, "Appointment Detail Record",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
                 null, options, options[2]
             );
 
             if (choice == 0) { 
-                if (choice == 0) { // Reschedule
-                    openRescheduleDialog(appId);
-                }
-            }else if (choice == 1) { // Cancel Appointment
+                openRescheduleDialog(appId);
+            } else if (choice == 1) { 
                 handleStaffCancellation(appId);
             }
         } catch (Exception ex) { ex.printStackTrace(); }
     }
 
-    private JLabel createCompactLabel(String title, String value, Font font) {
-        JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
-        label.setFont(font);
-        label.setAlignmentX(Component.LEFT_ALIGNMENT);
-        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 5, 0));
+    private JLabel createHeaderLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(PRIMARY);
+        return lbl;
+    }
+
+    private JLabel createCompactLabel(String title, String value) {
+        JLabel label = new JLabel("<html><b style='color:#2c3e50'>" + title + "</b> " + value + "</html>");
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        label.setBorder(new EmptyBorder(0, 0, 5, 0));
         return label;
     }
     
-private void openRescheduleDialog(int appId) {
-    JDialog rescheduleDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Reschedule Appointment", true);
-    rescheduleDialog.setLayout(new BorderLayout());
+    private void openRescheduleDialog(int appId) {
+        JDialog rescheduleDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Reschedule", true);
+        rescheduleDialog.setLayout(new BorderLayout());
 
-    JPanel mainContainer = new JPanel();
-    mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
-    mainContainer.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
-    mainContainer.setBackground(new Color(236, 240, 241));
+        JPanel mainContainer = new JPanel();
+        mainContainer.setLayout(new BoxLayout(mainContainer, BoxLayout.Y_AXIS));
+        mainContainer.setBorder(new EmptyBorder(25, 30, 25, 30));
+        mainContainer.setBackground(BG);
 
-    Font labelFont = new Font("Arial", Font.BOLD, 14);
-    Dimension inputSize = new Dimension(300, 35); 
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 14);
+        Dimension inputSize = new Dimension(300, 40); 
 
-    // --- HELPER TO FORCE LABEL TO LEFT ---
-    autoAddLeftLabel(mainContainer, "Select New Date:", labelFont);
-    mainContainer.add(Box.createVerticalStrut(5));
+        autoAddLeftLabel(mainContainer, "Select New Date:", labelFont);
+        mainContainer.add(Box.createVerticalStrut(5));
 
-    com.toedter.calendar.JDateChooser dateChooser = new com.toedter.calendar.JDateChooser();
-    dateChooser.setPreferredSize(inputSize);
-    dateChooser.setMaximumSize(inputSize); 
-    dateChooser.setMinSelectableDate(new java.util.Date());
-    dateChooser.setAlignmentX(Component.CENTER_ALIGNMENT); // Forces input to Center
-    mainContainer.add(dateChooser);
+        JDateChooser dateChooser = new JDateChooser();
+        dateChooser.setPreferredSize(inputSize);
+        dateChooser.setMaximumSize(inputSize); 
+        dateChooser.setMinSelectableDate(new java.util.Date());
+        mainContainer.add(dateChooser);
 
-    mainContainer.add(Box.createVerticalStrut(15));
+        mainContainer.add(Box.createVerticalStrut(20));
 
-    autoAddLeftLabel(mainContainer, "Available Time Slots:", labelFont);
-    mainContainer.add(Box.createVerticalStrut(5));
+        autoAddLeftLabel(mainContainer, "Available Time Slots:", labelFont);
+        mainContainer.add(Box.createVerticalStrut(5));
 
-    DefaultComboBoxModel<String> timeModel = new DefaultComboBoxModel<>(new String[]{"Choose a date first..."});
-    JComboBox<String> timeBox = new JComboBox<>(timeModel);
-    timeBox.setPreferredSize(inputSize);
-    timeBox.setMaximumSize(inputSize);
-    timeBox.setEnabled(false);
-    timeBox.setAlignmentX(Component.CENTER_ALIGNMENT); // Forces input to Center
-    mainContainer.add(timeBox);
+        DefaultComboBoxModel<String> timeModel = new DefaultComboBoxModel<>(new String[]{"Pick a date..."});
+        JComboBox<String> timeBox = new JComboBox<>(timeModel);
+        timeBox.setPreferredSize(inputSize);
+        timeBox.setMaximumSize(inputSize);
+        timeBox.setEnabled(false);
+        mainContainer.add(timeBox);
 
-    mainContainer.add(Box.createVerticalStrut(25));
+        mainContainer.add(Box.createVerticalStrut(30));
 
-    // --- CONFIRM BUTTON ---
-    JButton confirmBtn = new JButton("Update Schedule");
-    confirmBtn.setPreferredSize(new Dimension(300, 45));
-    confirmBtn.setMaximumSize(new Dimension(300, 45));
-    confirmBtn.setBackground(new Color(46, 204, 113)); 
-    confirmBtn.setForeground(Color.WHITE);
-    confirmBtn.setFont(new Font("Arial", Font.BOLD, 16));
-    confirmBtn.setFocusPainted(false);
-    confirmBtn.setBorderPainted(false);
-    confirmBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // Forces Button to Center
-    mainContainer.add(confirmBtn);
+        JButton confirmBtn = new JButton("Update Schedule");
+        confirmBtn.setPreferredSize(new Dimension(300, 45));
+        confirmBtn.setMaximumSize(new Dimension(300, 45));
+        confirmBtn.setBackground(SUCCESS); 
+        confirmBtn.setForeground(Color.WHITE);
+        confirmBtn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        confirmBtn.setFocusPainted(false);
+        confirmBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        mainContainer.add(confirmBtn);
 
-    // --- LOGIC ---
-    dateChooser.getDateEditor().addPropertyChangeListener("date", evt -> {
-        java.util.Date selected = dateChooser.getDate();
-        if (selected != null) {
+        dateChooser.getDateEditor().addPropertyChangeListener("date", evt -> {
+            java.util.Date selected = dateChooser.getDate();
+            if (selected != null) {
+                try {
+                    List<String> available = appService.getAvailableSlotsForDate(selected);
+                    timeModel.removeAllElements();
+                    if (available.isEmpty()) {
+                        timeModel.addElement("No slots available");
+                        timeBox.setEnabled(false);
+                    } else {
+                        for (String slot : available) timeModel.addElement(slot);
+                        timeBox.setEnabled(true);
+                    }
+                } catch (Exception ex) { ex.printStackTrace(); }
+            }
+        });
+
+        confirmBtn.addActionListener(e -> {
+            if (dateChooser.getDate() == null || !timeBox.isEnabled()) {
+                JOptionPane.showMessageDialog(rescheduleDialog, "Please select a valid date and time.");
+                return;
+            }
+
+            java.sql.Date sqlDate = new java.sql.Date(dateChooser.getDate().getTime());
+            String selectedTime = (String) timeBox.getSelectedItem();
+            int actorId = com.dentalclinic.util.UserSession.getUserId();
+            String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+
             try {
-                java.util.List<String> available = appService.getAvailableSlotsForDate(selected);
-                timeModel.removeAllElements();
-                if (available.isEmpty()) {
-                    timeModel.addElement("No slots available");
-                    timeBox.setEnabled(false);
-                } else {
-                    for (String slot : available) timeModel.addElement(slot);
-                    timeBox.setEnabled(true);
+                if (appService.rescheduleAppointment(appId, sqlDate, selectedTime, actorId, actorRole)) {
+                    JOptionPane.showMessageDialog(rescheduleDialog, "Appointment Rescheduled.");
+                    rescheduleDialog.dispose();
+                    loadUpcomingData();
                 }
             } catch (Exception ex) { ex.printStackTrace(); }
-        }
-    });
+        });
 
-    confirmBtn.addActionListener(e -> {
-        if (dateChooser.getDate() == null || !timeBox.isEnabled()) {
-            JOptionPane.showMessageDialog(rescheduleDialog, "Please select a valid date and time.");
-            return;
-        }
+        rescheduleDialog.add(mainContainer, BorderLayout.CENTER);
+        rescheduleDialog.pack();
+        rescheduleDialog.setLocationRelativeTo(this);
+        rescheduleDialog.setVisible(true);
+    }
 
-        java.sql.Date sqlDate = new java.sql.Date(dateChooser.getDate().getTime());
-        String selectedTime = (String) timeBox.getSelectedItem();
-
-        // >>> ADD THESE LINES HERE <<<
-        int actorId = com.dentalclinic.util.UserSession.getUserId();
-        String actorRole = com.dentalclinic.util.UserSession.getUserRole();
-
-        try {
-            // Update the call to include actorId and actorRole
-            if (appService.rescheduleAppointment(appId, sqlDate, selectedTime, actorId, actorRole)) {
-                JOptionPane.showMessageDialog(rescheduleDialog, "Rescheduled to " + selectedTime);
-                rescheduleDialog.dispose();
-                loadUpcomingData();
-            }
-        } catch (Exception ex) { 
-            ex.printStackTrace(); 
-        }
-    });
-
-    rescheduleDialog.add(mainContainer, BorderLayout.CENTER);
-    mainContainer.setMaximumSize(new Dimension(350, 400));
-    rescheduleDialog.pack();
-    rescheduleDialog.setLocationRelativeTo(this);
-    rescheduleDialog.setVisible(true);
-}
-
-    // Helper method to ensure the label stays on the left regardless of BoxLayout rules
     private void autoAddLeftLabel(JPanel container, String text, Font font) {
         JPanel wrapper = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         wrapper.setOpaque(false);
-        wrapper.setMaximumSize(new Dimension(300, 25)); // Matches input width
+        wrapper.setMaximumSize(new Dimension(300, 25));
         JLabel label = new JLabel(text);
         label.setFont(font);
         wrapper.add(label);
@@ -275,7 +309,7 @@ private void openRescheduleDialog(int appId) {
     private void handleStaffCancellation(int appId) {
         int confirm = JOptionPane.showConfirmDialog(
             this, 
-            "Are you sure you want to cancel this appointment?\nThis will notify the patient and free up the time slot.", 
+            "Cancel this appointment? This frees up the slot and notifies the patient.", 
             "Confirm Cancellation", 
             JOptionPane.YES_NO_OPTION,
             JOptionPane.WARNING_MESSAGE
@@ -283,18 +317,14 @@ private void openRescheduleDialog(int appId) {
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                // Get session info
                 int actorId = com.dentalclinic.util.UserSession.getUserId();
                 String actorRole = com.dentalclinic.util.UserSession.getUserRole();
-
-                // Pass the extra parameters here
                 if (appService.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole)) {
-                    JOptionPane.showMessageDialog(this, "Appointment #" + appId + " has been cancelled.");
+                    JOptionPane.showMessageDialog(this, "Appointment Cancelled.");
                     loadUpcomingData(); 
                 }
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Database Error: " + ex.getMessage());
-                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             }
         }
     }

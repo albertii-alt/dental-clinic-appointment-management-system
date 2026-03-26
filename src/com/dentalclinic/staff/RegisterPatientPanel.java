@@ -2,6 +2,7 @@ package com.dentalclinic.staff;
 
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
@@ -16,44 +17,100 @@ public class RegisterPatientPanel extends JPanel {
     private JButton submitBtn, clearBtn;
     private AuthService authService = new AuthService();
 
+    // THEME SYNC
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color BORDER_COLOR = new Color(210, 215, 220);
+
     public RegisterPatientPanel() {
-        // Using GridBagLayout to perfectly center the form container
         setLayout(new GridBagLayout());
-        setBackground(new Color(236, 240, 241));
+        setBackground(BG);
 
-        // --- THE FORM CONTAINER ---
-        JPanel formContainer = new JPanel(null);
-        formContainer.setPreferredSize(new Dimension(450, 600));
-        formContainer.setBackground(Color.WHITE);
-        formContainer.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199), 1));
+        // --- THE FORM CONTAINER (LANDSCAPE OPTIMIZED) ---
+        JPanel container = new JPanel();
+        container.setLayout(new BorderLayout(0, 20));
+        container.setPreferredSize(new Dimension(850, 550)); 
+        container.setBackground(CARD);
+        container.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(30, 40, 30, 40)
+        ));
 
-        JLabel title = new JLabel("Walk-in Registration", SwingConstants.CENTER);
-        title.setFont(new Font("Arial", Font.BOLD, 22));
-        title.setBounds(0, 20, 450, 30);
-        formContainer.add(title);
-
-        // --- FORM FIELDS ---
-        addLabelAndField(formContainer, "First Name:", firstNameField = new JTextField(), 70);
-        addLabelAndField(formContainer, "Middle Name:", middleNameField = new JTextField(), 110);
-        addLabelAndField(formContainer, "Last Name:", lastNameField = new JTextField(), 150);
-
-        JLabel dobLabel = new JLabel("Birth Date:");
-        dobLabel.setBounds(50, 190, 100, 25);
-        formContainer.add(dobLabel);
+        // HEADER
+        JPanel header = new JPanel(new GridLayout(2, 1));
+        header.setBackground(CARD);
+        JLabel title = new JLabel("Walk-in Patient Registration");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(PRIMARY);
         
+        JLabel subtitle = new JLabel("Fill out the information below to register a new patient.");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(Color.GRAY);
+        
+        header.add(title);
+        header.add(subtitle);
+        container.add(header, BorderLayout.NORTH);
+
+        // --- TWO-COLUMN FORM GRID ---
+        JPanel formGrid = new JPanel(new GridLayout(0, 2, 40, 15));
+        formGrid.setBackground(CARD);
+
+        // Column 1: Personal Details
+        formGrid.add(createFieldGroup("First Name", firstNameField = new JTextField()));
+        formGrid.add(createFieldGroup("Middle Name", middleNameField = new JTextField()));
+        formGrid.add(createFieldGroup("Last Name", lastNameField = new JTextField()));
+        
+        // Birth Date Group
+        JPanel dobGroup = new JPanel(new BorderLayout(0, 5));
+        dobGroup.setBackground(CARD);
+        dobGroup.add(createLabelOnly("Birth Date"), BorderLayout.NORTH);
         birthDatePicker = new JDateChooser();
         birthDatePicker.setDateFormatString("MMMM d, yyyy");
-        birthDatePicker.setBounds(160, 190, 240, 25);
-        formContainer.add(birthDatePicker);
+        birthDatePicker.setPreferredSize(new Dimension(0, 35));
+        dobGroup.add(birthDatePicker, BorderLayout.CENTER);
+        formGrid.add(dobGroup);
 
-        addLabelAndField(formContainer, "Age:", ageField = new JTextField(), 230);
+        formGrid.add(createFieldGroup("Calculated Age", ageField = new JTextField()));
         ageField.setEditable(false);
-        ageField.setBackground(new Color(240, 240, 240));
+        ageField.setBackground(new Color(245, 245, 245));
 
-        addLabelAndField(formContainer, "Address:", addressField = new JTextField(), 270);
-        addLabelAndField(formContainer, "Contact No:", contactField = new JTextField(), 310);
+        formGrid.add(createFieldGroup("Full Address", addressField = new JTextField()));
+
+        // Column 2: Contact & Account
+        formGrid.add(createFieldGroup("Contact Number (11 Digits)", contactField = new JTextField()));
+        formGrid.add(createFieldGroup("Email Address", emailField = new JTextField()));
+        formGrid.add(createFieldGroup("Username", usernameField = new JTextField()));
         
-        // 1. CONTACT NUMBER LIMIT (11 Characters + Digits only)
+        // Password Group
+        JPanel passGroup = new JPanel(new BorderLayout(0, 5));
+        passGroup.setBackground(CARD);
+        passGroup.add(createLabelOnly("Account Password"), BorderLayout.NORTH);
+        passwordField = new JPasswordField();
+        styleInputField(passwordField);
+        passGroup.add(passwordField, BorderLayout.CENTER);
+        formGrid.add(passGroup);
+
+        container.add(formGrid, BorderLayout.CENTER);
+
+        // --- FOOTER BUTTONS ---
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
+        footer.setBackground(CARD);
+
+        clearBtn = new JButton("Clear Form");
+        styleButton(clearBtn, new Color(160, 170, 180));
+        
+        submitBtn = new JButton("Register Patient");
+        styleButton(submitBtn, SUCCESS);
+        submitBtn.setPreferredSize(new Dimension(180, 40));
+
+        footer.add(clearBtn);
+        footer.add(submitBtn);
+        container.add(footer, BorderLayout.SOUTH);
+
+        // --- LISTENERS ---
         contactField.addKeyListener(new KeyAdapter() {
             public void keyTyped(KeyEvent e) {
                 if (!Character.isDigit(e.getKeyChar()) || contactField.getText().length() >= 11) {
@@ -62,31 +119,6 @@ public class RegisterPatientPanel extends JPanel {
             }
         });
 
-        addLabelAndField(formContainer, "Email:", emailField = new JTextField(), 350);
-        addLabelAndField(formContainer, "Username:", usernameField = new JTextField(), 390);
-        
-        // 2. REMOVED TEMPORARY PASSWORD - Just a blank field for the staff to set
-        JLabel passLabel = new JLabel("Password:");
-        passLabel.setBounds(50, 430, 100, 25);
-        formContainer.add(passLabel);
-        passwordField = new JPasswordField();
-        passwordField.setBounds(160, 430, 240, 25);
-        formContainer.add(passwordField);
-
-        // --- BUTTONS ---
-        submitBtn = new JButton("Register");
-        submitBtn.setBounds(160, 490, 110, 35);
-        submitBtn.setBackground(new Color(46, 204, 113));
-        submitBtn.setForeground(Color.WHITE);
-        submitBtn.addActionListener(e -> handleStaffRegistration());
-        formContainer.add(submitBtn);
-
-        clearBtn = new JButton("Clear");
-        clearBtn.setBounds(290, 490, 110, 35);
-        clearBtn.addActionListener(e -> clearFields());
-        formContainer.add(clearBtn);
-
-        // --- LISTENERS ---
         birthDatePicker.addPropertyChangeListener("date", evt -> {
             if (birthDatePicker.getDate() != null) {
                 int age = calculateAge(birthDatePicker.getDate());
@@ -94,17 +126,49 @@ public class RegisterPatientPanel extends JPanel {
             }
         });
 
-        // Add the container to the centered GridBagLayout
-        add(formContainer);
+        submitBtn.addActionListener(e -> handleStaffRegistration());
+        clearBtn.addActionListener(e -> clearFields());
+
+        add(container);
     }
 
-    private void addLabelAndField(JPanel panel, String labelText, JTextField field, int yPos) {
-        JLabel label = new JLabel(labelText);
-        label.setBounds(50, yPos, 100, 25);
-        panel.add(label);
-        field.setBounds(160, yPos, 240, 25);
-        panel.add(field);
+    // --- UI HELPERS ---
+
+    private JPanel createFieldGroup(String labelText, JTextField field) {
+        JPanel p = new JPanel(new BorderLayout(0, 5));
+        p.setBackground(CARD);
+        p.add(createLabelOnly(labelText), BorderLayout.NORTH);
+        styleInputField(field);
+        p.add(field, BorderLayout.CENTER);
+        return p;
     }
+
+    private JLabel createLabelOnly(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(TEXT);
+        return lbl;
+    }
+
+    private void styleInputField(JTextField field) {
+        field.setPreferredSize(new Dimension(0, 35));
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        field.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(0, 10, 0, 10)
+        ));
+    }
+
+    private void styleButton(JButton btn, Color color) {
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(10, 25, 10, 25));
+    }
+
+    // --- LOGIC (UNCHANGED) ---
 
     private int calculateAge(java.util.Date birthDate) {
         java.time.LocalDate birth = new java.sql.Date(birthDate.getTime()).toLocalDate();

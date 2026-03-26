@@ -1,7 +1,8 @@
 package com.dentalclinic.patient;
 
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
@@ -13,26 +14,34 @@ public class PatientTodayPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private AppointmentService appService = new AppointmentService();
-    private List<Appointment> todayList = new ArrayList<>(); // To track the actual objects
+    private List<Appointment> todayList = new ArrayList<>();
+
+    // UI Constants
+    private final Color PRIMARY_COLOR = new Color(41, 128, 185);
+    private final Color BG_COLOR = new Color(245, 247, 250);
+    private final Color TEXT_DARK = new Color(44, 62, 80);
 
     public PatientTodayPanel(int patientID) {
-        setLayout(new BorderLayout(15, 15));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
+        // --- PANEL SETUP ---
+        setLayout(new BorderLayout(20, 20));
+        setBackground(BG_COLOR);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
         // --- HEADER ---
-        JPanel header = new JPanel(new GridLayout(2, 1));
+        JPanel header = new JPanel();
+        header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setOpaque(false);
         
         JLabel title = new JLabel("Today's Schedule");
-        title.setFont(new Font("Arial", Font.BOLD, 26));
-        title.setForeground(new Color(44, 62, 80));
+        title.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        title.setForeground(TEXT_DARK);
         
         JLabel subTitle = new JLabel("Please arrive 15 minutes before your scheduled time.");
-        subTitle.setFont(new Font("Arial", Font.ITALIC, 14));
+        subTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subTitle.setForeground(new Color(127, 140, 141));
         
         header.add(title);
+        header.add(Box.createVerticalStrut(5));
         header.add(subTitle);
         add(header, BorderLayout.NORTH);
 
@@ -44,12 +53,9 @@ public class PatientTodayPanel extends JPanel {
         };
 
         table = new JTable(model);
-        table.setRowHeight(40);
-        table.setFont(new Font("Arial", Font.PLAIN, 15));
-        table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 15));
-        table.setSelectionBackground(new Color(52, 152, 219));
+        styleTable(table);
 
-        // Interaction: Double Click to view details
+        // Interaction
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -63,10 +69,38 @@ public class PatientTodayPanel extends JPanel {
         });
 
         JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(189, 195, 199)));
+        scrollPane.setBorder(new LineBorder(new Color(230, 230, 230)));
+        scrollPane.getViewport().setBackground(Color.WHITE);
         add(scrollPane, BorderLayout.CENTER);
 
         loadTodayData(patientID);
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(45);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setGridColor(new Color(240, 240, 240));
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setSelectionForeground(Color.BLACK);
+        table.setShowVerticalLines(false);
+
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setBackground(Color.WHITE);
+        header.setForeground(TEXT_DARK);
+        header.setPreferredSize(new Dimension(0, 40));
+        ((DefaultTableCellRenderer)header.getDefaultRenderer()).setHorizontalAlignment(JLabel.LEFT);
+
+        // Custom Status Renderer
+        table.getColumnModel().getColumn(3).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JLabel l = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                l.setFont(l.getFont().deriveFont(Font.BOLD));
+                l.setForeground(PRIMARY_COLOR);
+                return l;
+            }
+        });
     }
 
     private void loadTodayData(int pID) {
@@ -82,7 +116,7 @@ public class PatientTodayPanel extends JPanel {
                         a.getAppointmentDate(),
                         a.getAppointmentTime(),
                         a.getServiceType(),
-                        a.getStatus() // Usually "Approved" for today
+                        a.getStatus().toUpperCase()
                     });
                 }
             }
@@ -100,62 +134,74 @@ public class PatientTodayPanel extends JPanel {
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
             detailPanel.setBackground(Color.WHITE);
-            detailPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+            detailPanel.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-            Font headerFont = new Font("Arial", Font.BOLD, 16);
-            Font dataFont = new Font("Arial", Font.PLAIN, 14);
-
-            // SECTION: SUMMARY
-            detailPanel.add(new JLabel("<html><b style='font-size:12px;'>VISIT SUMMARY</b></html>"));
-            detailPanel.add(Box.createVerticalStrut(5));
+            // Visit Summary Header
+            JLabel summaryTitle = new JLabel("VISIT SUMMARY");
+            summaryTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            summaryTitle.setForeground(PRIMARY_COLOR);
+            detailPanel.add(summaryTitle);
+            detailPanel.add(Box.createVerticalStrut(8));
             detailPanel.add(new JSeparator());
-            detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(Box.createVerticalStrut(12));
 
-            detailPanel.add(createDetailLabel("Service:", app.getServiceType(), dataFont));
-            detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime(), dataFont));
+            detailPanel.add(createDetailLabel("Service Type:", app.getServiceType()));
+            detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime()));
             
             JLabel statusLbl = new JLabel("Status: " + app.getStatus().toUpperCase());
-            statusLbl.setForeground(new Color(41, 128, 185)); // Professional Blue
-            statusLbl.setFont(headerFont);
+            statusLbl.setForeground(new Color(39, 174, 96)); // Green for active today
+            statusLbl.setFont(new Font("Segoe UI", Font.BOLD, 15));
             detailPanel.add(statusLbl);
 
-            detailPanel.add(Box.createVerticalStrut(20));
+            detailPanel.add(Box.createVerticalStrut(25));
 
-            // SECTION: PATIENT INFO
-            detailPanel.add(new JLabel("<html><b style='font-size:12px;'>PATIENT DETAILS</b></html>"));
-            detailPanel.add(Box.createVerticalStrut(5));
+            // Patient Info Header
+            JLabel patientTitle = new JLabel("PATIENT DETAILS");
+            patientTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            patientTitle.setForeground(PRIMARY_COLOR);
+            detailPanel.add(patientTitle);
+            detailPanel.add(Box.createVerticalStrut(8));
             detailPanel.add(new JSeparator());
-            detailPanel.add(Box.createVerticalStrut(10));
+            detailPanel.add(Box.createVerticalStrut(12));
 
             String fullName = p.getFirstName() + " " + p.getLastName();
-            detailPanel.add(createDetailLabel("Name:", fullName, dataFont));
-            detailPanel.add(createDetailLabel("Contact:", app.getContactAtVisit(), dataFont));
-            detailPanel.add(createDetailLabel("Address:", "<html><p style='width:200px'>" + p.getAddress() + "</p></html>", dataFont));
+            detailPanel.add(createDetailLabel("Full Name:", fullName));
+            detailPanel.add(createDetailLabel("Contact No:", app.getContactAtVisit()));
+            detailPanel.add(createDetailLabel("Registered Address:", "<html><p style='width:220px'>" + p.getAddress() + "</p></html>"));
 
+            UIManager.put("Button.background", Color.WHITE);
             JOptionPane.showOptionDialog(
                 this, detailPanel, "Appointment Details", 
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, new Object[]{"Close"}, "Close"
             );
 
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "Error retrieving details: " + ex.getMessage());
         }
     }
 
-    private JLabel createDetailLabel(String title, String value, Font font) {
-        JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
-        label.setFont(font);
-        label.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
+    private JLabel createDetailLabel(String title, String value) {
+        JLabel label = new JLabel("<html><font color='#7f8c8d'><b>" + title + "</b></font> &nbsp;" + value + "</html>");
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        label.setBorder(new EmptyBorder(4, 0, 4, 0));
         return label;
     }
 
     private void showNoDataMessage() {
         removeAll();
         setLayout(new GridBagLayout());
+        
+        JPanel centerPnl = new JPanel();
+        centerPnl.setLayout(new BoxLayout(centerPnl, BoxLayout.Y_AXIS));
+        centerPnl.setOpaque(false);
+
         JLabel noApp = new JLabel("You have no appointments scheduled for today.");
-        noApp.setFont(new Font("Arial", Font.BOLD, 18));
-        noApp.setForeground(Color.GRAY);
-        add(noApp);
+        noApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        noApp.setForeground(new Color(189, 195, 199));
+        noApp.setAlignmentX(Component.CENTER_ALIGNMENT);
+        
+        centerPnl.add(noApp);
+        add(centerPnl);
         revalidate();
         repaint();
     }

@@ -1,6 +1,7 @@
 package com.dentalclinic.patient;
 
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import com.toedter.calendar.JDateChooser;
 import com.dentalclinic.model.Patient;
@@ -15,96 +16,143 @@ public class PatientProfilePanel extends JPanel {
 
     public PatientProfilePanel(int pID) {
         this.patientID = pID;
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(245, 245, 245));
-        setBorder(BorderFactory.createEmptyBorder(20, 40, 20, 40));
+        setLayout(new BorderLayout(15, 15));
+        setBackground(new Color(245, 247, 250)); // Slightly cleaner off-white
+        setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        JPanel formContainer = new JPanel(new GridBagLayout());
+        // --- HEADER ---
+        JLabel header = new JLabel("My Profile Settings");
+        header.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        header.setForeground(new Color(44, 62, 80));
+        add(header, BorderLayout.NORTH);
+
+        // --- FORM CONTAINER ---
+        JPanel formContainer = new JPanel();
+        formContainer.setLayout(new BoxLayout(formContainer, BoxLayout.Y_AXIS));
         formContainer.setOpaque(false);
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(5, 5, 5, 5);
 
-        setupUI(formContainer, gbc);
+        setupUI(formContainer);
 
         JScrollPane scroll = new JScrollPane(formContainer);
         scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
         add(scroll, BorderLayout.CENTER);
 
+        // --- SAVE BUTTON ---
         JButton btnSave = new JButton("Save All Changes");
-        btnSave.setFont(new Font("Arial", Font.BOLD, 16));
+        btnSave.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btnSave.setBackground(new Color(41, 128, 185));
         btnSave.setForeground(Color.WHITE);
+        btnSave.setPreferredSize(new Dimension(0, 50));
+        btnSave.setFocusPainted(false);
+        btnSave.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnSave.addActionListener(e -> handleUpdate());
         add(btnSave, BorderLayout.SOUTH);
     }
 
-    private void setupUI(JPanel pnl, GridBagConstraints gbc) {
+    private void setupUI(JPanel container) {
         try {
             Patient p = patientDao.getPatientById(patientID);
             if (p == null) return;
 
-            int row = 0;
-            txtFName = addField(pnl, "First Name:", p.getFirstName(), gbc, row++);
-            txtMName = addField(pnl, "Middle Name:", p.getMiddleName(), gbc, row++);
-            txtLName = addField(pnl, "Last Name:", p.getLastName(), gbc, row++);
+            // 1. GENERAL INFORMATION SECTION
+            JPanel generalPnl = createSection("General Information");
+            GridBagConstraints gbc = createGBC();
 
-            // --- JCalendar Integration ---
-            gbc.gridx = 0; gbc.gridy = row; pnl.add(new JLabel("Birth Date:"), gbc);
+            txtFName = addField(generalPnl, "First Name:", p.getFirstName(), gbc, 0);
+            txtMName = addField(generalPnl, "Middle Name:", p.getMiddleName(), gbc, 1);
+            txtLName = addField(generalPnl, "Last Name:", p.getLastName(), gbc, 2);
+
+            // JDateChooser Row
+            gbc.gridx = 0; gbc.gridy = 3;
+            generalPnl.add(new JLabel("Birth Date:"), gbc);
             birthDatePicker = new JDateChooser();
             birthDatePicker.setDateFormatString("MMMM d, yyyy");
             birthDatePicker.setDate(p.getBirthDate());
-            gbc.gridx = 1; pnl.add(birthDatePicker, gbc);
-            row++;
+            gbc.gridx = 1; generalPnl.add(birthDatePicker, gbc);
 
-            // --- Age Sync Logic ---
-            gbc.gridx = 0; gbc.gridy = row; pnl.add(new JLabel("Age:"), gbc);
+            // Age Row
+            gbc.gridx = 0; gbc.gridy = 4;
+            generalPnl.add(new JLabel("Current Age:"), gbc);
             txtAge = new JTextField(String.valueOf(p.getAge()));
             txtAge.setEditable(false);
-            txtAge.setBackground(new Color(230, 230, 230));
-            gbc.gridx = 1; pnl.add(txtAge, gbc);
-            row++;
+            txtAge.setBackground(new Color(236, 240, 241));
+            gbc.gridx = 1; generalPnl.add(txtAge, gbc);
 
+            // LOGIC: Age Sync
             birthDatePicker.addPropertyChangeListener("date", evt -> {
                 if (birthDatePicker.getDate() != null) {
                     txtAge.setText(String.valueOf(calculateAge(birthDatePicker.getDate())));
                 }
             });
 
-            // --- Other Fields ---
-            txtAddr = addField(pnl, "Full Address:", p.getAddress(), gbc, row++);
-            txtPhone = addField(pnl, "Contact No:", p.getContactNumber(), gbc, row++);
-            
-            // Assuming we added Email to Patient model or we fetch it here
-            txtEmail = addField(pnl, "Email Address:", p.getEmail(), gbc, row++);
-            txtUser = addField(pnl, "Username:", p.getUsername(), gbc, row++);
+            txtAddr = addField(generalPnl, "Full Address:", p.getAddress(), gbc, 5);
+            txtPhone = addField(generalPnl, "Contact No:", p.getContactNumber(), gbc, 6);
+            txtEmail = addField(generalPnl, "Email Address:", p.getEmail(), gbc, 7);
+            txtUser = addField(generalPnl, "Username:", p.getUsername(), gbc, 8);
 
-            // --- Security Section ---
-            gbc.gridy = row++; gbc.gridwidth = 2;
-            JLabel lblSec = new JLabel("--- Security (Verify Current Password to Save) ---");
-            lblSec.setForeground(Color.RED);
-            pnl.add(lblSec, gbc);
-            gbc.gridwidth = 1;
+            container.add(generalPnl);
+            container.add(Box.createVerticalStrut(20));
 
-            txtCurrentPass = addPassField(pnl, "Current Password:", gbc, row++);
-            txtNewPass = addPassField(pnl, "New Password (Optional):", gbc, row++);
-            txtConfirmPass = addPassField(pnl, "Confirm New Password:", gbc, row++);
+            // 2. SECURITY SECTION
+            JPanel securityPnl = createSection("Account Security");
+            GridBagConstraints sGbc = createGBC();
+
+            JLabel lblSec = new JLabel("Verification required to save changes");
+            lblSec.setFont(new Font("Segoe UI", Font.ITALIC, 12));
+            lblSec.setForeground(new Color(192, 57, 43));
+            sGbc.gridwidth = 2; sGbc.gridy = 0; sGbc.gridx = 0;
+            securityPnl.add(lblSec, sGbc);
+            sGbc.gridwidth = 1;
+
+            txtCurrentPass = addPassField(securityPnl, "Current Password:", sGbc, 1);
+            txtNewPass = addPassField(securityPnl, "New Password (Optional):", sGbc, 2);
+            txtConfirmPass = addPassField(securityPnl, "Confirm New Password:", sGbc, 3);
+
+            container.add(securityPnl);
 
         } catch (Exception e) { e.printStackTrace(); }
     }
 
+    private JPanel createSection(String title) {
+        JPanel p = new JPanel(new GridBagLayout());
+        p.setBackground(Color.WHITE);
+        TitledBorder tb = BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(220, 230, 235)), title);
+        tb.setTitleFont(new Font("Segoe UI", Font.BOLD, 14));
+        tb.setTitleColor(new Color(41, 128, 185));
+        p.setBorder(new CompoundBorder(tb, new EmptyBorder(15, 20, 15, 20)));
+        return p;
+    }
+
+    private GridBagConstraints createGBC() {
+        GridBagConstraints g = new GridBagConstraints();
+        g.fill = GridBagConstraints.HORIZONTAL;
+        g.weightx = 1.0;
+        g.insets = new Insets(6, 6, 6, 6);
+        return g;
+    }
+
     private JTextField addField(JPanel p, String lbl, String val, GridBagConstraints gbc, int row) {
-        gbc.gridx = 0; gbc.gridy = row; p.add(new JLabel(lbl), gbc);
-        gbc.gridx = 1; JTextField t = new JTextField(val, 20); p.add(t, gbc);
+        gbc.gridx = 0; gbc.gridy = row; gbc.weightx = 0.3;
+        p.add(new JLabel(lbl), gbc);
+        gbc.gridx = 1; gbc.weightx = 0.7;
+        JTextField t = new JTextField(val, 20);
+        t.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        p.add(t, gbc);
         return t;
     }
 
     private JPasswordField addPassField(JPanel p, String lbl, GridBagConstraints gbc, int row) {
-        gbc.gridx = 0; gbc.gridy = row; p.add(new JLabel(lbl), gbc);
-        gbc.gridx = 1; JPasswordField t = new JPasswordField(20); p.add(t, gbc);
+        gbc.gridx = 0; gbc.gridy = row; gbc.weightx = 0.3;
+        p.add(new JLabel(lbl), gbc);
+        gbc.gridx = 1; gbc.weightx = 0.7;
+        JPasswordField t = new JPasswordField(20);
+        p.add(t, gbc);
         return t;
     }
 
+    // LOGIC: Functional Methods (Stay the Same)
     private int calculateAge(java.util.Date birthDate) {
         java.time.LocalDate birth = new java.sql.Date(birthDate.getTime()).toLocalDate();
         return java.time.Period.between(birth, java.time.LocalDate.now()).getYears();
@@ -116,13 +164,11 @@ public class PatientProfilePanel extends JPanel {
         String confirmPass = new String(txtConfirmPass.getPassword());
 
         try {
-            // Validate Current Password FIRST
             if (!patientDao.verifyPassword(patientID, currentPass)) {
                 JOptionPane.showMessageDialog(this, "Verification Failed: Current password is incorrect.", "Security", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // Optional Password Change Logic
             String passToSave = null;
             if (!newPass.isEmpty()) {
                 if (!newPass.equals(confirmPass)) {

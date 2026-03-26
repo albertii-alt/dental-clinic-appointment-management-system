@@ -2,8 +2,8 @@ package com.dentalclinic.staff;
 
 import com.dentalclinic.model.Appointment;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
-import javax.swing.table.TableRowSorter;
+import javax.swing.table.*;
+import javax.swing.border.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
@@ -17,29 +17,65 @@ public class PatientHistoryPanel extends JPanel {
     private TableRowSorter<DefaultTableModel> sorter;
     private AppointmentService appService = new AppointmentService();
     
-    // NEW: Role check
     private boolean isDentist;
 
-    // Modified Constructor to accept the role
+    // THEME SYNC
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color TEXT = new Color(44, 62, 80);
+    private final Color BORDER_COLOR = new Color(220, 220, 220);
+
     public PatientHistoryPanel(boolean isDentist) {
         this.isDentist = isDentist;
-        setLayout(new BorderLayout(10, 10));
-        setBackground(new Color(236, 240, 241));
-        setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        setLayout(new BorderLayout());
+        setBackground(BG);
+        setBorder(new EmptyBorder(30, 40, 30, 40));
 
-        // --- TOP SEARCH AREA ---
-        JPanel searchPanel = new JPanel(new BorderLayout(10, 10));
-        searchPanel.setOpaque(false);
-        
-        JLabel searchLabel = new JLabel("Search Treatment History:");
-        searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
+        // --- MAIN CARD ---
+        JPanel cardContainer = new JPanel(new BorderLayout(0, 20));
+        cardContainer.setBackground(CARD);
+        cardContainer.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1, true),
+                new EmptyBorder(25, 25, 25, 25)
+        ));
+
+        // --- HEADER & SEARCH AREA ---
+        JPanel headerArea = new JPanel(new BorderLayout());
+        headerArea.setBackground(CARD);
+
+        JPanel titlePanel = new JPanel(new GridLayout(2, 1));
+        titlePanel.setBackground(CARD);
+        JLabel title = new JLabel("Patient Treatment History");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        title.setForeground(PRIMARY);
+        JLabel subtitle = new JLabel("Review past procedures and clinical notes.");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(Color.GRAY);
+        titlePanel.add(title);
+        titlePanel.add(subtitle);
+
+        // Modern Search Bar
+        JPanel searchBox = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        searchBox.setBackground(CARD);
+        JLabel searchIcon = new JLabel("Search Name: ");
+        searchIcon.setFont(new Font("Segoe UI", Font.BOLD, 12));
         
         searchField = new JTextField();
-        searchField.setPreferredSize(new Dimension(300, 35));
+        searchField.setPreferredSize(new Dimension(250, 35));
+        searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        searchField.setBorder(new CompoundBorder(
+                new LineBorder(BORDER_COLOR, 1),
+                new EmptyBorder(0, 10, 0, 10)
+        ));
         
-        searchPanel.add(searchLabel, BorderLayout.WEST);
-        searchPanel.add(searchField, BorderLayout.CENTER);
-        add(searchPanel, BorderLayout.NORTH);
+        searchBox.add(searchIcon);
+        searchBox.add(searchField);
+
+        headerArea.add(titlePanel, BorderLayout.WEST);
+        headerArea.add(searchBox, BorderLayout.EAST);
+        cardContainer.add(headerArea, BorderLayout.NORTH);
 
         // --- TABLE AREA ---
         String[] columns = {"ID", "Patient Name", "Service Performed", "Date", "Time"};
@@ -49,22 +85,23 @@ public class PatientHistoryPanel extends JPanel {
         };
 
         table = new JTable(model);
-        table.setRowHeight(35);
-        
-        table.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2) { 
-                    showFullHistoryDetail();
-                }
-            }
-        });
+        styleTable(table);
         
         sorter = new TableRowSorter<>(model);
         table.setRowSorter(sorter);
-        add(new JScrollPane(table), BorderLayout.CENTER);
 
-        // --- SEARCH LISTENER ---
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setBorder(new LineBorder(BORDER_COLOR, 1));
+        cardContainer.add(scrollPane, BorderLayout.CENTER);
+
+        // --- LISTENERS ---
+        table.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) { showFullHistoryDetail(); }
+            }
+        });
+
         searchField.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) { filter(); }
             public void removeUpdate(DocumentEvent e) { filter(); }
@@ -75,25 +112,35 @@ public class PatientHistoryPanel extends JPanel {
             }
         });
 
+        add(cardContainer, BorderLayout.CENTER);
         loadHistoryData();
+    }
+
+    private void styleTable(JTable table) {
+        table.setRowHeight(40);
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        table.setSelectionBackground(new Color(232, 241, 249));
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, 0));
+
+        JTableHeader header = table.getTableHeader();
+        header.setBackground(PRIMARY);
+        header.setForeground(Color.WHITE);
+        header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setPreferredSize(new Dimension(0, 40));
     }
 
     public void loadHistoryData() {
         try {
             model.setRowCount(0);
             List<Object[]> data = appService.getTreatmentHistory();
-             if (data.isEmpty()) {   
-                // Optional: Show a message if no appointments today
-                setLayout(new GridBagLayout());
-                removeAll();
-                JLabel noApp = new JLabel("No done appointments yet!");
-                noApp.setFont(new Font("Arial", Font.BOLD, 18));
-                noApp.setForeground(Color.GRAY);
-                add(noApp);
+            if (data.isEmpty()) {   
+                // If empty, the table remains empty; standard behavior
             } else {
-            for (Object[] row : data) {
-                model.addRow(row);
-            }}
+                for (Object[] row : data) {
+                    model.addRow(row);
+                }
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
     
@@ -112,13 +159,14 @@ public class PatientHistoryPanel extends JPanel {
                                      .findFirst().orElse(null);
 
             if (app != null) {
-                // Using BorderLayout so the ScrollPane can occupy the center properly
-                JPanel panel = new JPanel(new BorderLayout(10, 10));
-                panel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+                JPanel panel = new JPanel(new BorderLayout(15, 15));
+                panel.setPreferredSize(new Dimension(450, 400));
+                panel.setBackground(Color.WHITE);
 
-                // --- HEADER INFO (TOP) ---
+                // --- HEADER INFO ---
                 JPanel infoPanel = new JPanel(new GridLayout(0, 1, 5, 5));
-                infoPanel.add(new JLabel("<html><b style='color:#2980b9; font-size:14px;'>TREATMENT RECORD</b></html>"));
+                infoPanel.setBackground(Color.WHITE);
+                infoPanel.add(new JLabel("<html><b style='color:#2980b9; font-size:16px;'>TREATMENT RECORD #" + appId + "</b></html>"));
                 infoPanel.add(new JSeparator());
                 infoPanel.add(new JLabel("Patient: " + patientName));
                 infoPanel.add(new JLabel("Service: " + app.getServiceType()));
@@ -129,94 +177,93 @@ public class PatientHistoryPanel extends JPanel {
 
                 panel.add(infoPanel, BorderLayout.NORTH);
 
-                // --- NOTES AREA (CENTER) ---
+                // --- NOTES AREA ---
                 String notes = (app.getClinicalNotes() == null || app.getClinicalNotes().isEmpty()) 
-                               ? "No notes recorded." : app.getClinicalNotes();
+                               ? "No clinical notes recorded for this session." : app.getClinicalNotes();
 
                 JTextArea displayNotes = new JTextArea(notes);
                 displayNotes.setEditable(false);
                 displayNotes.setLineWrap(true);
                 displayNotes.setWrapStyleWord(true);
-                displayNotes.setBackground(new Color(245, 245, 245)); // Slightly different color to distinguish read-only
+                displayNotes.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                displayNotes.setBackground(new Color(248, 249, 250));
+                displayNotes.setBorder(new EmptyBorder(10, 10, 10, 10));
 
                 JScrollPane scrollPane = new JScrollPane(displayNotes);
-                scrollPane.setPreferredSize(new Dimension(400, 150)); // Keeps the window consistent!
+                scrollPane.setBorder(new LineBorder(BORDER_COLOR));
                 panel.add(scrollPane, BorderLayout.CENTER);
 
-                // --- ACTION AREA (BOTTOM) ---
-                JPanel actionPanel = new JPanel(new GridLayout(0, 1, 5, 5));
+                // --- ACTION AREA ---
+                JPanel footer = new JPanel(new BorderLayout());
+                footer.setBackground(Color.WHITE);
+                footer.setBorder(new EmptyBorder(10, 0, 0, 0));
+
                 if (isDentist) {
-                    JButton updateBtn = new JButton("Update Clinical Notes / Status");
+                    JButton updateBtn = new JButton("Modify Record");
+                    updateBtn.setBackground(SUCCESS);
+                    updateBtn.setForeground(Color.WHITE);
+                    updateBtn.setFocusPainted(false);
                     updateBtn.addActionListener(e -> {
                         Window w = SwingUtilities.getWindowAncestor(panel);
                         if (w != null) w.dispose();
                         openUpdateDialog(app);
                     });
-                    actionPanel.add(new JSeparator());
-                    actionPanel.add(updateBtn);
+                    footer.add(updateBtn, BorderLayout.CENTER);
                 } else {
-                    actionPanel.add(new JSeparator());
-                    actionPanel.add(new JLabel("<html><i style='color:gray;'>Read-only Mode.</i></html>"));
+                    JLabel readOnly = new JLabel("Administrator View (Read-Only)", SwingConstants.CENTER);
+                    readOnly.setForeground(Color.GRAY);
+                    readOnly.setFont(new Font("Segoe UI", Font.ITALIC, 11));
+                    footer.add(readOnly, BorderLayout.CENTER);
                 }
 
-                panel.add(actionPanel, BorderLayout.SOUTH);
+                panel.add(footer, BorderLayout.SOUTH);
 
-                JOptionPane.showMessageDialog(this, panel, "Treatment Details", JOptionPane.PLAIN_MESSAGE);
+                JOptionPane.showMessageDialog(this, panel, "Record Details", JOptionPane.PLAIN_MESSAGE);
             }
         } catch (Exception ex) { ex.printStackTrace(); }
     }
-    // NEW: The Dentist-only feature to update records
-  private void openUpdateDialog(Appointment app) {
-    JPanel editPanel = new JPanel(new BorderLayout(10, 10));
 
-    // 1. Create the text area
-    JTextArea notesArea = new JTextArea(8, 30); // 8 rows, 30 columns
-    notesArea.setLineWrap(true);
-    notesArea.setWrapStyleWord(true);
-    notesArea.setText(app.getClinicalNotes());
+    private void openUpdateDialog(Appointment app) {
+        JPanel editPanel = new JPanel(new BorderLayout(10, 10));
+        editPanel.setPreferredSize(new Dimension(400, 300));
 
-    // 2. WRAP IT in a JScrollPane
-    JScrollPane scrollPane = new JScrollPane(notesArea);
-    
-    // 3. SET A FIXED SIZE for the scrollable area
-    // This prevents the dialog from growing with the text
-    scrollPane.setPreferredSize(new Dimension(400, 150)); 
+        String[] statuses = {"Completed", "Cancelled", "Follow-up Required"};
+        JComboBox<String> statusBox = new JComboBox<>(statuses);
+        statusBox.setSelectedItem(app.getStatus());
 
-    String[] statuses = {"Completed", "Cancelled", "Follow-up Required"};
-    JComboBox<String> statusBox = new JComboBox<>(statuses);
-    statusBox.setSelectedItem(app.getStatus());
+        JTextArea notesArea = new JTextArea(app.getClinicalNotes());
+        notesArea.setLineWrap(true);
+        notesArea.setWrapStyleWord(true);
+        notesArea.setBorder(new EmptyBorder(5, 5, 5, 5));
 
-    // Layout the components
-    JPanel inputs = new JPanel(new GridLayout(0, 1, 5, 5));
-    inputs.add(new JLabel("Update Status:"));
-    inputs.add(statusBox);
-    inputs.add(new JLabel("Clinical Notes:"));
-    
-    editPanel.add(inputs, BorderLayout.NORTH);
-    editPanel.add(scrollPane, BorderLayout.CENTER); // Add the scrollPane, NOT the notesArea directly
+        JScrollPane scrollPane = new JScrollPane(notesArea);
 
-    int result = JOptionPane.showConfirmDialog(this, editPanel, 
-                 "Update Treatment Record", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        JPanel top = new JPanel(new GridLayout(0, 1, 5, 5));
+        top.add(new JLabel("Update Record Status:"));
+        top.add(statusBox);
+        top.add(new JLabel("Clinical Notes & Observations:"));
+        
+        editPanel.add(top, BorderLayout.NORTH);
+        editPanel.add(scrollPane, BorderLayout.CENTER);
+
+        int result = JOptionPane.showConfirmDialog(this, editPanel, 
+                     "Update Treatment Record", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
 
         if (result == JOptionPane.OK_OPTION) {
             try {
                 String newStatus = (String) statusBox.getSelectedItem();
-                String newNotes = notesArea.getText(); // Capture the text from the UI
+                String newNotes = notesArea.getText();
 
-                // FIX: Use updateTreatmentRecord so it actually sends the notes to the DAO!
                 boolean success = appService.updateTreatmentRecord(app.getAppointmentId(), newStatus, newNotes);
 
                 if (success) {
-                    // Update the local object immediately so if you click it again without refreshing, it shows up
                     app.setStatus(newStatus);
                     app.setClinicalNotes(newNotes);
-
-                    JOptionPane.showMessageDialog(this, "Record Updated Successfully!");
-                    loadHistoryData(); // Refresh the table
+                    JOptionPane.showMessageDialog(this, "Record successfully updated.");
+                    loadHistoryData();
                 }
             } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(this, "Error updating record.");
+                JOptionPane.showMessageDialog(this, "Error saving record: " + ex.getMessage());
             }
         }
     }

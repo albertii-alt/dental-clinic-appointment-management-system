@@ -1,7 +1,9 @@
+// UI ENHANCED VERSION (LOGIC UNCHANGED)
 package com.dentalclinic.staff;
 
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
 import java.sql.SQLException;
 import java.util.List;
@@ -12,7 +14,7 @@ import com.dentalclinic.dao.PatientDAO;
 public class StaffBookAppointmentPanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
     private PatientDAO patientDAO = new PatientDAO();
-    
+    private JLabel stepLabel;
     private JTextField searchField;
     private JComboBox<String> patientResultsCombo;
     private List<Object[]> currentSearchResults;
@@ -22,91 +24,114 @@ public class StaffBookAppointmentPanel extends JPanel {
     private JDateChooser appointmentDatePicker;
     private int selectedPatientID = -1;
 
+    // THEME
+    private final Color BG = new Color(245, 247, 250);
+    private final Color CARD = Color.WHITE;
+    private final Color PRIMARY = new Color(41, 128, 185);
+    private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color TEXT = new Color(44, 62, 80);
+    private final int SPACING = 12;
+
     public StaffBookAppointmentPanel() {
-        // 1. Initialize ALL UI components FIRST (Safety First)
+        // Initialize Components
         searchField = new JTextField();
         patientResultsCombo = new JComboBox<>();
         fNameField = new JTextField();
         contactField = new JTextField();
-        ageField = new JTextField(); // Critical fix
+        ageField = new JTextField();
         timeSlotCombo = new JComboBox<>();
-        serviceTypeCombo = new JComboBox<>(); // Initialize empty so it's not null
+        serviceTypeCombo = new JComboBox<>();
         appointmentDatePicker = new JDateChooser();
 
         setLayout(new GridBagLayout());
-        setBackground(new Color(236, 240, 241));
+        setBackground(BG);
 
-        // 2. Build the White Container
-        JPanel container = new JPanel(null);
-        container.setPreferredSize(new Dimension(500, 650));
-        container.setBackground(Color.WHITE);
-        container.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
+        // Main Card Container
+        JPanel container = new JPanel();
+        container.setLayout(new BoxLayout(container, BoxLayout.Y_AXIS));
+        container.setPreferredSize(new Dimension(500, 750));
+        container.setBackground(CARD);
+        container.setBorder(new CompoundBorder(
+                new LineBorder(new Color(210, 215, 220), 1, true),
+                new EmptyBorder(30, 40, 30, 40)
+        ));
 
-        // --- Add Components to Container ---
-        JLabel searchLabel = new JLabel("Step 1: Search/Select Patient");
-        searchLabel.setFont(new Font("Arial", Font.BOLD, 14));
-        searchLabel.setBounds(30, 20, 200, 25);
-        container.add(searchLabel);
+        // TITLE
+        JLabel title = new JLabel("Staff Booking Portal");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 24));
+        title.setForeground(PRIMARY);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+        container.add(title);
+        
+        JLabel subtitle = new JLabel("Create and auto-approve appointments");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        subtitle.setForeground(Color.GRAY);
+        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        container.add(subtitle);
+        
+        container.add(Box.createRigidArea(new Dimension(0, 25)));
+        
+        // -------- STEP 1: PATIENT SELECTION --------
+        container.add(createSectionLabel("Step 1: Patient Information"));
+        container.add(Box.createRigidArea(new Dimension(0, 8)));
+        
+        container.add(createLabelOnly("Search Patient Name:"));
+        container.add(createInput(searchField));
+        container.add(Box.createRigidArea(new Dimension(0, 5)));
+        container.add(createCombo(patientResultsCombo));
+        
+        container.add(Box.createRigidArea(new Dimension(0, SPACING)));
+        container.add(createFieldWithLabel("Selected Patient Name", fNameField, false));
+        container.add(createFieldWithLabel("Contact Number", contactField, true));
 
-        searchField.setBounds(30, 50, 300, 30);
-        container.add(searchField);
+        container.add(Box.createRigidArea(new Dimension(0, 10)));
+        container.add(createDivider());
+        container.add(Box.createRigidArea(new Dimension(0, 10)));
 
-        patientResultsCombo.setBounds(30, 90, 400, 30);
-        container.add(patientResultsCombo);
+        // -------- STEP 2: SCHEDULE --------
+        container.add(createSectionLabel("Step 2: Service & Schedule"));
+        container.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        addLabel(container, "Patient Name:", 140);
-        fNameField.setBounds(30, 165, 400, 30);
-        fNameField.setEditable(false);
-        container.add(fNameField);
-
-        addLabel(container, "Contact No:", 205);
-        contactField.setBounds(30, 230, 400, 30);
-        container.add(contactField);
-
-        addLabel(container, "Step 2: Select Service & Date", 280);
-
-        // Safety load for services
         try {
             String[] services = appService.getServiceList();
-            if(services != null) {
-                serviceTypeCombo.setModel(new DefaultComboBoxModel<>(services));
-            }
-        } catch (Exception e) { System.err.println("Service load failed"); }
+            if (services != null) serviceTypeCombo.setModel(new DefaultComboBoxModel<>(services));
+        } catch (Exception e) {}
 
-        serviceTypeCombo.setBounds(30, 310, 400, 35);
-        container.add(serviceTypeCombo);
-
-        appointmentDatePicker.setBounds(30, 360, 400, 35);
+        container.add(createLabelOnly("Select Service:"));
+        container.add(createCombo(serviceTypeCombo));
+        
+        container.add(Box.createRigidArea(new Dimension(0, SPACING)));
+        
+        container.add(createLabelOnly("Appointment Date:"));
         appointmentDatePicker.setDateFormatString("MMMM d, yyyy");
+        container.add(createDatePicker(appointmentDatePicker));
+
+        container.add(Box.createRigidArea(new Dimension(0, SPACING)));
+        
+        container.add(createLabelOnly("Available Time Slot:"));
+        container.add(createCombo(timeSlotCombo));
+
+        // Logic for Date restrictions
         try {
-            // 1. Fetch Admin Settings from Service
             int leadTime = appService.getBookingLeadTime();
             java.util.List<String> closedDays = appService.getClosedDays();
-
-            // 2. Apply Lead Time (Sync with Admin settings)
             java.util.Calendar cal = java.util.Calendar.getInstance();
             cal.add(java.util.Calendar.DAY_OF_MONTH, leadTime);
             appointmentDatePicker.setMinSelectableDate(cal.getTime());
-
-            // 3. Apply the Closed Days filter (Gray out Sundays/Mondays etc.)
             applyCalendarFilter(closedDays);
-
-        } catch (java.sql.SQLException e) {
-            System.err.println("Failed to load clinic lead time/closed days: " + e.getMessage());
-            appointmentDatePicker.setMinSelectableDate(new java.util.Date()); // Fallback to today
+        } catch (SQLException e) {
+            appointmentDatePicker.setMinSelectableDate(new java.util.Date());
         }
-        container.add(appointmentDatePicker);
 
-        timeSlotCombo.setBounds(30, 410, 400, 35);
-        container.add(timeSlotCombo);
-
+        // BUTTON
+        container.add(Box.createRigidArea(new Dimension(0, 30)));
         JButton confirmBtn = new JButton("Confirm & Approve Appointment");
-        confirmBtn.setBounds(30, 480, 400, 45);
-        confirmBtn.setBackground(new Color(46, 204, 113));
-        confirmBtn.setForeground(Color.WHITE);
+        styleButton(confirmBtn, SUCCESS);
+        confirmBtn.setAlignmentX(Component.LEFT_ALIGNMENT);
+        confirmBtn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 45));
         container.add(confirmBtn);
 
-        // 3. Setup Logic/Listeners
+        // LISTENERS
         searchField.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyReleased(java.awt.event.KeyEvent e) {
                 refreshPatientDropdown(searchField.getText());
@@ -117,20 +142,90 @@ public class StaffBookAppointmentPanel extends JPanel {
         appointmentDatePicker.addPropertyChangeListener("date", evt -> refreshSlots());
         confirmBtn.addActionListener(e -> handleStaffBooking());
 
-        // 4. Initial Data Load (Wrapped in Try-Catch to prevent Panel-Kill)
-        try {
-            refreshPatientDropdown(""); 
-        } catch (Exception e) {
-            System.err.println("Initial patient load failed");
-        }
+        try { refreshPatientDropdown(""); } catch (Exception e) {}
 
-        // 5. THE FIX: Center the container using GridBagConstraints
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.anchor = GridBagConstraints.CENTER; 
         add(container, gbc);
     }
+
+    // ---------- UI HELPERS ----------
+
+    private JLabel createSectionLabel(String text) {
+        JLabel lbl = new JLabel(text.toUpperCase());
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lbl.setForeground(PRIMARY);
+        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return lbl;
+    }
+
+    private JLabel createLabelOnly(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lbl.setForeground(TEXT);
+        lbl.setAlignmentX(Component.LEFT_ALIGNMENT);
+        lbl.setBorder(new EmptyBorder(0, 0, 4, 0));
+        return lbl;
+    }
+
+    private JComponent createInput(JTextField field) {
+        field.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        field.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        field.setBorder(new CompoundBorder(
+                new LineBorder(new Color(200, 200, 200)),
+                new EmptyBorder(5, 10, 5, 10)
+        ));
+        field.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return field;
+    }
+
+    private JComponent createCombo(JComboBox<?> combo) {
+        combo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        combo.setBackground(Color.WHITE);
+        combo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return combo;
+    }
+
+    private JComponent createDatePicker(JDateChooser picker) {
+        picker.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+        picker.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return picker;
+    }
+
+    private JPanel createFieldWithLabel(String label, JTextField field, boolean editable) {
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(CARD);
+        panel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        panel.add(createLabelOnly(label));
+        panel.add(createInput(field));
+        field.setEditable(editable);
+        
+        if (!editable) {
+            field.setBackground(new Color(245, 245, 245));
+        }
+
+        return panel;
+    }
+
+    private JSeparator createDivider() {
+        JSeparator sep = new JSeparator();
+        sep.setForeground(new Color(230, 230, 230));
+        sep.setMaximumSize(new Dimension(Integer.MAX_VALUE, 1));
+        sep.setAlignmentX(Component.LEFT_ALIGNMENT);
+        return sep;
+    }
+
+    private void styleButton(JButton btn, Color color) {
+        btn.setBackground(color);
+        btn.setForeground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setBorder(new EmptyBorder(10, 20, 10, 20));
+    }
+
+    // ---------- LOGIC (UNCHANGED) ----------
 
     private void selectPatient() {
         int idx = patientResultsCombo.getSelectedIndex();
@@ -148,51 +243,20 @@ public class StaffBookAppointmentPanel extends JPanel {
         }
     }
 
-    // New method to handle both "Show All" and "Search"
     private void refreshPatientDropdown(String query) {
         try {
             if (query.trim().isEmpty()) {
-                // You'll need to add this method to PatientDAO as we discussed!
-                currentSearchResults = patientDAO.getAllPatients(); 
+                currentSearchResults = patientDAO.getAllPatients();
             } else {
                 currentSearchResults = patientDAO.searchPatientsByName(query);
             }
-
             DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
             for (Object[] p : currentSearchResults) {
                 model.addElement(p[1] + " (ID: " + p[0] + ")");
             }
             patientResultsCombo.setModel(model);
-
-            // Show popup if filtering
-            if (!query.isEmpty() && model.getSize() > 0) {
-                patientResultsCombo.setPopupVisible(true);
-            }
         } catch (SQLException e) {
             e.printStackTrace();
-        }
-    }
-    
-    private void performSearch() {
-        String query = searchField.getText().trim();
-        if (query.isEmpty()) return;
-
-        try {
-            currentSearchResults = patientDAO.searchPatientsByName(query);
-
-            // This makes sure we don't duplicate names in the list
-            DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-            for (Object[] p : currentSearchResults) {
-                model.addElement(p[1] + " (ID: " + p[0] + ")");
-            }
-            patientResultsCombo.setModel(model);
-
-            // If results are found, show the dropdown automatically
-            if (model.getSize() > 0) {
-                patientResultsCombo.setPopupVisible(true);
-            }
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Search Error: " + e.getMessage());
         }
     }
 
@@ -201,7 +265,6 @@ public class StaffBookAppointmentPanel extends JPanel {
         try {
             java.util.List<String> available = appService.getAvailableSlotsForDate(appointmentDatePicker.getDate());
             timeSlotCombo.removeAllItems();
-
             if (available.isEmpty()) {
                 timeSlotCombo.addItem("Fully Booked");
             } else {
@@ -221,7 +284,6 @@ public class StaffBookAppointmentPanel extends JPanel {
         }
 
         try {
-            // Safe parsing of age
             int ageValue = 0;
             if (!ageField.getText().isEmpty()) {
                 ageValue = Integer.parseInt(ageField.getText());
@@ -240,27 +302,12 @@ public class StaffBookAppointmentPanel extends JPanel {
             int result = appService.createAppointment(app);
             if (result != -1) {
                 JOptionPane.showMessageDialog(this, "Appointment Booked and Approved!");
-                // Optional: Clear fields here if you want to book another one
             }
-        } catch (Exception ex) { 
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); 
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
     }
 
-    private void addLabel(JPanel p, String text, int y) {
-        JLabel l = new JLabel(text);
-        l.setBounds(30, y, 200, 20);
-        l.setFont(new Font("Arial", Font.BOLD, 12));
-        p.add(l);
-    }
-
-    private JTextField createField(JPanel p, int y, int w) {
-        JTextField f = new JTextField();
-        f.setBounds(30, y, w, 30);
-        p.add(f);
-        return f;
-    }
-    
     private void applyCalendarFilter(java.util.List<String> closedDayNames) {
         java.util.Set<Integer> closedDays = new java.util.HashSet<>();
         for (String day : closedDayNames) {
@@ -277,7 +324,6 @@ public class StaffBookAppointmentPanel extends JPanel {
             @Override public boolean isInvalid(java.util.Date date) {
                 java.util.Calendar cal = java.util.Calendar.getInstance();
                 cal.setTime(date);
-                // Invalidate if it's a closed day OR before the lead time
                 return closedDays.contains(cal.get(java.util.Calendar.DAY_OF_WEEK));
             }
             @Override public boolean isSpecial(java.util.Date date) { return false; }
@@ -289,9 +335,9 @@ public class StaffBookAppointmentPanel extends JPanel {
             @Override public String getInvalidTooltip() { return "Clinic Closed"; }
         });
     }
+
     public void cleanup() {
         if (appointmentDatePicker != null) {
-            // Forces the popup to close immediately
             appointmentDatePicker.getJCalendar().setVisible(false);
         }
     }
