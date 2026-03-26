@@ -77,7 +77,24 @@ public class StaffBookAppointmentPanel extends JPanel {
         container.add(serviceTypeCombo);
 
         appointmentDatePicker.setBounds(30, 360, 400, 35);
-        appointmentDatePicker.setMinSelectableDate(new java.util.Date());
+        appointmentDatePicker.setDateFormatString("MMMM d, yyyy");
+        try {
+            // 1. Fetch Admin Settings from Service
+            int leadTime = appService.getBookingLeadTime();
+            java.util.List<String> closedDays = appService.getClosedDays();
+
+            // 2. Apply Lead Time (Sync with Admin settings)
+            java.util.Calendar cal = java.util.Calendar.getInstance();
+            cal.add(java.util.Calendar.DAY_OF_MONTH, leadTime);
+            appointmentDatePicker.setMinSelectableDate(cal.getTime());
+
+            // 3. Apply the Closed Days filter (Gray out Sundays/Mondays etc.)
+            applyCalendarFilter(closedDays);
+
+        } catch (java.sql.SQLException e) {
+            System.err.println("Failed to load clinic lead time/closed days: " + e.getMessage());
+            appointmentDatePicker.setMinSelectableDate(new java.util.Date()); // Fallback to today
+        }
         container.add(appointmentDatePicker);
 
         timeSlotCombo.setBounds(30, 410, 400, 35);
@@ -182,9 +199,14 @@ public class StaffBookAppointmentPanel extends JPanel {
     private void refreshSlots() {
         if (appointmentDatePicker.getDate() == null) return;
         try {
-            List<String> available = appService.getAvailableSlotsForDate(appointmentDatePicker.getDate());
+            java.util.List<String> available = appService.getAvailableSlotsForDate(appointmentDatePicker.getDate());
             timeSlotCombo.removeAllItems();
-            for (String s : available) timeSlotCombo.addItem(s);
+
+            if (available.isEmpty()) {
+                timeSlotCombo.addItem("Fully Booked");
+            } else {
+                for (String s : available) timeSlotCombo.addItem(s);
+            }
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -237,5 +259,40 @@ public class StaffBookAppointmentPanel extends JPanel {
         f.setBounds(30, y, w, 30);
         p.add(f);
         return f;
+    }
+    
+    private void applyCalendarFilter(java.util.List<String> closedDayNames) {
+        java.util.Set<Integer> closedDays = new java.util.HashSet<>();
+        for (String day : closedDayNames) {
+            if (day.equalsIgnoreCase("Sunday")) closedDays.add(java.util.Calendar.SUNDAY);
+            else if (day.equalsIgnoreCase("Monday")) closedDays.add(java.util.Calendar.MONDAY);
+            else if (day.equalsIgnoreCase("Tuesday")) closedDays.add(java.util.Calendar.TUESDAY);
+            else if (day.equalsIgnoreCase("Wednesday")) closedDays.add(java.util.Calendar.WEDNESDAY);
+            else if (day.equalsIgnoreCase("Thursday")) closedDays.add(java.util.Calendar.THURSDAY);
+            else if (day.equalsIgnoreCase("Friday")) closedDays.add(java.util.Calendar.FRIDAY);
+            else if (day.equalsIgnoreCase("Saturday")) closedDays.add(java.util.Calendar.SATURDAY);
+        }
+
+        appointmentDatePicker.getJCalendar().getDayChooser().addDateEvaluator(new com.toedter.calendar.IDateEvaluator() {
+            @Override public boolean isInvalid(java.util.Date date) {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.setTime(date);
+                // Invalidate if it's a closed day OR before the lead time
+                return closedDays.contains(cal.get(java.util.Calendar.DAY_OF_WEEK));
+            }
+            @Override public boolean isSpecial(java.util.Date date) { return false; }
+            @Override public Color getSpecialForegroundColor() { return null; }
+            @Override public Color getSpecialBackroundColor() { return null; }
+            @Override public String getSpecialTooltip() { return null; }
+            @Override public Color getInvalidForegroundColor() { return Color.RED; }
+            @Override public Color getInvalidBackroundColor() { return new Color(240, 240, 240); }
+            @Override public String getInvalidTooltip() { return "Clinic Closed"; }
+        });
+    }
+    public void cleanup() {
+        if (appointmentDatePicker != null) {
+            // Forces the popup to close immediately
+            appointmentDatePicker.getJCalendar().setVisible(false);
+        }
     }
 }

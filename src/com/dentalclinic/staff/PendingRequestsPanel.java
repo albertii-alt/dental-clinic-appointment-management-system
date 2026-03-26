@@ -63,9 +63,18 @@ public class PendingRequestsPanel extends JPanel {
         try {
             model.setRowCount(0);
             List<Object[]> data = appService.getPendingRequestsWithNames();
+              if (data.isEmpty()) {   
+                // Optional: Show a message if no appointments today
+                setLayout(new GridBagLayout());
+                removeAll();
+                JLabel noApp = new JLabel("No bookings yet!");
+                noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                noApp.setForeground(Color.GRAY);
+                add(noApp);
+            } else {
             for (Object[] row : data) {
                 model.addRow(row);
-            }
+            }}
         } catch (Exception e) { e.printStackTrace(); }
     }
 

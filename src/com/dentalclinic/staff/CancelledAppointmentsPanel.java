@@ -54,10 +54,18 @@ public class CancelledAppointmentsPanel extends JPanel {
             model.setRowCount(0);
             // Now fetching the array that contains the pre-formatted Full Name
             List<Object[]> list = appService.getCancelledRequestsWithNames(); 
-
+              if (list.isEmpty()) {   
+                // Optional: Show a message if no appointments today
+                setLayout(new GridBagLayout());
+                removeAll();
+                JLabel noApp = new JLabel("No cancelled Appointments.");
+                noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                noApp.setForeground(Color.GRAY);
+                add(noApp);
+            } else {
             for (Object[] row : list) {
                 model.addRow(row); // 'row' already contains [ID, Name, Service, Date, Time, Status]
-            }
+            }}
         } catch (Exception e) {
             e.printStackTrace();
         }

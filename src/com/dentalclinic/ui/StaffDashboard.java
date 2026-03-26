@@ -6,6 +6,7 @@ import java.awt.*;
 import com.dentalclinic.staff.PendingRequestsPanel; // Import your panel
 import com.dentalclinic.staff.TodaysAppointmentsPanel;
 import com.dentalclinic.staff.UpcomingAppointmentsPanel;
+import com.dentalclinic.util.UserSession;
 
 public class StaffDashboard extends JFrame {
 
@@ -46,51 +47,64 @@ public class StaffDashboard extends JFrame {
 
         // --- CREATE BUTTONS AND ADD ACTIONS ---
         
-        // 1. Pending Appointments Button
-        JButton pendingBtn = createSidebarButton("Pending Appointments", 150);
-        pendingBtn.addActionListener(e -> switchPanel(new PendingRequestsPanel()));
-        sidebar.add(pendingBtn);
-
-        // Add placeholders for other buttons (you can add panels for these later)
-        JButton todayBtn = createSidebarButton("Today's Appointments", 100);
-        todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel()));
-        sidebar.add(todayBtn);
+        // --- CREATE BUTTONS AND ADD ACTIONS ---
         
-        JButton btnCancelled = createSidebarButton("Cancelled Appointments", 200);
-        btnCancelled.addActionListener(e -> switchPanel(new CancelledAppointmentsPanel())); 
-        sidebar.add(btnCancelled);
+        // 1. Pending Appointments (Permission: MANAGE_APPOINTMENTS)
+        if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
+            JButton pendingBtn = createSidebarButton("Pending Appointments", 150);
+            pendingBtn.addActionListener(e -> switchPanel(new PendingRequestsPanel()));
+            sidebar.add(pendingBtn);
 
-        JButton upcomingBtn = createSidebarButton("Upcoming Appointments", 250);
-        upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
-        sidebar.add(upcomingBtn);
-        
+            JButton todayBtn = createSidebarButton("Today's Appointments", 100);
+            todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel()));
+            sidebar.add(todayBtn);
+            
+            JButton btnCancelled = createSidebarButton("Cancelled Appointments", 200);
+            btnCancelled.addActionListener(e -> switchPanel(new CancelledAppointmentsPanel())); 
+            sidebar.add(btnCancelled);
+
+            JButton upcomingBtn = createSidebarButton("Upcoming Appointments", 250);
+            upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
+            sidebar.add(upcomingBtn);
+        }
         
         // --- MANAGEMENT SECTION ---
         JLabel patientLabel = new JLabel("Management");
         patientLabel.setForeground(new Color(171, 183, 183));
-        patientLabel.setBounds(25, 310, 150, 20); // Adjusted Y
+        patientLabel.setBounds(25, 310, 150, 20);
         sidebar.add(patientLabel);
 
-        JButton regBtn = createSidebarButton("Register Patient", 340); // Adjusted Y
-        regBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.RegisterPatientPanel()));
-        sidebar.add(regBtn);
+        // Permission: MANAGE_PATIENTS
+        if (UserSession.hasPermission("MANAGE_PATIENTS")) {
+            JButton regBtn = createSidebarButton("Register Patient", 340);
+            regBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.RegisterPatientPanel()));
+            sidebar.add(regBtn);
+        }
         
-        JButton createBtn = createSidebarButton("Create Appointment", 390); // Adjusted Y
-        createBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffBookAppointmentPanel()));
-        sidebar.add(createBtn);
+        // Permission: MANAGE_APPOINTMENTS (Used for manual creation)
+        if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
+            JButton createBtn = createSidebarButton("Create Appointment", 390);
+            createBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffBookAppointmentPanel()));
+            sidebar.add(createBtn);
+        }
         
-        JButton historyBtn = createSidebarButton("View Patient History", 440); // Adjusted Y
-        historyBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.PatientHistoryPanel(false)));
-        sidebar.add(historyBtn);
+        // Permission: VIEW_MEDICAL_HISTORY
+        if (UserSession.hasPermission("VIEW_MEDICAL_HISTORY")) {
+            JButton historyBtn = createSidebarButton("View Patient History", 440);
+            historyBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.PatientHistoryPanel(false)));
+            sidebar.add(historyBtn);
+        }
         
-        JButton manageSchedBtn = createSidebarButton("Manage Schedule", 490); // Adjusted Y
-        manageSchedBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffManageSchedulePanel(staffId, staffName, role)));
-        sidebar.add(manageSchedBtn);
+        // Permission: MANAGE_SCHEDULE
+        if (UserSession.hasPermission("MANAGE_SCHEDULE")) {
+            JButton manageSchedBtn = createSidebarButton("Manage Schedule", 490);
+            manageSchedBtn.addActionListener(e -> switchPanel(new com.dentalclinic.staff.StaffManageSchedulePanel(staffId, staffName, role)));
+            sidebar.add(manageSchedBtn);
+        }
         
-        // --- SETTINGS AND LOGOUT ---
-        JButton settingsBtn = createSidebarButton("My Settings", 540); // Adjusted Y to avoid overlap
+        // Settings and Logout usually don't need specific permissions as they are basic user functions
+        JButton settingsBtn = createSidebarButton("My Settings", 540);
         settingsBtn.addActionListener(e -> {
-            // Use switchPanel instead of showPanel for consistency
             switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
                 this.staffId, "STAFF", this.staffName, this.username, this.email
             ));

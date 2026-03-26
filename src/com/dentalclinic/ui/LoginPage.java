@@ -78,53 +78,64 @@ public class LoginPage extends JFrame {
             String selectedRole = (String) roleDropdown.getSelectedItem();
 
             AuthService authService = new AuthService();
+            com.dentalclinic.dao.RolesPermissionDAO rpDao = new com.dentalclinic.dao.RolesPermissionDAO();
 
             try {
                 Object result = authService.login(username, password, selectedRole);
 
                 if (result instanceof Object[]) {
                     Object[] data = (Object[]) result;
-                    int loggedId = (int) data[0];      // staff_id
-                    String role = (String) data[1];    // role (ADMIN/STAFF/DENTIST)
+                    int loggedId = (int) data[0];      
+                    String roleStr = (String) data[1];    
                     boolean isSuper = (boolean) data[2];
-                    String fullName = (String) data[3]; // The real name from the updated StaffDAO
+                    String fullName = (String) data[3]; 
                     String userEmail = (data.length > 4) ? (String) data[4] : "No Email";
 
-                    // 1. Initialize the Global Session so logs know WHO is doing the action
-                    com.dentalclinic.util.UserSession.initialize(loggedId, fullName, role);
+                    // --- NEW PERMISSION LOGIC ---
+                    // 1. Map the role string to the role_id we created in SQL
+                    int roleId = 3; // Default to Staff
+                    if (roleStr.equalsIgnoreCase("ADMIN")) roleId = 1;
+                    else if (roleStr.equalsIgnoreCase("DENTIST")) roleId = 2;
 
-                    // 2. Route to the correct Dashboard
-                    if (role.equalsIgnoreCase("ADMIN")) {
+                    // 2. Fetch the actual permission names (e.g., "MANAGE_USERS", "VIEW_DASHBOARD")
+                    java.util.List<String> permissions = rpDao.getPermissionNamesForRole(roleId);
+
+                    // 3. Initialize Global Session with the permissions list
+                    String sessionRole = isSuper ? "Super Admin" : roleStr;
+                    com.dentalclinic.util.UserSession.initialize(loggedId, fullName, sessionRole, permissions);
+                    // ----------------------------
+
+                    // Route to the correct Dashboard
+                    if (roleStr.equalsIgnoreCase("ADMIN")) {
                         new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper, fullName, userEmail, username);
                     } 
-                    else if (role.equalsIgnoreCase("DENTIST")) {
-                        // Change staffId to loggedId AND staffName to fullName
+                    else if (roleStr.equalsIgnoreCase("DENTIST")) {
                         new com.dentalclinic.ui.DentistDashboard(loggedId, fullName, username, userEmail);
                     }
-                    else if (role.equalsIgnoreCase("STAFF")) {
-                        // Pass both loggedId and fullName (from your data[3] extraction)
+                    else if (roleStr.equalsIgnoreCase("STAFF")) {
                         new com.dentalclinic.ui.StaffDashboard(loggedId, fullName, username, userEmail);
                     }
-                    
-                    dispose(); // Close login page
+
+                    dispose(); 
                 } 
                 else if (result instanceof Patient) {
                     Patient p = (Patient) result;
-                    
-                    // Initialize Session for Patient
                     String patientFullName = p.getFirstName() + " " + p.getLastName();
-                    com.dentalclinic.util.UserSession.initialize(p.getPatientId(), patientFullName, "PATIENT");
+
+                    // Patients usually don't have granular permissions in the role_permissions table, 
+                    // so we pass an empty list or null.
+                    com.dentalclinic.util.UserSession.initialize(p.getPatientId(), patientFullName, "PATIENT", null);
 
                     JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + p.getFirstName());
-                    
+
                     new PatientDashboard(
                         p.getPatientId(), p.getFirstName(), p.getMiddleName(), 
                         p.getLastName(), p.getBirthDate().toString(), 
                         String.valueOf(p.getAge()), p.getAddress(), 
                         p.getContactNumber(), p.getUsername()
                     );
-                    
-                    dispose(); // Close login page
+
+                    dispose();
                 } 
                 else {
                     JOptionPane.showMessageDialog(null, "Invalid Username or Password for the selected role.", 

@@ -3,6 +3,7 @@ package com.dentalclinic.ui;
 import javax.swing.*;
 import java.awt.*;
 import com.dentalclinic.staff.*; // Import panels from the staff package
+import com.dentalclinic.util.UserSession;
 
 public class DentistDashboard extends JFrame {
 
@@ -47,42 +48,45 @@ public class DentistDashboard extends JFrame {
         logoLabel.setBounds(50, 30, 150, 30);
         sidebar.add(logoLabel);
 
-        // 1. View Appointments Dropdown
-        viewAppBtn = createSidebarButton("View Appointments ⌄", 100);
-        viewAppBtn.addActionListener(e -> toggleAppMenu());
-        sidebar.add(viewAppBtn);
+        // 1. View Appointments Dropdown (Permission: MANAGE_APPOINTMENTS)
+        if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
+            viewAppBtn = createSidebarButton("View Appointments ⌄", 100);
+            viewAppBtn.addActionListener(e -> toggleAppMenu());
+            sidebar.add(viewAppBtn);
 
-        appointmentsSubMenu = new JPanel(null);
-        appointmentsSubMenu.setBackground(new Color(34, 49, 63));
-        appointmentsSubMenu.setBounds(20, 145, 210, 80);
-        appointmentsSubMenu.setVisible(false);
+            appointmentsSubMenu = new JPanel(null);
+            appointmentsSubMenu.setBackground(new Color(34, 49, 63));
+            appointmentsSubMenu.setBounds(20, 145, 210, 80);
+            appointmentsSubMenu.setVisible(false);
 
-        JButton todayBtn = createSubButton("Today's Schedule", 5);
-        JButton upcomingBtn = createSubButton("Upcoming Treatments", 40);
+            JButton todayBtn = createSubButton("Today's Schedule", 5);
+            JButton upcomingBtn = createSubButton("Upcoming Treatments", 40);
 
-        todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel())); 
-        upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
+            todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel())); 
+            upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
 
-        appointmentsSubMenu.add(todayBtn);
-        appointmentsSubMenu.add(upcomingBtn);
-        sidebar.add(appointmentsSubMenu);
+            appointmentsSubMenu.add(todayBtn);
+            appointmentsSubMenu.add(upcomingBtn);
+            sidebar.add(appointmentsSubMenu);
+        }
 
-        // 2. View Patient History
-        historyBtn = createSidebarButton("View Patient History", 150); 
-        historyBtn.addActionListener(e -> switchPanel(new PatientHistoryPanel(true))); 
-        sidebar.add(historyBtn);
+        // 2. View Patient History (Permission: VIEW_MEDICAL_HISTORY)
+        if (UserSession.hasPermission("VIEW_MEDICAL_HISTORY")) {
+            historyBtn = createSidebarButton("View Patient History", 150); 
+            historyBtn.addActionListener(e -> switchPanel(new PatientHistoryPanel(true))); 
+            sidebar.add(historyBtn);
+        }
 
-        // 3. Block Time Slots
-        // 3. Block Time Slots
-        blockBtn = createSidebarButton("Block Time Slots", 200);
-        // PASS THE ID, NAME, AND ROLE HERE
-        blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel(staffId, staffName, role)));
-        sidebar.add(blockBtn);
+        // 3. Block Time Slots (Permission: MANAGE_SCHEDULE)
+        if (UserSession.hasPermission("MANAGE_SCHEDULE")) {
+            blockBtn = createSidebarButton("Block Time Slots", 200);
+            blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel(staffId, staffName, role)));
+            sidebar.add(blockBtn);
+        }
         
-        // My Account Settings Button (Placed at Y = 550, above Logout)
+        // Settings (No permission required, but good to have visible)
         JButton settingsBtn = createSidebarButton("My Account Settings", 550);
         settingsBtn.addActionListener(e -> {
-            // Use switchPanel (your dashboard's specific method)
             switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
                 staffId, role, staffName, username, email
             ));
@@ -117,14 +121,21 @@ public class DentistDashboard extends JFrame {
     }
 
     private void toggleAppMenu() {
+        if (appointmentsSubMenu == null) return; // Safety check
+
         isAppMenuOpen = !isAppMenuOpen;
         appointmentsSubMenu.setVisible(isAppMenuOpen);
         viewAppBtn.setText(isAppMenuOpen ? "View Appointments  ⌃" : "View Appointments  ⌄");
 
         int offset = isAppMenuOpen ? 85 : 0;
-        // Shift buttons below the submenu
-        historyBtn.setLocation(historyBtn.getX(), 150 + offset);
-        blockBtn.setLocation(blockBtn.getX(), 200 + offset);
+        
+        // Shift buttons below the submenu ONLY if they exist
+        if (historyBtn != null) {
+            historyBtn.setLocation(historyBtn.getX(), 150 + offset);
+        }
+        if (blockBtn != null) {
+            blockBtn.setLocation(blockBtn.getX(), 200 + offset);
+        }
         sidebar.repaint();
     }
 

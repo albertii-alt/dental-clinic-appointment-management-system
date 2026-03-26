@@ -5,12 +5,12 @@ import java.awt.*;
 import com.dentalclinic.admin.AdminDashboardPanel;
 import com.dentalclinic.admin.ClinicSettingsPanel;
 import com.dentalclinic.admin.ManageUsersPanel;
-
+import com.dentalclinic.util.UserSession;
 
 public class AdminDashboard extends JFrame {
 
     private JPanel sidebar;
-    private JPanel mainContent; // The dedicated area for our panels
+    private JPanel mainContent; 
     private JButton accessControlBtn, sysLogsBtn, auditBtn, logoutBtn;
     private JPanel subMenuPanel;
     private boolean isOpen = false;
@@ -18,17 +18,15 @@ public class AdminDashboard extends JFrame {
     
     private int currentAdminId;
     private boolean isSuperAdmin;
-    private String currentAdminName;  // Add this
-    private String currentAdminEmail; // Add this
+    private String currentAdminName;  
+    private String currentAdminEmail; 
     private String currentAdminUsername;
     private ManageUsersPanel manageUsersPanel;
     private AdminDashboardPanel dashboardStatsPanel;
     
-    // Y-Coordinates for Sidebar Buttons
     private final int CONFIG_Y = 200; 
     private final int ACCESS_Y = 250; 
     private final int LOGS_Y = 305;   
-    private final int AUDIT_Y = 355;  
     private final int LOGOUT_Y = 600;
 
     public AdminDashboard(int loggedUserId, boolean isSuper, String fullName, String email, String username) {
@@ -38,7 +36,6 @@ public class AdminDashboard extends JFrame {
         this.currentAdminEmail = email; 
         this.currentAdminUsername = username;
         
-        // Initialize the panel now that we have the ID
         this.manageUsersPanel = new ManageUsersPanel(this.currentAdminId, this.isSuperAdmin);
         this.dashboardStatsPanel = new AdminDashboardPanel();
 
@@ -47,7 +44,6 @@ public class AdminDashboard extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        // --- MAIN LAYOUT ---
         setLayout(new BorderLayout());
 
         // --- SIDEBAR ---
@@ -62,59 +58,68 @@ public class AdminDashboard extends JFrame {
         logoLabel.setBounds(50, 30, 150, 30);
         sidebar.add(logoLabel);
 
-        // --- SIDEBAR BUTTONS ---
-        JButton myDashBtn = createSidebarButton("My Dashboard", 100);
-        myDashBtn.addActionListener(e -> {
-            showPanel(dashboardStatsPanel);
-            dashboardStatsPanel.refreshStats(); // Ensure numbers are fresh
-        });
-        sidebar.add(myDashBtn);
+        // --- SIDEBAR BUTTONS WITH PERMISSION CHECKS ---
         
-        JButton logsBtn = createSidebarButton("Audit Trails", 150);
-        sidebar.add(logsBtn);
-        // Pass the session data here
-        logsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel(currentAdminId, isSuperAdmin)));
+        // 1. Dashboard Stats
+        if (UserSession.hasPermission("VIEW_DASHBOARD")) {
+            JButton myDashBtn = createSidebarButton("My Dashboard", 100);
+            myDashBtn.addActionListener(e -> {
+                showPanel(dashboardStatsPanel);
+                dashboardStatsPanel.refreshStats(); 
+            });
+            sidebar.add(myDashBtn);
+        }
         
-        clinicConfigBtn = createSidebarButton("Clinic Configuration", CONFIG_Y);
-        sidebar.add(clinicConfigBtn);
-        clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel(currentAdminId, isSuperAdmin)));
-
-        accessControlBtn = createSidebarButton("Access Control  ⌄", ACCESS_Y);
-        sidebar.add(accessControlBtn);
-        accessControlBtn.addActionListener(e -> toggleMenu());
-
-        // Sub-Menu
-        subMenuPanel = new JPanel();
-        subMenuPanel.setLayout(null);
-        subMenuPanel.setBackground(new Color(34, 49, 63)); 
-        subMenuPanel.setBounds(20, 295, 210, 80); 
-        subMenuPanel.setVisible(false);
-
-        JButton manageUsersBtn = createSubButton("Manage Users", 5);
-        manageUsersBtn.addActionListener(e -> {
-            showPanel(manageUsersPanel);
-            manageUsersPanel.refreshTable();
-        });
+        // 2. Audit Trails
+        if (UserSession.hasPermission("VIEW_AUDIT_LOGS")) {
+            auditBtn = createSidebarButton("Audit Trails", 150);
+            auditBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel(currentAdminId, isSuperAdmin)));
+            sidebar.add(auditBtn);
+        }
         
-        JButton rolesBtn = createSubButton("Roles & Permissions", 40);
-        rolesBtn.addActionListener(e -> JOptionPane.showMessageDialog(this, "Coming soon!"));
+        // 3. Clinic Configuration
+        if (UserSession.hasPermission("MANAGE_CLINIC_SETTINGS")) {
+            clinicConfigBtn = createSidebarButton("Clinic Configuration", CONFIG_Y);
+            clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel(currentAdminId, isSuperAdmin)));
+            sidebar.add(clinicConfigBtn);
+        }
 
-        subMenuPanel.add(manageUsersBtn);
-        subMenuPanel.add(rolesBtn);
-        sidebar.add(subMenuPanel);
+        // 4. Access Control Section
+        if (UserSession.hasPermission("MANAGE_USERS") || UserSession.hasPermission("MANAGE_ROLES")) {
+            accessControlBtn = createSidebarButton("Access Control  ⌄", ACCESS_Y);
+            accessControlBtn.addActionListener(e -> toggleMenu());
+            sidebar.add(accessControlBtn);
 
-        // Lower Buttons
-        sysLogsBtn = createSidebarButton("System Logs", LOGS_Y);
-        // Add this action listener to make the button work
-        sysLogsBtn.addActionListener(e -> {
-            // 1. Create the panel, passing the logged-in user's session data
-            com.dentalclinic.admin.SystemLogPanel logsPanel = new com.dentalclinic.admin.SystemLogPanel(currentAdminId, isSuperAdmin);
+            subMenuPanel = new JPanel(null);
+            subMenuPanel.setBackground(new Color(34, 49, 63)); 
+            subMenuPanel.setBounds(20, 295, 210, 80); 
+            subMenuPanel.setVisible(false);
 
-            // 2. Use the existing showPanel helper to display it in the mainContent area
-            showPanel(logsPanel);
-        });
+        if (UserSession.hasPermission("MANAGE_USERS")) {
+                        JButton manageUsersBtn = createSubButton("Manage Users", 5);
+                        manageUsersBtn.addActionListener(e -> {
+                            showPanel(manageUsersPanel);
+                            manageUsersPanel.refreshTable();
+                        });
+                        subMenuPanel.add(manageUsersBtn);
+                    }
+            
+            if (UserSession.hasPermission("MANAGE_ROLES")) {
+                JButton rolesBtn = createSubButton("Roles & Permissions", 40);
+                rolesBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.ManageRolesPanel()));
+                subMenuPanel.add(rolesBtn);
+            }
+            sidebar.add(subMenuPanel);
+        }
 
-        
+        // 5. System Logs
+        if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) {
+            sysLogsBtn = createSidebarButton("System Logs", LOGS_Y);
+            sysLogsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.SystemLogPanel(currentAdminId, isSuperAdmin)));
+            sidebar.add(sysLogsBtn);
+        }
+
+        // 6. Account Settings (Always Visible)
         JButton myAccountBtn = createSidebarButton("My Account Settings", 550);
         myAccountBtn.addActionListener(e -> {
             String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
@@ -122,16 +127,15 @@ public class AdminDashboard extends JFrame {
                 currentAdminId, roleStr, currentAdminName, currentAdminUsername, currentAdminEmail
             ));
         });
+        sidebar.add(myAccountBtn);
 
+        // 7. Logout (Always Visible)
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
-        logoutBtn.setBackground(new Color(192, 57, 43)); // Red for Logout
+        logoutBtn.setBackground(new Color(192, 57, 43));
         logoutBtn.addActionListener(e -> {
             new LoginPage();
             dispose();
         });
-
-        sidebar.add(sysLogsBtn);
-        sidebar.add(myAccountBtn);
         sidebar.add(logoutBtn);
 
         // --- MAIN CONTENT AREA ---
@@ -140,10 +144,8 @@ public class AdminDashboard extends JFrame {
         
         showPanel(dashboardStatsPanel);
         
-        // Add both to the frame
         add(sidebar, BorderLayout.WEST);
         add(mainContent, BorderLayout.CENTER);
-        
         
         setVisible(true);
     }
@@ -156,11 +158,16 @@ public class AdminDashboard extends JFrame {
     }
 
     private void toggleMenu() {
+        if (subMenuPanel == null) return;
+
         isOpen = !isOpen;
         subMenuPanel.setVisible(isOpen);
         int shift = isOpen ? 85 : 0;
         accessControlBtn.setText(isOpen ? "Access Control  ⌃" : "Access Control  ⌄");
-        sysLogsBtn.setLocation(sysLogsBtn.getX(), LOGS_Y + shift);
+        
+        if (sysLogsBtn != null) {
+            sysLogsBtn.setLocation(sysLogsBtn.getX(), LOGS_Y + shift);
+        }
         sidebar.repaint();
     }
 
@@ -185,11 +192,7 @@ public class AdminDashboard extends JFrame {
         btn.setBorderPainted(false);
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setFont(new Font("Arial", Font.PLAIN, 12));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         return btn;
-    }
-
-    private void openMyProfile() {
-        // Logic to open EditUserDialog with currentAdminId details
-        JOptionPane.showMessageDialog(this, "Fetching your profile...");
     }
 }

@@ -45,23 +45,31 @@ public class PatientDashboard extends JFrame {
         logoLabel.setForeground(Color.WHITE);
         logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
         logoLabel.setBounds(50, 30, 150, 30);
+        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                renderDashboardHome();
+            }
+        });
         sidebar.add(logoLabel);
         
         // --- SIDEBAR BUTTONS ---
         bookBtn = createSidebarButton("Book Appointment", 100);
-        todayBtn = createSidebarButton("Today's Schedule", 150); // Renamed for clarity
-        requestBtn = createSidebarButton("My Appointment Requests", 200);
-        historyBtn = createSidebarButton("My Appointment History", 250);
-        cancelledBtn = createSidebarButton("Cancelled List", 300);
+        todayBtn = createSidebarButton("Today's Schedule", 150);
+        JButton upcomingBtn = createSidebarButton("Upcoming Visits", 200); // New Button
+        requestBtn = createSidebarButton("My Appointment Requests", 250); // Shifted Y positions
+        historyBtn = createSidebarButton("Medical History", 300);
+        cancelledBtn = createSidebarButton("Cancelled List", 350);
         // NEW BUTTON HERE
-        notificationBtn = createSidebarButton("Notifications", 350); 
+        notificationBtn = createSidebarButton("Notifications", 400); 
         notificationBtn.addActionListener(e -> {
             showPanel(new com.dentalclinic.patient.PatientNotificationPanel(pID, this));
         });
-        profileBtn = createSidebarButton("Profile", 400);
+        profileBtn = createSidebarButton("Profile", 450);
 
         sidebar.add(bookBtn);
         sidebar.add(todayBtn);
+        sidebar.add(upcomingBtn);
         sidebar.add(requestBtn);
         sidebar.add(historyBtn);
         sidebar.add(cancelledBtn);
@@ -103,6 +111,10 @@ public class PatientDashboard extends JFrame {
             // This replaces your old 'View Appointments' logic
             showPanel(new com.dentalclinic.patient.ViewAppointmentsPanel(pID));
         });
+        
+        upcomingBtn.addActionListener(e -> {
+            showPanel(new com.dentalclinic.patient.PatientUpcomingPanel(pID));
+        });
 
         historyBtn.addActionListener(e -> {
             showPanel(new com.dentalclinic.patient.PatientHistoryPanel(pID));
@@ -121,7 +133,7 @@ public class PatientDashboard extends JFrame {
     }
     private void showPanel(JPanel panel) {
         contentArea.removeAll();
-        contentArea.setLayout(new BorderLayout());
+        contentArea.setLayout(new BorderLayout()); // Ensure it fills the area
         contentArea.add(panel, BorderLayout.CENTER);
         contentArea.revalidate();
         contentArea.repaint();
@@ -270,5 +282,4 @@ public class PatientDashboard extends JFrame {
             e.printStackTrace();
         }
     }
-    
 }

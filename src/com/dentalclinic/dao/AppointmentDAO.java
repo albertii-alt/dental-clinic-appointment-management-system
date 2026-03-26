@@ -423,12 +423,25 @@ public class AppointmentDAO {
     // Today's Appointments with Patient Names
     public List<Object[]> getTodaysAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_time " +
+
+        // 1. Added a.status to the SELECT statement
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_time, a.status " +
                        "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
                        "WHERE a.appointment_date = CURDATE() AND a.status = 'Approved'";
-        try (Connection conn = DBConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(query)) {
+
+        try (Connection conn = DBConnection.getConnection(); 
+             Statement st = conn.createStatement(); 
+             ResultSet rs = st.executeQuery(query)) {
+
             while (rs.next()) {
-                list.add(new Object[]{ rs.getInt(1), rs.getString(2) + " " + rs.getString(3), rs.getString(4), rs.getString(5) });
+                // 2. Included rs.getString(6) in the Object array
+                list.add(new Object[]{ 
+                    rs.getInt(1),                             // ID
+                    rs.getString(2) + " " + rs.getString(3), // Patient Name
+                    rs.getString(4),                         // Service
+                    rs.getString(5),                         // Time
+                    rs.getString(6)                          // Status (THIS WAS MISSING)
+                });
             }
         }
         return list;

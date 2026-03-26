@@ -49,7 +49,15 @@ public class PatientCancelledPanel extends JPanel {
         try {
             model.setRowCount(0);
             List<Appointment> list = appService.getPatientHistory(pID);
-            
+                if (list.isEmpty()) {   
+                // Optional: Show a message if no appointments today
+                setLayout(new GridBagLayout());
+                removeAll();
+                JLabel noApp = new JLabel("You have no cancelled appointments!");
+                noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                noApp.setForeground(Color.GRAY);
+                add(noApp);
+            } else {
             for (Appointment a : list) {
                 if (a.getStatus().equalsIgnoreCase("Cancelled")) {
                     model.addRow(new Object[]{
@@ -60,6 +68,7 @@ public class PatientCancelledPanel extends JPanel {
                     });
                 }
             }
+        }
         } catch (Exception e) {
             e.printStackTrace();
         }

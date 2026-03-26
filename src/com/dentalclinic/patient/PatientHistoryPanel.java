@@ -53,13 +53,21 @@ public class PatientHistoryPanel extends JPanel {
             // This calls the DAO. If you removed the 'AND is_archived = FALSE' from the DAO, 
             // 'all' will now contain everything again.
             List<Appointment> all = appService.getPatientHistory(patientID);
-
+            
             // WE ONLY FILTER BY STATUS 'Completed'. 
             // We do NOT check a.isArchived() here.
             List<Appointment> completed = all.stream()
                 .filter(a -> a.getStatus().equalsIgnoreCase("Completed"))
                 .collect(Collectors.toList());
-
+              if (completed.isEmpty()) {   
+                // Optional: Show a message if no appointments today
+                setLayout(new GridBagLayout());
+                removeAll();
+                JLabel noApp = new JLabel("You have no done appointments yet.");
+                noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                noApp.setForeground(Color.GRAY);
+                add(noApp);
+            } else {
             for (Appointment a : completed) {
                 model.addRow(new Object[]{
                     a.getAppointmentDate(),
@@ -67,7 +75,7 @@ public class PatientHistoryPanel extends JPanel {
                     a.getAppointmentTime(),
                     a.getStatus()
                 });
-            }
+            }}
         } catch (Exception e) { e.printStackTrace(); }
     }
 

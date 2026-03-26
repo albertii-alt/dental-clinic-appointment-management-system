@@ -4,33 +4,30 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.util.List;
-import java.util.ArrayList; // Added for filtering logic
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
-import com.dentalclinic.service.AppointmentService;
-import javax.imageio.ImageIO;
+import com.dentalclinic.dao.AppointmentDAO;
 import java.awt.image.BufferedImage;
 import java.io.File;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
+import java.util.ArrayList;
+import javax.imageio.ImageIO;
 
-public class ViewAppointmentsPanel extends JPanel {
+public class PatientUpcomingPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
-    private List<Appointment> filteredList = new ArrayList<>(); // THE FIX: Keep track of what's actually in the table
+    private List<Appointment> upcomingList;
+    private List<Appointment> filteredList = new ArrayList<>();
+    private com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
 
-    public ViewAppointmentsPanel(int patientID) {
+    public PatientUpcomingPanel(int patientID) {
         setLayout(new BorderLayout(10, 10));
         setBackground(new Color(236, 240, 241));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // --- TITLE ---
-        JLabel title = new JLabel("My Appointment Requests");
+        JLabel title = new JLabel("My Upcoming Appointments");
         title.setFont(new Font("Arial", Font.BOLD, 24));
         add(title, BorderLayout.NORTH);
 
-        // --- TABLE SETUP ---
         String[] columns = {"Service", "Date", "Time", "Status"};
         model = new DefaultTableModel(columns, 0) {
             @Override
@@ -38,20 +35,24 @@ public class ViewAppointmentsPanel extends JPanel {
         };
         
         table = new JTable(model);
-        table.setRowHeight(30);
+        table.setRowHeight(35);
         table.getTableHeader().setFont(new Font("Arial", Font.BOLD, 14));
         
-        JScrollPane scrollPane = new JScrollPane(table);
-        add(scrollPane, BorderLayout.CENTER);
-        
-        // --- CLICK LISTENER ---
+        // Add a nice "Double Click for Receipt" message
+        JLabel hint = new JLabel("Double-click an appointment to view details or download receipt.");
+        hint.setFont(new Font("Arial", Font.ITALIC, 12));
+        add(hint, BorderLayout.SOUTH);
+
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
-                if (e.getClickCount() == 2) { 
+                if (e.getClickCount() == 2) {
                     int row = table.getSelectedRow();
                     if (row != -1) {
-                        showAppointmentDetails(row, patientID);
+                        // Reuse your existing detail logic from ViewAppointmentsPanel
+                        showApprovedAppointmentDetails(row, patientID);
                     }
                 }
             }
@@ -63,42 +64,47 @@ public class ViewAppointmentsPanel extends JPanel {
     private void loadData(int pID) {
         try {
             model.setRowCount(0);
-            List<Appointment> allAppointments = appService.getPatientAppointmentHistory(pID);
+            AppointmentDAO dao = new AppointmentDAO();
+            upcomingList = dao.getUpcomingScheduleByPatient(pID);
 
-            // UPDATE: Remove "Approved" from this filter
-            filteredList = allAppointments.stream()
-                .filter(a -> a.getStatus().equalsIgnoreCase("Pending") || 
-                             a.getStatus().equalsIgnoreCase("Declined")) 
-                .collect(Collectors.toList());
-              if (filteredList.isEmpty()) {   
-                // Optional: Show a message if no appointments today
+            // --- ADD THIS LINE ---
+            // This syncs the list used by the double-click logic with the data from the DB
+            filteredList = new ArrayList<>(upcomingList); 
+
+            if (upcomingList.isEmpty()) {   
                 setLayout(new GridBagLayout());
                 removeAll();
-                JLabel noApp = new JLabel("You have didn't book an appointment yet!");
+                JLabel noApp = new JLabel("You have no upcoming appointments for today.");
                 noApp.setFont(new Font("Arial", Font.BOLD, 18));
                 noApp.setForeground(Color.GRAY);
                 add(noApp);
             } else {
-            for (Appointment a : filteredList) {
-                model.addRow(new Object[]{
-                    a.getServiceType(),
-                    a.getAppointmentDate().toString(),
-                    a.getAppointmentTime(),
-                    a.getStatus()
-                });
-            }}
+                for (Appointment a : upcomingList) {
+                    model.addRow(new Object[]{
+                        a.getServiceType(),
+                        a.getAppointmentDate(),
+                        a.getAppointmentTime(),
+                        "Confirmed"
+                    });
+                }
+            }
+            // Refresh the UI to show the table
+            revalidate();
+            repaint();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    
-    private void showAppointmentDetails(int rowIndex, int pID) {
+
+    private void showApprovedAppointmentDetails(int rowIndex, int pID) {
         try {
+            // --- 1. DATA FETCHING ---
+            // Using the same list logic you provided
             Appointment app = filteredList.get(rowIndex);
             com.dentalclinic.dao.PatientDAO pDao = new com.dentalclinic.dao.PatientDAO();
             com.dentalclinic.model.Patient p = pDao.getPatientById(pID);
 
-            // --- UI PANEL SETUP (Same as before) ---
+            // --- 2. UI PANEL SETUP (Identical to your layout) ---
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
             detailPanel.setBackground(Color.WHITE);
@@ -107,6 +113,7 @@ public class ViewAppointmentsPanel extends JPanel {
             Font headerFont = new Font("Arial", Font.BOLD, 16);
             Font dataFont = new Font("Arial", Font.PLAIN, 14);
 
+            // APPOINTMENT SUMMARY SECTION
             JLabel title1 = new JLabel("APPOINTMENT SUMMARY");
             title1.setFont(new Font("Arial", Font.BOLD, 14));
             detailPanel.add(title1);
@@ -117,23 +124,22 @@ public class ViewAppointmentsPanel extends JPanel {
             detailPanel.add(createDetailLabel("Service Type:", app.getServiceType(), dataFont));
             detailPanel.add(createDetailLabel("Date:", app.getAppointmentDate().toString(), dataFont));
             detailPanel.add(createDetailLabel("Time Slot:", app.getAppointmentTime(), dataFont));
-            
+
+            // Status specifically set to Approved styling as per your color logic
             JLabel statusLbl = new JLabel("Status: " + app.getStatus().toUpperCase());
-            if(app.getStatus().equalsIgnoreCase("Pending")) statusLbl.setForeground(new Color(230, 126, 34));
-            else if(app.getStatus().equalsIgnoreCase("Approved")) statusLbl.setForeground(new Color(46, 204, 113));
-            else statusLbl.setForeground(Color.RED);
-            
+            statusLbl.setForeground(new Color(46, 204, 113)); // Your Approved Green
             statusLbl.setFont(headerFont);
             detailPanel.add(statusLbl);
             detailPanel.add(Box.createVerticalStrut(15));
 
+            // PATIENT INFORMATION SECTION
             JLabel title2 = new JLabel("PATIENT INFORMATION");
             title2.setFont(new Font("Arial", Font.BOLD, 14));
             detailPanel.add(title2);
             detailPanel.add(Box.createVerticalStrut(5));
             detailPanel.add(new JSeparator());
             detailPanel.add(Box.createVerticalStrut(10));
-            
+
             String fullName = p.getFirstName() + " " + (p.getMiddleName().isEmpty() ? "" : p.getMiddleName() + " ") + p.getLastName();
             detailPanel.add(createDetailLabel("Full Name:", fullName, dataFont));
             detailPanel.add(createDetailLabel("Birthdate:", p.getBirthDate().toString(), dataFont));
@@ -141,51 +147,40 @@ public class ViewAppointmentsPanel extends JPanel {
             detailPanel.add(createDetailLabel("Contact No:", app.getContactAtVisit(), dataFont));
             detailPanel.add(createDetailLabel("Full Address:", "<html><p style='width:250px'>" + p.getAddress() + "</p></html>", dataFont));
 
-            // --- UPDATED BUTTON LOGIC ---
+            // --- 3. SEPARATED BUTTON LOGIC (Approved Only) ---
             java.util.List<String> optionsList = new java.util.ArrayList<>();
-            
-            String status = app.getStatus();
-            
-            // 1. Download Receipt only available if Approved
-            if (status.equalsIgnoreCase("Approved")) {
-                optionsList.add("Download Receipt");
-            }
-            
-            // 2. Cancel Request only available if Pending
-            if (status.equalsIgnoreCase("Pending")) {
-                optionsList.add("Cancel Request");
-            }
-            
+
+            // We only add Download Receipt because this method is strictly for Approved
+            optionsList.add("Download Receipt");
             optionsList.add("Close");
 
             String[] options = optionsList.toArray(new String[0]);
-            
+
             detailPanel.setSize(new Dimension(400, 450));
             layoutComponent(detailPanel);
 
             int selection = JOptionPane.showOptionDialog(
-                this, detailPanel, "Appointment Request Summary", 
+                this, detailPanel, "Appointment Summary", 
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[options.length - 1]
             );
 
-            // --- UPDATED SELECTION LOGIC (Text-Based) ---
+            // --- 4. SELECTION LOGIC ---
             if (selection != -1) {
                 String selectedValue = options[selection];
-                
+
                 if (selectedValue.equals("Download Receipt")) {
                     savePanelAsImage(detailPanel, "Receipt_" + app.getAppointmentId());
-                } else if (selectedValue.equals("Cancel Request")) {
-                    handleCancellation(app, pID);
                 }
+                // "Close" does nothing and simply dismisses the dialog
             }
-            
+
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             ex.printStackTrace();
         }
     }
-
-    private JLabel createDetailLabel(String title, String value, Font font) {
+    
+        private JLabel createDetailLabel(String title, String value, Font font) {
         JLabel label = new JLabel("<html><b>" + title + "</b> " + value + "</html>");
         label.setFont(font);
         label.setBorder(BorderFactory.createEmptyBorder(2, 0, 2, 0));
@@ -224,8 +219,7 @@ public class ViewAppointmentsPanel extends JPanel {
             }
         }
     }
-    
-    private void handleCancellation(Appointment app, int pID) {
+       private void handleCancellation(Appointment app, int pID) {
         int confirm = JOptionPane.showConfirmDialog(this, 
             "Are you sure you want to cancel this appointment request?", 
             "Confirm Cancellation", JOptionPane.YES_NO_OPTION);

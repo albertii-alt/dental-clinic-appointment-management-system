@@ -83,7 +83,15 @@ public class AuditTrailsPanel extends JPanel {
         try {
             tableModel.setRowCount(0); 
             List<Object[]> logs = logService.getActivityLogs(); 
-
+                if (logs.isEmpty()) {   
+                    // Optional: Show a message if no appointments today
+                    setLayout(new GridBagLayout());
+                    removeAll();
+                    JLabel noApp = new JLabel("No logs yet.");
+                    noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                    noApp.setForeground(Color.GRAY);
+                    add(noApp);
+                } else {
             for (Object[] row : logs) {
 
                 int performerId = (int) row[1]; // Adjust index based on your LogService SQL
@@ -105,7 +113,7 @@ public class AuditTrailsPanel extends JPanel {
                 };
 
                 tableModel.addRow(displayRow);
-            }
+            }}
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error loading logs: " + e.getMessage());
         }

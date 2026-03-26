@@ -63,6 +63,15 @@ public class UpcomingAppointmentsPanel extends JPanel {
             model.setRowCount(0);
             // Reusing the DAO logic but filtering for 'Approved'
             List<Appointment> upcoming = appService.getUpcomingAppointments();
+              if (upcoming.isEmpty()) {   
+                // Optional: Show a message if no appointments today
+                setLayout(new GridBagLayout());
+                removeAll();
+                JLabel noApp = new JLabel("No upcoming appointments!");
+                noApp.setFont(new Font("Arial", Font.BOLD, 18));
+                noApp.setForeground(Color.GRAY);
+                add(noApp);
+            } else {
             for (Appointment a : upcoming) {
                 // Fetching name for the table (Staff needs to see who is coming)
                 Patient p = pDao.getPatientById(a.getPatientId());
@@ -72,7 +81,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
                     a.getAppointmentId(), a.getPatientId(), fullName, 
                     a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus()
                 });
-            }
+            }}
         } catch (Exception e) { e.printStackTrace(); }
     }
 
