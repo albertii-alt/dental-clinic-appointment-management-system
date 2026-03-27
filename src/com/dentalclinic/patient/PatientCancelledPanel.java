@@ -13,6 +13,7 @@ public class PatientCancelledPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private AppointmentService appService = new AppointmentService();
+    private JCheckBox showArchivedBox;
 
     // THEME COLORS
     private final Color BG = new Color(245, 247, 250);
@@ -32,6 +33,13 @@ public class PatientCancelledPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(DANGER_RED);
         headerPanel.add(title, BorderLayout.WEST);
+        
+        // ADDED: ARCHIVE TOGGLE
+        showArchivedBox = new JCheckBox("Show Archived (>30 days)");
+        showArchivedBox.setOpaque(false);
+        showArchivedBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        showArchivedBox.addActionListener(e -> loadCancelledData(patientID));
+        headerPanel.add(showArchivedBox, BorderLayout.EAST);
 
         JLabel subtitle = new JLabel("Records of voided or missed requests");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -99,15 +107,24 @@ public class PatientCancelledPanel extends JPanel {
     private void loadCancelledData(int pID) {
         try {
             model.setRowCount(0);
-            List<Appointment> allHistory = appService.getPatientHistory(pID);
-            
-            // Filter only for Cancelled status
-            List<Appointment> cancelledList = allHistory.stream()
-                .filter(a -> a.getStatus().equalsIgnoreCase("Cancelled"))
-                .collect(Collectors.toList());
+            List<Appointment> cancelledList;
+
+            if (showArchivedBox.isSelected()) {
+                // Fetch EVERYTHING (Old & New)
+                cancelledList = appService.getPatientHistory(pID).stream()
+                    .filter(a -> a.getStatus().equalsIgnoreCase("Cancelled"))
+                    .collect(Collectors.toList());
+            } else {
+                // Fetch ONLY last 30 days using our new Service method
+                cancelledList = appService.getAutoArchivedCancelled(pID);
+            }
 
             if (cancelledList.isEmpty()) {   
-                showEmptyState();
+                // We don't want to call showEmptyState() here because it 
+                // removes the header/checkbox. Instead, just clear the table.
+                if (showArchivedBox.isSelected()) {
+                    JOptionPane.showMessageDialog(this, "No archived records found.");
+                }
             } else {
                 for (Appointment a : cancelledList) {
                     model.addRow(new Object[]{

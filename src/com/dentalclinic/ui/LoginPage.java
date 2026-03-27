@@ -1,157 +1,236 @@
 package com.dentalclinic.ui;
 
 import javax.swing.*;
+import javax.swing.border.*;
 import java.awt.*;
-import java.sql.ResultSet;
+import java.awt.event.*;
 import java.sql.SQLException;
-import com.dentalclinic.dao.PatientDAO;
-import com.dentalclinic.ui.PatientDashboard;// Ensure this import exists
-import com.dentalclinic.service.AuthService;
 import com.dentalclinic.model.Patient;
+import com.dentalclinic.service.AuthService;
+import com.dentalclinic.dao.RolesPermissionDAO;
+import com.dentalclinic.util.UserSession;
+import com.dental.clinic.ui.components.SuccessDialog;
+import com.dental.clinic.ui.components.ErrorDialog;
+import com.dental.clinic.ui.components.ErrorDialog;
+import com.dental.clinic.ui.components.SuccessDialog;
+import javax.imageio.ImageIO;
+import java.io.InputStream;
 
 public class LoginPage extends JFrame {
 
     private JTextField usernameField;
     private JPasswordField passwordField;
-    private JButton loginButton;
-    private JButton registerButton;
     private JComboBox<String> roleDropdown;
+    private JButton loginButton, registerButton;
+
+    private final Color PRIMARY_BLUE = new Color(41, 128, 185);
+    private final Color SECONDARY_BLUE = new Color(52, 152, 219);
+    private final Color SIDEBAR_BG = new Color(242, 245, 248); 
+    private final Color TEXT_DARK = new Color(44, 62, 80);
+    private final Color TEXT_GRAY = new Color(127, 140, 141);
+    private final Color BORDER_COLOR = new Color(218, 226, 234);
 
     public LoginPage() {
-        setTitle("Dental Clinic Appointment Management System");
-        setSize(400, 300);
+        setTitle("Vantage Dental - Login");
+        setSize(950, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        JPanel panel = new JPanel();
-        panel.setLayout(null);
-        panel.setBackground(Color.WHITE);
+        JPanel masterPanel = new JPanel(new GridLayout(1, 2));
+        add(masterPanel);
 
-        JLabel titleLabel = new JLabel("Dental Clinic Login");
-        titleLabel.setFont(new Font("Arial", Font.BOLD, 18));
-        titleLabel.setBounds(110, 20, 200, 30);
-        panel.add(titleLabel);
+        // --- Sidebar (Left) ---
+        JPanel sidebar = new JPanel(new GridBagLayout());
+        sidebar.setBackground(SIDEBAR_BG);
+        sidebar.setBorder(new EmptyBorder(50, 50, 50, 50));
+        GridBagConstraints gbcL = new GridBagConstraints();
+        gbcL.gridx = 0; gbcL.fill = GridBagConstraints.HORIZONTAL; gbcL.anchor = GridBagConstraints.NORTHWEST;
 
-        // --- USERNAME ---
-        JLabel usernameLabel = new JLabel("Username:");
-        usernameLabel.setBounds(50, 80, 80, 25);
-        panel.add(usernameLabel);
+        JLabel name = new JLabel("Vantage Dental");
+        name.setFont(new Font("Segoe UI", Font.BOLD, 36));
+        name.setForeground(PRIMARY_BLUE);
+        gbcL.gridy = 0; sidebar.add(name, gbcL);
 
-        usernameField = new JTextField();
-        usernameField.setBounds(140, 80, 180, 25);
-        panel.add(usernameField);
+        JLabel sub = new JLabel("Appointment Portal");
+        sub.setFont(new Font("Segoe UI Semilight", Font.PLAIN, 20));
+        sub.setForeground(TEXT_DARK);
+        gbcL.gridy = 1; gbcL.insets = new Insets(5, 0, 0, 0);
+        sidebar.add(sub, gbcL);
 
-        // --- PASSWORD ---
-        JLabel passwordLabel = new JLabel("Password:");
-        passwordLabel.setBounds(50, 120, 80, 25);
-        panel.add(passwordLabel);
+        gbcL.gridy = 2; gbcL.weighty = 1.0; sidebar.add(Box.createVerticalGlue(), gbcL);
 
-        passwordField = new JPasswordField();
-        passwordField.setBounds(140, 120, 180, 25);
-        panel.add(passwordField);
+        JLabel logo = loadLogo("/com/dentalclinic/resources/VantageLogo.png", 350, -1);
+        if (logo != null) {
+            gbcL.gridy = 3; gbcL.weighty = 0; gbcL.anchor = GridBagConstraints.CENTER;
+            sidebar.add(logo, gbcL);
+        }
+
+        gbcL.gridy = 4; gbcL.weighty = 1.0; sidebar.add(Box.createVerticalGlue(), gbcL);
         
-        // --- ADD THIS ABOVE THE BUTTONS IN THE CONSTRUCTOR ---
-        JLabel roleLabel = new JLabel("Login as:");
-        roleLabel.setBounds(50, 150, 80, 25);
-        panel.add(roleLabel);
+        // --- Enhanced Footer Section ---
+        JPanel footerContainer = new JPanel(new BorderLayout(15, 0));
+        footerContainer.setOpaque(false);
 
-        String[] roles = {"Patient", "Staff", "Dentist", "Admin"};
-        roleDropdown = new JComboBox<>(roles);
-        roleDropdown.setBounds(140, 150, 180, 25);
-        panel.add(roleDropdown);
+        // Modern Accent Bar
+        JPanel accentBar = new JPanel();
+        accentBar.setPreferredSize(new Dimension(4, 0));
+        accentBar.setBackground(PRIMARY_BLUE);
+        footerContainer.add(accentBar, BorderLayout.WEST);
 
+        // Text Content
+        JLabel footerText = new JLabel("<html><div style='font-family: Segoe UI;'>" +
+                "<b style='font-size: 14px; color: " + String.format("#%02x%02x%02x", TEXT_DARK.getRed(), TEXT_DARK.getGreen(), TEXT_DARK.getBlue()) + ";'>Manage Your Oral Health</b><br>" +
+                "<span style='font-size: 11px; color: " + String.format("#%02x%02x%02x", TEXT_GRAY.getRed(), TEXT_GRAY.getGreen(), TEXT_GRAY.getBlue()) + ";'>Log in to view clinic schedules, treatment<br>history, and digital prescriptions.</span></div></html>");
 
-        // --- BUTTONS ---
+        footerContainer.add(footerText, BorderLayout.CENTER);
+
+        gbcL.gridy = 5; 
+        gbcL.weighty = 0; 
+        gbcL.insets = new Insets(20, 0, 0, 0); // Adds breathing room from the logo
+        gbcL.anchor = GridBagConstraints.SOUTHWEST;
+        sidebar.add(footerContainer, gbcL);
+
+        masterPanel.add(sidebar);
+
+        // --- Form (Right) ---
+        JPanel formArea = new JPanel(new GridBagLayout());
+        formArea.setBackground(Color.WHITE);
+        formArea.setBorder(new EmptyBorder(40, 70, 40, 70));
+        GridBagConstraints gbcR = new GridBagConstraints();
+        gbcR.gridx = 0; gbcR.fill = GridBagConstraints.HORIZONTAL; gbcR.weightx = 1.0;
+
+        JLabel title = new JLabel("Welcome Back!");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 30));
+        title.setForeground(TEXT_DARK);
+        gbcR.gridy = 0; formArea.add(title, gbcR);
+
+        JLabel subtitle = new JLabel("Please enter your details to sign in.");
+        subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        subtitle.setForeground(TEXT_GRAY);
+        gbcR.gridy = 1; gbcR.insets = new Insets(8, 0, 35, 0);
+        formArea.add(subtitle, gbcR);
+
+        addInputSection(formArea, "USERNAME", usernameField = new JTextField(), gbcR, 2);
+        addInputSection(formArea, "PASSWORD", passwordField = new JPasswordField(), gbcR, 4);
+
+        gbcR.gridy = 6; gbcR.insets = new Insets(0, 0, 5, 0);
+        formArea.add(createFieldLabel("SIGN IN AS"), gbcR);
+        roleDropdown = new JComboBox<>(new String[]{"Patient", "Staff", "Dentist", "Admin"});
+        roleDropdown.setPreferredSize(new Dimension(0, 45));
+        roleDropdown.setBackground(Color.WHITE);
+        gbcR.gridy = 7; gbcR.insets = new Insets(0, 0, 35, 0);
+        formArea.add(roleDropdown, gbcR);
+
+        JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        btns.setOpaque(false);
         loginButton = new JButton("Login");
-        loginButton.setBounds(120, 200, 80, 30);
-        panel.add(loginButton);
+        styleFormButton(loginButton, SECONDARY_BLUE, Color.WHITE);
+        loginButton.setPreferredSize(new Dimension(140, 50));
+        registerButton = new JButton("Create Account");
+        styleFormButton(registerButton, Color.WHITE, TEXT_DARK);
+        registerButton.setBorder(new LineBorder(BORDER_COLOR));
+        registerButton.setPreferredSize(new Dimension(160, 50));
+        btns.add(loginButton); btns.add(Box.createHorizontalStrut(15)); btns.add(registerButton);
 
-        registerButton = new JButton("Register");
-        registerButton.setBounds(220, 200, 90, 30);
-        panel.add(registerButton);
- 
-        add(panel);
+        gbcR.gridy = 8; gbcR.insets = new Insets(0, 0, 0, 0);
+        formArea.add(btns, gbcR);
 
+        masterPanel.add(formArea);
+        initActionListeners();
+        setVisible(true);
+    }
+
+    private void addInputSection(JPanel p, String label, JTextField field, GridBagConstraints c, int row) {
+        c.gridy = row; c.insets = new Insets(0, 0, 5, 0);
+        p.add(createFieldLabel(label), c);
+        styleInputField(field);
+        c.gridy = row + 1; c.insets = new Insets(0, 0, 20, 0);
+        p.add(field, c);
+    }
+
+    private JLabel createFieldLabel(String text) {
+        JLabel lbl = new JLabel(text);
+        lbl.setFont(new Font("Segoe UI Bold", Font.BOLD, 11));
+        lbl.setForeground(TEXT_GRAY);
+        return lbl;
+    }
+
+    private void styleInputField(JTextField f) {
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        f.setPreferredSize(new Dimension(0, 45));
+        Border n = BorderFactory.createCompoundBorder(new LineBorder(BORDER_COLOR), BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        Border a = BorderFactory.createCompoundBorder(new LineBorder(SECONDARY_BLUE, 1), BorderFactory.createEmptyBorder(5, 15, 5, 15));
+        f.setBorder(n);
+        f.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) { f.setBorder(a); }
+            public void focusLost(FocusEvent e) { f.setBorder(n); }
+        });
+    }
+
+    private void styleFormButton(JButton b, Color bg, Color fg) {
+        b.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
+        b.setBackground(bg); b.setForeground(fg);
+        b.setFocusPainted(false); b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        b.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { b.setBackground(bg != Color.WHITE ? bg.darker() : new Color(250, 250, 250)); }
+            public void mouseExited(MouseEvent e) { b.setBackground(bg); }
+        });
+    }
+
+    private void initActionListeners() {
         loginButton.addActionListener(e -> {
-            String username = usernameField.getText();
-            String password = new String(passwordField.getPassword());
-            String selectedRole = (String) roleDropdown.getSelectedItem();
+            String user = usernameField.getText();
+            String pass = new String(passwordField.getPassword());
+            String role = (String) roleDropdown.getSelectedItem();
 
             AuthService authService = new AuthService();
-            com.dentalclinic.dao.RolesPermissionDAO rpDao = new com.dentalclinic.dao.RolesPermissionDAO();
+            RolesPermissionDAO rpDao = new RolesPermissionDAO();
 
             try {
-                Object result = authService.login(username, password, selectedRole);
+                Object result = authService.login(user, pass, role);
 
                 if (result instanceof Object[]) {
                     Object[] data = (Object[]) result;
-                    int loggedId = (int) data[0];      
-                    String roleStr = (String) data[1];    
-                    boolean isSuper = (boolean) data[2];
-                    String fullName = (String) data[3]; 
-                    String userEmail = (data.length > 4) ? (String) data[4] : "No Email";
+                    int id = (int) data[0]; String rStr = (String) data[1];
+                    boolean isS = (boolean) data[2]; String name = (String) data[3];
+                    String email = (data.length > 4) ? (String) data[4] : "No Email";
 
-                    // --- NEW PERMISSION LOGIC ---
-                    // 1. Map the role string to the role_id we created in SQL
-                    int roleId = 3; // Default to Staff
-                    if (roleStr.equalsIgnoreCase("ADMIN")) roleId = 1;
-                    else if (roleStr.equalsIgnoreCase("DENTIST")) roleId = 2;
+                    int rId = rStr.equalsIgnoreCase("ADMIN") ? 1 : (rStr.equalsIgnoreCase("DENTIST") ? 2 : 3);
+                    UserSession.initialize(id, name, isS ? "Super Admin" : rStr, rpDao.getPermissionNamesForRole(rId));
 
-                    // 2. Fetch the actual permission names (e.g., "MANAGE_USERS", "VIEW_DASHBOARD")
-                    java.util.List<String> permissions = rpDao.getPermissionNamesForRole(roleId);
-
-                    // 3. Initialize Global Session with the permissions list
-                    String sessionRole = isSuper ? "Super Admin" : roleStr;
-                    com.dentalclinic.util.UserSession.initialize(loggedId, fullName, sessionRole, permissions);
-                    // ----------------------------
-
-                    // Route to the correct Dashboard
-                    if (roleStr.equalsIgnoreCase("ADMIN")) {
-                        new com.dentalclinic.ui.AdminDashboard(loggedId, isSuper, fullName, userEmail, username);
-                    } 
-                    else if (roleStr.equalsIgnoreCase("DENTIST")) {
-                        new com.dentalclinic.ui.DentistDashboard(loggedId, fullName, username, userEmail);
-                    }
-                    else if (roleStr.equalsIgnoreCase("STAFF")) {
-                        new com.dentalclinic.ui.StaffDashboard(loggedId, fullName, username, userEmail);
-                    }
-
-                    dispose(); 
+                    SuccessDialog.show(this, "Access Granted", "Welcome back, " + name + "!");
+                    
+                    if (rStr.equalsIgnoreCase("ADMIN")) new AdminDashboard(id, isS, name, email, user);
+                    else if (rStr.equalsIgnoreCase("DENTIST")) new DentistDashboard(id, name, user, email);
+                    else if (rStr.equalsIgnoreCase("STAFF")) new StaffDashboard(id, name, user, email);
+                    dispose();
                 } 
                 else if (result instanceof Patient) {
                     Patient p = (Patient) result;
-                    String patientFullName = p.getFirstName() + " " + p.getLastName();
-
-                    // Patients usually don't have granular permissions in the role_permissions table, 
-                    // so we pass an empty list or null.
-                    com.dentalclinic.util.UserSession.initialize(p.getPatientId(), patientFullName, "PATIENT", null);
-
-                    JOptionPane.showMessageDialog(null, "Login Successful! Welcome, " + p.getFirstName());
-
-                    new PatientDashboard(
-                        p.getPatientId(), p.getFirstName(), p.getMiddleName(), 
-                        p.getLastName(), p.getBirthDate().toString(), 
-                        String.valueOf(p.getAge()), p.getAddress(), 
-                        p.getContactNumber(), p.getUsername()
-                    );
-
+                    UserSession.initialize(p.getPatientId(), p.getFirstName() + " " + p.getLastName(), "PATIENT", null);
+                    SuccessDialog.show(this, "Welcome Back!", "Logging you in, " + p.getFirstName());
+                    new PatientDashboard(p.getPatientId(), p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getBirthDate().toString(), String.valueOf(p.getAge()), p.getAddress(), p.getContactNumber(), p.getUsername());
                     dispose();
                 } 
                 else {
-                    JOptionPane.showMessageDialog(null, "Invalid Username or Password for the selected role.", 
-                                                  "Login Failed", JOptionPane.ERROR_MESSAGE);
+                    ErrorDialog.show(this, "Login Failed", "The username or password you entered is incorrect for the selected role.");
                 }
             } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(null, "Database Connection Error: " + ex.getMessage());
-                ex.printStackTrace();
+                ErrorDialog.show(this, "Database Error", "Unable to connect to the clinic server: " + ex.getMessage());
             }
         });
-        
+
         registerButton.addActionListener(e -> {
             new com.dentalclinic.patient.RegisterPatientForm();
             dispose();
         });
+    }
 
-        setVisible(true);
+    private JLabel loadLogo(String path, int w, int h) {
+        try {
+            InputStream is = getClass().getResourceAsStream(path);
+            if (is == null) return null;
+            return new JLabel(new ImageIcon(ImageIO.read(is).getScaledInstance(w, h, Image.SCALE_SMOOTH)));
+        } catch (Exception e) { return null; }
     }
 }

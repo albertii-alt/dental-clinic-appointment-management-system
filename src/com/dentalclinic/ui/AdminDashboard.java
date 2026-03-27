@@ -5,6 +5,7 @@ import java.awt.*;
 import com.dentalclinic.admin.AdminDashboardPanel;
 import com.dentalclinic.admin.ClinicSettingsPanel;
 import com.dentalclinic.admin.ManageUsersPanel;
+import com.dental.clinic.ui.components.LogoutDialog;
 import com.dentalclinic.util.UserSession;
 
 public class AdminDashboard extends JFrame {
@@ -133,8 +134,16 @@ public class AdminDashboard extends JFrame {
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
         logoutBtn.setBackground(new Color(192, 57, 43));
         logoutBtn.addActionListener(e -> {
-            new LoginPage();
-            dispose();
+            boolean confirm = LogoutDialog.show(this);
+    
+            if (confirm) {
+                // Clear the session
+                com.dentalclinic.util.UserSession.initialize(0, null, null, null);
+
+                // Return to login
+                new com.dentalclinic.ui.LoginPage();
+                this.dispose();
+            }
         });
         sidebar.add(logoutBtn);
 

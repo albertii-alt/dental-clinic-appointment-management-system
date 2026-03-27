@@ -182,6 +182,7 @@ public class ViewAppointmentsPanel extends JPanel {
             java.util.List<String> optionsList = new java.util.ArrayList<>();
             if (app.getStatus().equalsIgnoreCase("Approved")) optionsList.add("Download Receipt");
             if (app.getStatus().equalsIgnoreCase("Pending")) optionsList.add("Cancel Request");
+            if (app.getStatus().equalsIgnoreCase("Declined")) optionsList.add("Delete Record");
             optionsList.add("Close");
 
             String[] options = optionsList.toArray(new String[0]);
@@ -198,6 +199,9 @@ public class ViewAppointmentsPanel extends JPanel {
                     savePanelAsImage(detailPanel, "Receipt_" + app.getAppointmentId());
                 } else if (selectedValue.equals("Cancel Request")) {
                     handleCancellation(app, pID);
+                }else if (selectedValue.equals("Delete Record")) {
+                    // CALL THE NEW DELETE METHOD
+                    handleDeleteRecord(app, pID);
                 }
             }
             
@@ -258,6 +262,27 @@ public class ViewAppointmentsPanel extends JPanel {
                 if (appService.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
                     loadData(pID);
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            }
+        }
+    }
+    
+    private void handleDeleteRecord(Appointment app, int pID) {
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "Would you like to remove this declined record from your view?\nThis action cannot be undone.", 
+            "Confirm Delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                // Assuming your appService has a delete method. 
+                // If not, you might need to add deleteAppointment(id) to AppointmentService
+                if (appService.deleteAppointment(app.getAppointmentId())) {
+                    JOptionPane.showMessageDialog(this, "Record removed.");
+                    loadData(pID); // Refresh the table
+                } else {
+                    JOptionPane.showMessageDialog(this, "Failed to delete record.", "Error", JOptionPane.ERROR_MESSAGE);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());

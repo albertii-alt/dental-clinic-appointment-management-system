@@ -4,6 +4,9 @@ import com.dentalclinic.dao.AppointmentDAO;
 import com.dentalclinic.model.Appointment;
 import java.sql.SQLException;
 import java.util.List;
+import com.dentalclinic.util.DBConnection; // Added for Database access
+import java.sql.Connection;               // Added to fix your error
+import java.sql.PreparedStatement;
 
 public class AppointmentService {
     private AppointmentDAO appointmentDAO = new AppointmentDAO();
@@ -177,5 +180,33 @@ public class AppointmentService {
                 .collect(java.util.stream.Collectors.toList());
     }
     
-
+    public boolean clearAllCancelledAppointments() {
+        String sql = "DELETE FROM appointments WHERE status IN ('Cancelled', 'Declined')";
+        try (Connection conn = com.dentalclinic.util.DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    public boolean deleteAppointment(int appointmentId) {
+        String query = "DELETE FROM appointments WHERE appointment_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(query)) {
+            ps.setInt(1, appointmentId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    // Add this to AppointmentService.java
+    public List<Appointment> getAutoArchivedCancelled(int pId) throws SQLException {
+        // We set the limit to 30 days. Anything older is "Archived" (hidden)
+        return appointmentDAO.getRecentCancelledByPatient(pId, 30);
+    }
 }

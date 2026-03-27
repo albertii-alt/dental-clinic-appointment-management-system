@@ -1,5 +1,6 @@
 package com.dentalclinic.ui;
 
+import com.dental.clinic.ui.components.LogoutDialog;
 import javax.swing.*;
 import java.awt.*;
 
@@ -93,8 +94,16 @@ public class PatientDashboard extends JFrame {
 
         // Logout Action
         logoutBtn.addActionListener(e -> { 
-            new LoginPage(); 
-            dispose(); 
+            boolean confirm = LogoutDialog.show(this);
+    
+            if (confirm) {
+                // Clear the session
+                com.dentalclinic.util.UserSession.initialize(0, null, null, null);
+
+                // Return to login
+                new com.dentalclinic.ui.LoginPage();
+                this.dispose();
+            }
         });
             // --- ACTION LISTENERS ---
         bookBtn.addActionListener(e -> {

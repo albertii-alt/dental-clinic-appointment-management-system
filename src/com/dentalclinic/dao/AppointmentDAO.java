@@ -605,5 +605,35 @@ public class AppointmentDAO {
         return "Unknown";
     }
     
+    // Add this to AppointmentDAO.java
+    public List<Appointment> getRecentCancelledByPatient(int pId, int daysLimit) throws SQLException {
+        List<Appointment> list = new ArrayList<>();
+        // Fetches cancelled appointments that are NOT archived AND within the last X days
+        String query = "SELECT * FROM appointments WHERE patient_id = ? " +
+                       "AND status = 'Cancelled' " +
+                       "AND is_archived = FALSE " +
+                       "AND appointment_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) " +
+                       "ORDER BY appointment_date DESC";
 
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, pId);
+            pstmt.setInt(2, daysLimit);
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    Appointment app = new Appointment(
+                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
+                        rs.getString("service_type"), rs.getDate("appointment_date"),
+                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
+                        rs.getString("contact_at_visit"), rs.getString("status"),
+                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
+                    );
+                    app.setArchived(rs.getBoolean("is_archived"));
+                    list.add(app);
+                }
+            }
+        }
+        return list;
+    }
 }

@@ -13,6 +13,8 @@ import java.sql.SQLException;
 
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.model.Appointment;
+import javax.swing.border.CompoundBorder;
+import javax.swing.border.LineBorder;
 
 public class BookAppointmentPanel extends JPanel {
     
@@ -226,42 +228,60 @@ public class BookAppointmentPanel extends JPanel {
 
     private void showBookingSummary(Appointment app, int refID) {
         JDialog receipt = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Success", true);
+        receipt.setUndecorated(true); // Optional: makes it look cleaner like a modern popup
         receipt.setLayout(new BorderLayout());
-        receipt.setSize(400, 500);
+        receipt.setSize(420, 520);
         receipt.setLocationRelativeTo(this);
 
+        // Main Container
         JPanel mainP = new JPanel();
         mainP.setLayout(new BoxLayout(mainP, BoxLayout.Y_AXIS));
-        mainP.setBorder(new EmptyBorder(25, 35, 25, 35));
+        mainP.setBorder(new CompoundBorder(
+            new LineBorder(new Color(230, 230, 230), 1), // Subtle border
+            new EmptyBorder(30, 40, 30, 40)
+        ));
         mainP.setBackground(Color.WHITE);
 
-        String receiptText = "<html><div style='text-align: center; font-family: Segoe UI;'>" +
-            "<h1 style='color: #27ae60; margin-bottom: 0;'>Booking Sent!</h1>" +
-            "<p style='color: #7f8c8d;'>Your request is now in our queue.</p>" +
-            "<div style='background-color: #f9f9f9; padding: 15px; border-radius: 10px;'>" +
-            "<p style='font-size: 16px;'><b>Ref ID: #" + refID + "</b></p>" +
-            "<table style='width: 100%; margin-top: 10px;'>" +
-            "<tr><td style='color: #95a5a6;'>Service:</td><td>" + app.getServiceType() + "</td></tr>" +
-            "<tr><td style='color: #95a5a6;'>Date:</td><td>" + app.getAppointmentDate() + "</td></tr>" +
-            "<tr><td style='color: #95a5a6;'>Time:</td><td>" + app.getAppointmentTime() + "</td></tr>" +
-            "<tr><td style='color: #95a5a6;'>Status:</td><td style='color: #e67e22;'><b>PENDING</b></td></tr>" +
-            "</table></div>" +
-            "<p style='font-size: 11px; color: #bdc3c7; margin-top: 20px;'>" +
-            "Admin approval is required. You will see an update in your history shortly.</p>" +
-            "</div></html>";
+        // Refined HTML for better table alignment
+        String receiptText = "<html><body style='width: 250px; font-family: Segoe UI; text-align: center;'>" +
+            "<h1 style='color: #2ecc71; margin: 0;'>Booking Sent!</h1>" +
+            "<p style='color: #7f8c8d; margin-top: 5px;'>Your request is now in our queue.</p>" +
+            "<br>" +
+            "<div style='background-color: #fcfcfc; border: 1px solid #f0f0f0; padding: 20px; border-radius: 12px;'>" +
+                "<div style='font-size: 16px; margin-bottom: 15px;'><b>Ref ID: <span style='color: #2c3e50;'>#" + refID + "</span></b></div>" +
+                "<table style='width: 100%; font-size: 13px;'>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Service:</td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getServiceType() + "</b></td></tr>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Date:</td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentDate() + "</b></td></tr>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Time:</td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentTime() + "</b></td></tr>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Status:</td>" +
+                        "<td style='text-align: right; color: #e67e22;'><b>PENDING</b></td></tr>" +
+                "</table>" +
+            "</div>" +
+            "<p style='font-size: 10px; color: #bdc3c7; margin-top: 25px;'>" +
+            "Admin approval is required. You'll get an update soon.</p>" +
+            "</body></html>";
 
         JLabel contentLbl = new JLabel(receiptText);
+        contentLbl.setAlignmentX(Component.CENTER_ALIGNMENT); // Centering the component
+
         JButton closeBtn = new JButton("Got it!");
-        closeBtn.setPreferredSize(new Dimension(200, 40));
+        closeBtn.setMaximumSize(new Dimension(220, 45)); // Ensure button doesn't stretch too wide
         closeBtn.setBackground(new Color(41, 128, 185));
         closeBtn.setForeground(Color.WHITE);
         closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        closeBtn.setFocusPainted(false);
+        closeBtn.setBorderPainted(false);
+        closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // Centering the button
         closeBtn.addActionListener(e -> receipt.dispose());
 
+        // Adding components with spacing
         mainP.add(contentLbl);
-        mainP.add(Box.createVerticalStrut(25));
+        mainP.add(Box.createVerticalStrut(30));
         mainP.add(closeBtn);
-        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         receipt.add(mainP);
         receipt.setVisible(true);

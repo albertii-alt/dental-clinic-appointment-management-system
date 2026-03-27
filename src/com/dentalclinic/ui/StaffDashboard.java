@@ -6,6 +6,7 @@ import java.awt.*;
 import com.dentalclinic.staff.PendingRequestsPanel; // Import your panel
 import com.dentalclinic.staff.TodaysAppointmentsPanel;
 import com.dentalclinic.staff.UpcomingAppointmentsPanel;
+import com.dental.clinic.ui.components.LogoutDialog;
 import com.dentalclinic.util.UserSession;
 
 public class StaffDashboard extends JFrame {
@@ -59,8 +60,9 @@ public class StaffDashboard extends JFrame {
             todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel()));
             sidebar.add(todayBtn);
             
+            // Inside StaffDashboard constructor
             JButton btnCancelled = createSidebarButton("Cancelled Appointments", 200);
-            btnCancelled.addActionListener(e -> switchPanel(new CancelledAppointmentsPanel())); 
+            btnCancelled.addActionListener(e -> switchPanel(new CancelledAppointmentsPanel(this.staffId, this.staffName))); 
             sidebar.add(btnCancelled);
 
             JButton upcomingBtn = createSidebarButton("Upcoming Appointments", 250);
@@ -122,8 +124,16 @@ public class StaffDashboard extends JFrame {
 
         // --- LOGOUT ACTION ---
         logoutBtn.addActionListener(e -> {
-             new LoginPage(); 
-            dispose();
+            boolean confirm = LogoutDialog.show(this);
+
+            if (confirm) {
+                // Clear the session
+                com.dentalclinic.util.UserSession.initialize(0, null, null, null);
+
+                // Return to login
+                new com.dentalclinic.ui.LoginPage();
+                this.dispose();
+            }
         });
 
         setVisible(true);

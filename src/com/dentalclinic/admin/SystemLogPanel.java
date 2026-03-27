@@ -6,6 +6,10 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.util.List;
 import com.dentalclinic.service.LogService;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.io.IOException;
 
 public class SystemLogPanel extends JPanel {
     private JTable logTable;
@@ -50,16 +54,21 @@ public class SystemLogPanel extends JPanel {
         
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 0));
         buttonPanel.setOpaque(false);
-
+        
+        JButton exportButton = new JButton("Backup to CSV");
+        styleButton(exportButton, new Color(52, 152, 219)); // A nice light blue
+        exportButton.addActionListener(e -> exportToCSV());
+        
         JButton refreshButton = new JButton("Refresh Logs");
         styleButton(refreshButton, PRIMARY_BLUE);
         refreshButton.addActionListener(e -> loadSystemLogs());
-
+        
         JButton clearButton = new JButton("Clear All Logs");
         styleButton(clearButton, DANGER_RED);
         clearButton.addActionListener(e -> handleClearLogs());
 
         buttonPanel.add(refreshButton);
+        buttonPanel.add(exportButton);
         buttonPanel.add(clearButton);
 
         headerPanel.add(titleLabel, BorderLayout.WEST);
@@ -142,31 +151,45 @@ public class SystemLogPanel extends JPanel {
 
     private void handleClearLogs() {
         if (!isSuper) {
-            JOptionPane.showMessageDialog(this, 
-                "Access Denied: Only a Super Administrator can clear system logs.", 
-                "Insufficient Permissions", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Access Denied: Only a Super Administrator can clear system logs.", 
+                                            "Insufficient Permissions", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         JPasswordField passwordField = new JPasswordField();
         Object[] message = {
             "CRITICAL: This will permanently delete all system history.",
+            "A MANDATORY backup will be created first.",
             "Confirm Super Admin Password:",
             passwordField
         };
 
         int option = JOptionPane.showConfirmDialog(this, message, "Security Verification", 
-                                     JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+                                                 JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
 
         if (option == JOptionPane.OK_OPTION) {
             String password = new String(passwordField.getPassword());
+
+            // 1. Verify Identity
             if (logService.verifySuperAdminPassword(loggedUserId, password)) { 
-                if (logService.clearAllSystemLogs()) {
-                    JOptionPane.showMessageDialog(this, "System logs cleared successfully.");
-                    loadSystemLogs();
+
+                // 2. FORCE BACKUP BEFORE CLEARING
+                JOptionPane.showMessageDialog(this, "A backup is required before clearing. Please choose a save location.");
+                boolean backupSuccessful = exportToCSV(); // We will modify exportToCSV to return true/false
+
+                if (backupSuccessful) {
+                    // 3. ONLY CLEAR IF BACKUP WAS SAVED
+                    String roleStr = isSuper ? "Super Admin" : "Admin"; 
+                    if (logService.clearAllSystemLogs(loggedUserId, roleStr)) {
+                        JOptionPane.showMessageDialog(this, "Backup created and logs cleared successfully.");
+                        loadSystemLogs();
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(this, "Clear cancelled: Backup was not saved.", 
+                                                    "Action Aborted", JOptionPane.INFORMATION_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(this, "Invalid Password.", "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Invalid Password.", "Security Error", JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -221,4 +244,48 @@ public class SystemLogPanel extends JPanel {
             return c;
         }
     }
+    
+    // --- THE EXPORT LOGIC (Now returns boolean) ---
+    private boolean exportToCSV() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Save System Logs Backup");
+        fileChooser.setSelectedFile(new File("SystemLogs_Backup_" + System.currentTimeMillis() + ".csv"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            File file = fileChooser.getSelectedFile();
+            
+            // Ensure .csv extension
+            if (!file.getName().toLowerCase().endsWith(".csv")) {
+                file = new File(file.getAbsolutePath() + ".csv");
+            }
+
+            try (PrintWriter writer = new PrintWriter(new FileWriter(file))) {
+                // Headers
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    writer.print(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "" : ","));
+                }
+                writer.println();
+
+                // Data
+                for (int row = 0; row < tableModel.getRowCount(); row++) {
+                    for (int col = 0; col < tableModel.getColumnCount(); col++) {
+                        Object val = tableModel.getValueAt(row, col);
+                        writer.print("\"" + (val == null ? "" : val.toString()) + "\"" 
+                                     + (col == tableModel.getColumnCount() - 1 ? "" : ","));
+                    }
+                    writer.println();
+                }
+
+                // Record the export in Audit Trail
+                logService.record(loggedUserId, isSuper ? "Super Admin" : "Admin", "Export Logs", "Manual backup created: " + file.getName());
+                return true;
+
+            } catch (IOException e) {
+                JOptionPane.showMessageDialog(this, "Export failed: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                return false;
+            }
+        }
+        return false; // User clicked cancel
+    }
+    
 }

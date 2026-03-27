@@ -44,6 +44,22 @@ public class AuditTrailsPanel extends JPanel {
         headerPanel.add(titleLabel, BorderLayout.WEST);
         headerPanel.add(refreshButton, BorderLayout.EAST);
         add(headerPanel, BorderLayout.NORTH);
+        
+        // Inside the Header Section of your constructor
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        buttonPanel.setOpaque(false);
+
+        // ONLY add the archive button if they are a Super Admin
+        if (isSuperAdmin) {
+            JButton archiveButton = new JButton("Archive & Clear");
+            styleHeaderButton(archiveButton);
+            archiveButton.setBackground(new Color(230, 126, 34)); // Orange color for "Warning" action
+            archiveButton.addActionListener(e -> handleArchiveLogs());
+            buttonPanel.add(archiveButton);
+        }
+
+        buttonPanel.add(refreshButton);
+        headerPanel.add(buttonPanel, BorderLayout.EAST);
 
         // --- TABLE SECTION ---
         String[] columns = {"Log ID", "User Name", "Role", "Action", "Details", "Timestamp"};
@@ -264,5 +280,69 @@ public class AuditTrailsPanel extends JPanel {
         p.add(Box.createVerticalStrut(2));
         p.add(v);
         return p;
+    }
+    
+    private void handleArchiveLogs() {
+    if (!isSuperAdmin) {
+        JOptionPane.showMessageDialog(this, "Access Denied: Only Super Admins can archive the Audit Trail.");
+        return;
+    }
+
+    // Security Verification
+    JPasswordField passwordField = new JPasswordField();
+    Object[] message = {
+        "ARCHIVE WARNING: This will move all activity history to a CSV file and clear this table.",
+        "Enter Super Admin Password:", passwordField
+    };
+
+    int option = JOptionPane.showConfirmDialog(this, message, "Archive Activity Logs", JOptionPane.OK_CANCEL_OPTION);
+
+    if (option == JOptionPane.OK_OPTION) {
+        if (logService.verifySuperAdminPassword(currentAdminId, new String(passwordField.getPassword()))) {
+            
+            // 1. Mandatory Backup
+            if (exportToCSV()) {
+                // 2. Clear Table
+                if (logService.archiveActivityLogs(currentAdminId, "Super Admin")) {
+                    // 3. Record the Archiving as the NEW first entry
+                    logService.record(currentAdminId, "Super Admin", "Archive Action", "Audit Trail was cleared and archived to CSV.");
+                    
+                    JOptionPane.showMessageDialog(this, "Audit Trail archived and cleared successfully.");
+                    loadLogData();
+                }
+            }
+        } else {
+            JOptionPane.showMessageDialog(this, "Invalid Password.", "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
+
+    private boolean exportToCSV() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setSelectedFile(new java.io.File("AuditTrail_Archive_" + System.currentTimeMillis() + ".csv"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(fileChooser.getSelectedFile()))) {
+                // Write Headers
+                for (int i = 0; i < tableModel.getColumnCount(); i++) {
+                    writer.print(tableModel.getColumnName(i) + (i == tableModel.getColumnCount() - 1 ? "" : ","));
+                }
+                writer.println();
+
+                // Write Data
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                        Object val = tableModel.getValueAt(i, j);
+                        writer.print("\"" + (val == null ? "" : val.toString()) + "\"" + (j == tableModel.getColumnCount() - 1 ? "" : ","));
+                    }
+                    writer.println();
+                }
+                return true;
+            } catch (java.io.IOException e) {
+                JOptionPane.showMessageDialog(this, "Backup failed: " + e.getMessage());
+                return false;
+            }
+        }
+        return false;
     }
 }

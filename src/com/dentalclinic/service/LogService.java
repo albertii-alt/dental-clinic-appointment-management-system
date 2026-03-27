@@ -69,18 +69,24 @@ public class LogService {
         }
         return logs;
     }
+    
+    public boolean clearAllSystemLogs(int staffId, String role) {
+        // 1. First, we record WHO is doing this in the Audit Trail (activity_logs)
+        // This happens BEFORE the deletion so the record is safe.
+        record(staffId, role, "System Maintenance", "Permanently cleared all technical System Logs.");
 
-    public boolean clearAllSystemLogs() {
         String sql = "DELETE FROM system_logs";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
             pstmt.executeUpdate();
             return true;
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("Error clearing system logs: " + e.getMessage());
             return false;
         }
     }
+
     
     // Add this to your LogService.java
     public boolean verifySuperAdminPassword(int adminId, String password) {
@@ -95,6 +101,20 @@ public class LogService {
             java.sql.ResultSet rs = pstmt.executeQuery();
             return rs.next(); // Returns true only if ID + Password + SuperAdmin status match
         } catch (java.sql.SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+    
+    public boolean archiveActivityLogs(int staffId, String role) {
+        // We do NOT call record() here yet because the table is about to be wiped.
+        // We will record the action in the UI controller after the wipe to ensure it's the "First" new entry.
+        String sql = "DELETE FROM activity_logs";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            return true;
+        } catch (SQLException e) {
             e.printStackTrace();
             return false;
         }

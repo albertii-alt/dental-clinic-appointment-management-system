@@ -12,6 +12,8 @@ public class CancelledAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private AppointmentService appService = new AppointmentService();
+    private int currentStaffId;
+    private String currentStaffName;
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -21,7 +23,9 @@ public class CancelledAppointmentsPanel extends JPanel {
     private final Color TEXT = new Color(44, 62, 80);
     private final Color BORDER_COLOR = new Color(220, 220, 220);
 
-    public CancelledAppointmentsPanel() {
+    public CancelledAppointmentsPanel(int staffId, String staffName) {
+        this.currentStaffId = staffId;
+        this.currentStaffName = staffName;
         setLayout(new BorderLayout());
         setBackground(BG);
         setBorder(new EmptyBorder(30, 40, 30, 40));
@@ -37,6 +41,21 @@ public class CancelledAppointmentsPanel extends JPanel {
         // --- HEADER SECTION ---
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(CARD);
+        
+        // Inside the Header Section of CancelledAppointmentsPanel
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+        rightPanel.setBackground(CARD);
+
+        JButton clearButton = new JButton("Clear History");
+        clearButton.setBackground(DANGER);
+        clearButton.setForeground(Color.WHITE);
+        clearButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        clearButton.setFocusable(false);
+        clearButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        clearButton.addActionListener(e -> handleClearHistory());
+
+        rightPanel.add(clearButton);
+        header.add(rightPanel, BorderLayout.EAST);
         
         JLabel title = new JLabel("Cancellation History");
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
@@ -142,5 +161,60 @@ public class CancelledAppointmentsPanel extends JPanel {
             "This is a cancelled record for historical purposes.\nTo book this patient again, they must create a new request.", 
             "Record Information", 
             JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    private void handleClearHistory() {
+        // 1. Double Confirmation
+        int confirm = JOptionPane.showConfirmDialog(this, 
+            "Are you sure you want to permanently delete all cancellation history?\n" +
+            "A mandatory CSV backup will be created first.", 
+            "Confirm Permanent Deletion", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            // 2. Force Backup
+            if (exportToCSV()) {
+                // 3. Delete from Database
+                if (appService.clearAllCancelledAppointments()) {
+                    // 4. Record the action in Audit Trail (Important!)
+                    new com.dentalclinic.service.LogService().record(
+                        currentStaffId, "Staff", "Clear History", "All cancelled/declined appointments were archived and deleted."
+                    );
+
+                    JOptionPane.showMessageDialog(this, "History cleared successfully.");
+                    loadCancelledData();
+                }else {
+    JOptionPane.showMessageDialog(this, "Error: Could not clear database records.", "Database Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        }
+    }
+
+    private boolean exportToCSV() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setSelectedFile(new java.io.File("Cancelled_Apps_Backup_" + System.currentTimeMillis() + ".csv"));
+
+        if (fileChooser.showSaveDialog(this) == JFileChooser.APPROVE_OPTION) {
+            try (java.io.PrintWriter writer = new java.io.PrintWriter(new java.io.FileWriter(fileChooser.getSelectedFile()))) {
+                // Write Headers
+                for (int i = 0; i < model.getColumnCount(); i++) {
+                    writer.print(model.getColumnName(i) + (i == model.getColumnCount() - 1 ? "" : ","));
+                }
+                writer.println();
+
+                // Write Data
+                for (int i = 0; i < model.getRowCount(); i++) {
+                    for (int j = 0; j < model.getColumnCount(); j++) {
+                        Object val = model.getValueAt(i, j);
+                        writer.print("\"" + (val == null ? "" : val.toString()) + "\"" + (j == model.getColumnCount() - 1 ? "" : ","));
+                    }
+                    writer.println();
+                }
+                return true;
+            } catch (java.io.IOException e) {
+                JOptionPane.showMessageDialog(this, "Backup failed: " + e.getMessage());
+                return false;
+            }
+        }
+        return false; // User cancelled backup
     }
 }
