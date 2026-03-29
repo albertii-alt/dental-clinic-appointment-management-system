@@ -2,6 +2,7 @@ package com.dentalclinic.patient;
 
 import com.dentalclinic.ui.LoginPage;
 import com.dental.clinic.ui.components.SuccessDialog;
+import com.dental.clinic.ui.components.ErrorDialog;
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -10,6 +11,8 @@ import java.awt.event.*;
 import java.sql.SQLException;
 import javax.imageio.ImageIO;
 import java.io.InputStream;
+import com.dentalclinic.util.PasswordValidator;
+import java.util.List;
 
 public class RegisterPatientForm extends JFrame {
 
@@ -313,12 +316,26 @@ public class RegisterPatientForm extends JFrame {
         String pass = new String(passwordField.getPassword());
         String confirm = new String(confirmPasswordField.getPassword());
 
+        // Basic validation
         if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
-            JOptionPane.showMessageDialog(this, "All required fields must be filled!");
+            com.dental.clinic.ui.components.ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
             return;
         }
+
+        // Check if passwords match
         if (!pass.equals(confirm)) {
-            JOptionPane.showMessageDialog(this, "Passwords do not match!");
+            com.dental.clinic.ui.components.ErrorDialog.show(this, "Password Mismatch", "Passwords do not match!");
+            return;
+        }
+
+        // Validate password complexity BEFORE calling the service
+        List<String> passwordErrors = com.dentalclinic.util.PasswordValidator.validatePassword(pass);
+        if (!passwordErrors.isEmpty()) {
+            StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+            for (String error : passwordErrors) {
+                errorMsg.append("• ").append(error).append("\n");
+            }
+            com.dental.clinic.ui.components.ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
             return;
         }
 
@@ -330,14 +347,17 @@ public class RegisterPatientForm extends JFrame {
             boolean success = authService.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
 
             if (success) {
-                // Replace JOptionPane.showMessageDialog(this, "Registration Successful!");
-                SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
-
+                com.dental.clinic.ui.components.SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
                 new LoginPage();
                 dispose();
+            } else {
+                com.dental.clinic.ui.components.ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
             }
         } catch (SQLException ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            com.dental.clinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server: " + ex.getMessage());
+        } catch (IllegalArgumentException ex) {
+            // Fallback for any validation errors from the service
+            com.dental.clinic.ui.components.ErrorDialog.show(this, "Invalid Password", ex.getMessage());
         }
     }
 

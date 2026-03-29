@@ -287,5 +287,7 @@ public class SystemLogPanel extends JPanel {
         }
         return false; // User clicked cancel
     }
-    
+    public void cleanup() {
+    System.out.println("Cleaning up SystemLogPanel...");
+}
 }

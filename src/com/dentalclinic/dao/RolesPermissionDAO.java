@@ -7,7 +7,7 @@ import java.util.List;
 
 public class RolesPermissionDAO {
 
-    // 1. Fetch all permissions a specific role has (Used for the UI Checklist)
+    // 1. Fetch all permissions a specific role has
     public List<Integer> getPermissionIdsForRole(int roleId) {
         List<Integer> permissionIds = new ArrayList<>();
         String query = "SELECT permission_id FROM role_permissions WHERE role_id = ?";
@@ -26,14 +26,15 @@ public class RolesPermissionDAO {
         return permissionIds;
     }
 
-    // 2. Fetch all available permissions in the system (Used to populate the UI)
+    // 2. Fetch all available permissions (SECURITY FIX: Use PreparedStatement)
     public List<Permission> getAllPermissions() {
         List<Permission> list = new ArrayList<>();
         String query = "SELECT * FROM permissions";
         
+        // SECURITY FIX: Changed from Statement to PreparedStatement
         try (Connection conn = DBConnection.getConnection();
-             Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(query)) {
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
             
             while (rs.next()) {
                 list.add(new Permission(
@@ -48,7 +49,7 @@ public class RolesPermissionDAO {
         return list;
     }
 
-    // 3. THE HARD PART: Update Role Permissions using a TRANSACTION
+    // 3. Update Role Permissions using TRANSACTION
     public boolean updateRolePermissions(int roleId, List<Integer> newPermissionIds) {
         Connection conn = null;
         try {
@@ -68,7 +69,7 @@ public class RolesPermissionDAO {
                 for (int permId : newPermissionIds) {
                     insertPstmt.setInt(1, roleId);
                     insertPstmt.setInt(2, permId);
-                    insertPstmt.addBatch(); // Use batch for better performance
+                    insertPstmt.addBatch();
                 }
                 insertPstmt.executeBatch();
             }
@@ -100,10 +101,10 @@ public class RolesPermissionDAO {
             this.description = description;
         }
         @Override
-        public String toString() { return name; } // Shows name in UI lists
+        public String toString() { return name; }
     }
     
-    // Inside RolesPermissionDAO.java
+    // Get permission names as strings for UserSession
     public List<String> getPermissionNamesForRole(int roleId) {
         List<String> permissionNames = new ArrayList<>();
         String query = "SELECT p.permission_name FROM permissions p " +

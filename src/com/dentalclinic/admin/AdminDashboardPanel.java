@@ -6,6 +6,7 @@ import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.util.Map;
 import java.util.List;
+import com.dentalclinic.util.DBConnection;
 
 // JFreeChart Imports
 import org.jfree.chart.ChartFactory;
@@ -15,8 +16,6 @@ import org.jfree.chart.plot.PlotOrientation;
 import org.jfree.data.category.DefaultCategoryDataset;
 import org.jfree.chart.plot.CategoryPlot;
 import org.jfree.chart.renderer.category.BarRenderer;
-import org.jfree.chart.axis.CategoryAxis;
-import org.jfree.chart.axis.CategoryLabelPositions;
 
 public class AdminDashboardPanel extends JPanel {
 
@@ -29,11 +28,29 @@ public class AdminDashboardPanel extends JPanel {
     // Chart Components
     private ChartPanel chartPanel;
     private DefaultCategoryDataset dataset;
+    
+    // Cache to prevent multiple refreshes
+    private boolean isVisible = false;
+    private boolean statsLoaded = false;
+    private long lastRefreshTime = 0;
+    private static final long REFRESH_INTERVAL = 30000; // 30 seconds
 
     public AdminDashboardPanel() {
         this.dashboardService = new DashboardService();
         initComponents();
-        refreshStats();
+    }
+
+    @Override
+    public void addNotify() {
+        super.addNotify();
+        isVisible = true;
+        refreshStats(); // Load stats when shown
+    }
+
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        isVisible = false;
     }
 
     private void initComponents() {
@@ -58,15 +75,15 @@ public class AdminDashboardPanel extends JPanel {
 
         add(cardContainer, BorderLayout.CENTER);
 
-        // --- BOTTOM SECTION (Using GridBagLayout for unequal widths) ---
+        // --- BOTTOM SECTION ---
         JPanel bottomPanel = new JPanel(new GridBagLayout());
         bottomPanel.setOpaque(false);
         bottomPanel.setPreferredSize(new Dimension(0, 400));
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH;
-        gbc.insets = new Insets(0, 0, 0, 20); // Gap between components
+        gbc.insets = new Insets(0, 0, 0, 20);
 
-        // 1. RECENT ACTIVITY (Smaller width)
+        // 1. RECENT ACTIVITY
         activityModel = new DefaultListModel<>();
         activityList = new JList<>(activityModel) {
             @Override
@@ -97,11 +114,11 @@ public class AdminDashboardPanel extends JPanel {
         activityContainer.add(activityTitle, BorderLayout.NORTH);
         activityContainer.add(activityScroll, BorderLayout.CENTER);
 
-        gbc.weightx = 0.3; // 30% width
+        gbc.weightx = 0.3;
         gbc.weighty = 1.0;
         bottomPanel.add(activityContainer, gbc);
 
-        // 2. APPOINTMENT TRENDS CHART (Larger width)
+        // 2. CHART
         JPanel chartContainer = new JPanel(new BorderLayout(0, 10));
         chartContainer.setOpaque(false);
         JLabel chartTitle = new JLabel("Appointment Trends (By Service)");
@@ -113,23 +130,16 @@ public class AdminDashboardPanel extends JPanel {
             PlotOrientation.VERTICAL, false, true, false
         );
 
-        // Styling
         barChart.setBackgroundPaint(Color.WHITE);
         CategoryPlot plot = barChart.getCategoryPlot();
         plot.setBackgroundPaint(Color.WHITE);
         plot.setRangeGridlinePaint(new Color(230, 233, 237));
         plot.setOutlineVisible(false);
 
-        // Bar Styling
         BarRenderer renderer = (BarRenderer) plot.getRenderer();
         renderer.setSeriesPaint(0, new Color(52, 152, 219));
         renderer.setBarPainter(new org.jfree.chart.renderer.category.StandardBarPainter());
         renderer.setShadowVisible(false);
-
-        // X-Axis Rotation Fix
-     /*   CategoryAxis xAxis = plot.getDomainAxis();
-        xAxis.setCategoryLabelPositions(CategoryLabelPositions.UP_45);
-        xAxis.setTickLabelFont(new Font("SansSerif", Font.PLAIN, 11)); */
 
         chartPanel = new ChartPanel(barChart);
         chartPanel.setBackground(Color.WHITE);
@@ -138,8 +148,8 @@ public class AdminDashboardPanel extends JPanel {
         chartContainer.add(chartTitle, BorderLayout.NORTH);
         chartContainer.add(chartPanel, BorderLayout.CENTER);
 
-        gbc.weightx = 0.7; // 70% width
-        gbc.insets = new Insets(0, 0, 0, 0); // Reset insets
+        gbc.weightx = 0.7;
+        gbc.insets = new Insets(0, 0, 0, 0);
         bottomPanel.add(chartContainer, gbc);
 
         add(bottomPanel, BorderLayout.SOUTH);
@@ -167,25 +177,49 @@ public class AdminDashboardPanel extends JPanel {
     }
 
     public void refreshStats() {
-        Map<String, Integer> stats = dashboardService.fetchDashboardStats();
-        if (stats != null) {
-            lblTotalPatients.setText(String.valueOf(stats.getOrDefault("totalPatients", 0)));
-            lblPendingAppts.setText(String.valueOf(stats.getOrDefault("pendingAppts", 0)));
-            lblTodayAppts.setText(String.valueOf(stats.getOrDefault("todayAppts", 0)));
-            lblActiveStaff.setText(String.valueOf(stats.getOrDefault("activeStaff", 0)));
+        if (!isVisible) return; // Don't refresh if not visible
+        
+        long now = System.currentTimeMillis();
+        if (statsLoaded && (now - lastRefreshTime) < REFRESH_INTERVAL) {
+            return; // Use cached data
         }
-
-        currentLogs = dashboardService.fetchRecentActivity(); 
-        activityModel.clear();
-        if (currentLogs != null) {
-            for (String[] log : currentLogs) activityModel.addElement(log[0]);
-        }
-
-        Map<String, Integer> trends = dashboardService.fetchAppointmentTrends();
-        dataset.clear();
-        if (trends != null) {
-            trends.forEach((service, count) -> dataset.addValue(count, "Appointments", service));
-        }
+        
+        lastRefreshTime = now;
+        statsLoaded = true;
+        
+        // Run in background thread to not block UI
+        SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                Map<String, Integer> stats = dashboardService.fetchDashboardStats();
+                if (stats != null) {
+                    SwingUtilities.invokeLater(() -> {
+                        lblTotalPatients.setText(String.valueOf(stats.getOrDefault("totalPatients", 0)));
+                        lblPendingAppts.setText(String.valueOf(stats.getOrDefault("pendingAppts", 0)));
+                        lblTodayAppts.setText(String.valueOf(stats.getOrDefault("todayAppts", 0)));
+                        lblActiveStaff.setText(String.valueOf(stats.getOrDefault("activeStaff", 0)));
+                    });
+                }
+                
+                currentLogs = dashboardService.fetchRecentActivity();
+                SwingUtilities.invokeLater(() -> {
+                    activityModel.clear();
+                    if (currentLogs != null) {
+                        for (String[] log : currentLogs) activityModel.addElement(log[0]);
+                    }
+                });
+                
+                Map<String, Integer> trends = dashboardService.fetchAppointmentTrends();
+                SwingUtilities.invokeLater(() -> {
+                    dataset.clear();
+                    if (trends != null) {
+                        trends.forEach((service, count) -> dataset.addValue(count, "Appointments", service));
+                    }
+                });
+                return null;
+            }
+        };
+        worker.execute();
     }
 
     private class ActivityCellRenderer extends DefaultListCellRenderer {
@@ -228,4 +262,18 @@ public class AdminDashboardPanel extends JPanel {
             return p;
         }
     }
+    
+    public void cleanup() {
+       System.out.println("Cleaning up AdminDashboardPanel...");
+       isVisible = false;
+       statsLoaded = false;
+       // Clear data models
+       if (activityModel != null) {
+           activityModel.clear();
+       }
+       if (dataset != null) {
+           dataset.clear();
+       }
+       currentLogs = null;
+   }
 }

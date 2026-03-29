@@ -4,6 +4,8 @@ import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import com.dentalclinic.dao.StaffDAO;
+import com.dentalclinic.util.PasswordValidator;
+import java.util.List;
 
 public class AccountSettingsPanel extends JPanel {
     private JTextField nameField, userField, emailField;
@@ -20,7 +22,7 @@ public class AccountSettingsPanel extends JPanel {
     private final Color SUCCESS = new Color(39, 174, 96);
     private final Color TEXT = new Color(44, 62, 80);
     private final Color BORDER_COLOR = new Color(210, 215, 220);
-    private final Color HIGHLIGHT = new java.awt.Color(255, 253, 230); // Soft yellow for verification
+    private final Color HIGHLIGHT = new java.awt.Color(255, 253, 230);
 
     public AccountSettingsPanel(int id, String role, String name, String username, String email) {
         this.adminId = id;
@@ -76,7 +78,7 @@ public class AccountSettingsPanel extends JPanel {
         JPanel verifyGroup = createFieldGroup("CURRENT PASSWORD (REQUIRED TO SAVE)", currentPassField = new JPasswordField());
         currentPassField.setBackground(HIGHLIGHT);
         JLabel verifyLabel = (JLabel) verifyGroup.getComponent(0);
-        verifyLabel.setForeground(new Color(192, 57, 43)); // Dark red for emphasis
+        verifyLabel.setForeground(new Color(192, 57, 43));
         rightCol.add(verifyGroup);
         
         formGrid.add(rightCol);
@@ -95,6 +97,21 @@ public class AccountSettingsPanel extends JPanel {
         container.add(footer, BorderLayout.SOUTH);
 
         add(container);
+    }
+
+    // SECURITY: Sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        return input.replace("<", "")
+                    .replace(">", "")
+                    .replace("\"", "")
+                    .replace("'", "")
+                    .replace("&", "");
+    }
+    
+    // SECURITY: Validate email
+    private boolean isValidEmail(String email) {
+        return email != null && email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
     }
 
     // --- UI HELPERS ---
@@ -131,23 +148,52 @@ public class AccountSettingsPanel extends JPanel {
         btn.setBorder(new EmptyBorder(10, 25, 10, 25));
     }
 
-    // --- LOGIC (UNCHANGED) ---
+    // --- LOGIC ---
 
     private void handleUpdate() {
-        String name = nameField.getText().trim();
-        String user = userField.getText().trim();
+        // SECURITY: Sanitize inputs
+        String name = sanitizeInput(nameField.getText().trim());
+        String user = sanitizeInput(userField.getText().trim());
         String email = emailField.getText().trim();
         String newPw = new String(newPassField.getPassword()).trim();
         String confPw = new String(confirmPassField.getPassword()).trim();
         String currPw = new String(currentPassField.getPassword()).trim();
 
+        // Validate required fields
+        if (name.isEmpty() || user.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Name and username are required.");
+            return;
+        }
+        
+        // Validate email
+        if (!email.isEmpty() && !isValidEmail(email)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.");
+            return;
+        }
+        
+        // Validate current password is provided
         if (currPw.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Enter current password to verify identity.");
             return;
         }
+        
+        // Validate new password match
         if (!newPw.isEmpty() && !newPw.equals(confPw)) {
             JOptionPane.showMessageDialog(this, "New passwords do not match!");
             return;
+        }
+        
+        // Validate new password complexity
+        if (!newPw.isEmpty()) {
+            List<String> passwordErrors = PasswordValidator.validatePassword(newPw);
+            if (!passwordErrors.isEmpty()) {
+                StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+                for (String error : passwordErrors) {
+                    errorMsg.append("• ").append(error).append("\n");
+                }
+                JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
         }
 
         try {
@@ -157,6 +203,8 @@ public class AccountSettingsPanel extends JPanel {
                     currentPassField.setText("");
                     newPassField.setText("");
                     confirmPassField.setText("");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Update failed. Username may already exist.");
                 }
             } else {
                 JOptionPane.showMessageDialog(this, "Verification failed: Current password incorrect.");

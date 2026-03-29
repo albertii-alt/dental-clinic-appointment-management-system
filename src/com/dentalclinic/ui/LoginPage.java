@@ -5,14 +5,20 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.service.AuthService;
 import com.dentalclinic.dao.RolesPermissionDAO;
+import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.UserSession;
+import com.dentalclinic.util.DBConnection;
 import com.dental.clinic.ui.components.SuccessDialog;
 import com.dental.clinic.ui.components.ErrorDialog;
-import com.dental.clinic.ui.components.ErrorDialog;
-import com.dental.clinic.ui.components.SuccessDialog;
+import com.dentalclinic.util.PasswordUtil;
+import com.dentalclinic.util.PasswordValidator;
+import java.util.List;
 import javax.imageio.ImageIO;
 import java.io.InputStream;
 
@@ -22,6 +28,10 @@ public class LoginPage extends JFrame {
     private JPasswordField passwordField;
     private JComboBox<String> roleDropdown;
     private JButton loginButton, registerButton;
+    
+    // DAO instances
+    private PatientDAO patientDAO;
+    private StaffDAO staffDAO;
 
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
     private final Color SECONDARY_BLUE = new Color(52, 152, 219);
@@ -31,7 +41,16 @@ public class LoginPage extends JFrame {
     private final Color BORDER_COLOR = new Color(218, 226, 234);
 
     public LoginPage() {
+        // Initialize DAOs
+        patientDAO = new PatientDAO();
+        staffDAO = new StaffDAO();
+        
         setTitle("Vantage Dental - Login");
+        if (!com.dentalclinic.util.DBConnection.testConnection()) {
+            // Database not configured - show setup wizard
+            com.dentalclinic.util.DatabaseSetupWizard.showSetupWizard(this);
+            return;
+        }
         setSize(950, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
@@ -86,7 +105,7 @@ public class LoginPage extends JFrame {
 
         gbcL.gridy = 5; 
         gbcL.weighty = 0; 
-        gbcL.insets = new Insets(20, 0, 0, 0); // Adds breathing room from the logo
+        gbcL.insets = new Insets(20, 0, 0, 0);
         gbcL.anchor = GridBagConstraints.SOUTHWEST;
         sidebar.add(footerContainer, gbcL);
 
@@ -188,11 +207,41 @@ public class LoginPage extends JFrame {
 
             try {
                 Object result = authService.login(user, pass, role);
+                
+                // NEW: Check if account is locked
+                if (result instanceof Object[] && ((Object[]) result)[0].equals("ACCOUNT_LOCKED")) {
+                    Object[] lockData = (Object[]) result;
+                    int remainingMinutes = (int) lockData[1];
+
+                    String message = "Your account has been locked due to multiple failed login attempts.\n" +
+                                    "Please try again in " + remainingMinutes + " minute(s).";
+                    ErrorDialog.show(this, "Account Locked", message);
+                    return;
+                }
+
+                // Check if password reset is required
+                if (result instanceof Object[] && ((Object[]) result)[0].equals("RESET_REQUIRED")) {
+                    Object[] resetData = (Object[]) result;
+                    Object userData = resetData[1];
+                    showPasswordResetDialog(userData, role);
+                    return;
+                }
+                // Check if password reset is required
+                if (result instanceof Object[] && ((Object[]) result)[0].equals("RESET_REQUIRED")) {
+                    Object[] resetData = (Object[]) result;
+                    Object userData = resetData[1];
+                    
+                    // Show password reset dialog
+                    showPasswordResetDialog(userData, role);
+                    return;
+                }
 
                 if (result instanceof Object[]) {
                     Object[] data = (Object[]) result;
-                    int id = (int) data[0]; String rStr = (String) data[1];
-                    boolean isS = (boolean) data[2]; String name = (String) data[3];
+                    int id = (int) data[0]; 
+                    String rStr = (String) data[1];
+                    boolean isS = (boolean) data[2]; 
+                    String name = (String) data[3];
                     String email = (data.length > 4) ? (String) data[4] : "No Email";
 
                     int rId = rStr.equalsIgnoreCase("ADMIN") ? 1 : (rStr.equalsIgnoreCase("DENTIST") ? 2 : 3);
@@ -232,5 +281,138 @@ public class LoginPage extends JFrame {
             if (is == null) return null;
             return new JLabel(new ImageIcon(ImageIO.read(is).getScaledInstance(w, h, Image.SCALE_SMOOTH)));
         } catch (Exception e) { return null; }
+    }
+    
+    private void showPasswordResetDialog(Object userData, String role) {
+        JDialog dialog = new JDialog(this, "Password Reset Required", true);
+        dialog.setSize(450, 400);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new GridBagLayout());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(10, 20, 10, 20);
+
+        // Warning message
+        JLabel warningLabel = new JLabel("<html><center><b>Security Notice</b><br>For security reasons, you must change your password.<br>This is required once due to system security upgrade.</center></html>");
+        warningLabel.setForeground(new Color(255, 100, 100));
+        gbc.gridy = 0;
+        dialog.add(warningLabel, gbc);
+
+        // New password field
+        gbc.gridy = 1;
+        dialog.add(new JLabel("New Password:"), gbc);
+
+        JPasswordField newPassField = new JPasswordField();
+        newPassField.setPreferredSize(new Dimension(300, 30));
+        gbc.gridy = 2;
+        dialog.add(newPassField, gbc);
+
+        // Confirm password field
+        gbc.gridy = 3;
+        dialog.add(new JLabel("Confirm Password:"), gbc);
+
+        JPasswordField confirmPassField = new JPasswordField();
+        confirmPassField.setPreferredSize(new Dimension(300, 30));
+        gbc.gridy = 4;
+        dialog.add(confirmPassField, gbc);
+
+        // Requirements label
+        JLabel reqLabel = new JLabel("<html><small>Password must be at least 6 characters</small></html>");
+        reqLabel.setForeground(Color.GRAY);
+        gbc.gridy = 5;
+        dialog.add(reqLabel, gbc);
+
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout());
+        JButton resetButton = new JButton("Reset Password");
+        JButton cancelButton = new JButton("Logout");
+
+        resetButton.addActionListener(evt -> {
+        String newPass = new String(newPassField.getPassword());
+        String confirmPass = new String(confirmPassField.getPassword());
+
+        // Validate password complexity
+        List<String> passwordErrors = PasswordValidator.validatePassword(newPass);
+        if (!passwordErrors.isEmpty()) {
+            StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+            for (String error : passwordErrors) {
+                errorMsg.append("• ").append(error).append("\n");
+            }
+            ErrorDialog.show(LoginPage.this, "Invalid Password", errorMsg.toString());
+            return;
+        }
+
+        if (!newPass.equals(confirmPass)) {
+            ErrorDialog.show(LoginPage.this, "Error", "Passwords do not match");
+            return;
+        }
+
+        try {
+            boolean success = false;
+
+            if (role.equalsIgnoreCase("Patient")) {
+                Patient patient = (Patient) userData;
+                String hashedPass = PasswordUtil.hashPassword(newPass);
+                success = updatePatientPassword(patient.getPatientId(), hashedPass);
+                if (success) {
+                    patientDAO.clearPasswordResetFlag(patient.getPatientId());
+                }
+            } else {
+                Object[] staffData = (Object[]) userData;
+                int staffId = (int) staffData[0];
+                String hashedPass = PasswordUtil.hashPassword(newPass);
+                success = updateStaffPassword(staffId, hashedPass);
+                if (success) {
+                    staffDAO.clearPasswordResetFlag(staffId);
+                }
+            }
+
+            if (success) {
+                SuccessDialog.show(LoginPage.this, "Success", "Password updated successfully! Please login again.");
+                dialog.dispose();
+            } else {
+                ErrorDialog.show(LoginPage.this, "Error", "Failed to update password. Please try again.");
+            }
+        } catch (SQLException ex) {
+            ErrorDialog.show(LoginPage.this, "Database Error", ex.getMessage());
+        }
+    });
+
+        cancelButton.addActionListener(evt -> {
+            dialog.dispose();
+            // Clear the login fields
+            usernameField.setText("");
+            passwordField.setText("");
+        });
+
+        buttonPanel.add(resetButton);
+        buttonPanel.add(cancelButton);
+        gbc.gridy = 6;
+        dialog.add(buttonPanel, gbc);
+
+        dialog.setVisible(true);
+    }
+
+    // Helper methods for password update
+    private boolean updatePatientPassword(int patientId, String hashedPassword) throws SQLException {
+        String query = "UPDATE patients SET password = ?, force_password_reset = 0 WHERE patient_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, hashedPassword);
+            pstmt.setInt(2, patientId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    private boolean updateStaffPassword(int staffId, String hashedPassword) throws SQLException {
+        String query = "UPDATE staff SET password = ?, force_password_reset = 0 WHERE staff_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, hashedPassword);
+            pstmt.setInt(2, staffId);
+            return pstmt.executeUpdate() > 0;
+        }
     }
 }

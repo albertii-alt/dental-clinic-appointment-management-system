@@ -6,6 +6,7 @@ import javax.swing.table.*;
 import java.awt.*;
 import java.util.List;
 import com.dentalclinic.dao.StaffDAO;
+import com.dentalclinic.util.PasswordValidator;
 
 public class ManageUsersPanel extends JPanel {
     private JTextField nameField, userField, emailField;
@@ -58,14 +59,20 @@ public class ManageUsersPanel extends JPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         Font labelFont = new Font("Segoe UI", Font.BOLD, 13);
-        
+
         // Fields
         nameField = new JTextField(15);
         userField = new JTextField(15);
         emailField = new JTextField(15);
         passField = new JPasswordField(15);
-        roleCombo = new JComboBox<>(new String[]{"Admin", "Dentist", "Staff"});
-        
+
+        // SECURITY FIX: Non-Super Admin cannot assign Admin role
+        if (iAmSuperAdmin) {
+            roleCombo = new JComboBox<>(new String[]{"Admin", "Dentist", "Staff"});
+        } else {
+            roleCombo = new JComboBox<>(new String[]{"Dentist", "Staff"});
+        }
+
         // Row 0
         gbc.gridx = 0; gbc.gridy = 0; form.add(createLabel("Full Name", labelFont), gbc);
         gbc.gridx = 1; form.add(nameField, gbc);
@@ -85,7 +92,7 @@ public class ManageUsersPanel extends JPanel {
         // Button Panel
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         btnPanel.setOpaque(false);
-        
+
         clearBtn = new JButton("Clear Fields");
         styleButton(clearBtn, new Color(149, 165, 166));
         clearBtn.addActionListener(e -> resetForm());
@@ -224,6 +231,12 @@ public class ManageUsersPanel extends JPanel {
         String email = emailField.getText().trim();
         String role = (String) roleCombo.getSelectedItem();
 
+        // Validate email format
+        if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address!");
+            return;
+        }
+
         if (name.isEmpty() || user.isEmpty() || email.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please fill in all required fields!");
             return;
@@ -231,11 +244,44 @@ public class ManageUsersPanel extends JPanel {
 
         try {
             if (selectedUserId == -1) {
+                // NEW USER - Validate password complexity
+                if (pass.isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Password is required for new accounts!");
+                    return;
+                }
+                
+                // Check password complexity
+                List<String> passwordErrors = PasswordValidator.validatePassword(pass);
+                if (!passwordErrors.isEmpty()) {
+                    StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+                    for (String error : passwordErrors) {
+                        errorMsg.append("• ").append(error).append("\n");
+                    }
+                    JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                
                 if (staffDAO.addStaff(name, user, pass, email, role, currentAdminId, adminRoleStr)) {
                     JOptionPane.showMessageDialog(this, "Staff added successfully!");
                 }
             } else {
-                if (staffDAO.updateStaff(selectedUserId, name, user, email, role, "", currentAdminId, adminRoleStr)) {
+                // UPDATE USER - Handle password if provided
+                String passwordToUpdate = pass.isEmpty() ? null : pass;
+                
+                // If password is provided, validate complexity
+                if (passwordToUpdate != null) {
+                    List<String> passwordErrors = PasswordValidator.validatePassword(passwordToUpdate);
+                    if (!passwordErrors.isEmpty()) {
+                        StringBuilder errorMsg = new StringBuilder("New password requirements not met:\n");
+                        for (String error : passwordErrors) {
+                            errorMsg.append("• ").append(error).append("\n");
+                        }
+                        JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                }
+                
+                if (staffDAO.updateStaff(selectedUserId, name, user, email, role, passwordToUpdate, currentAdminId, adminRoleStr)) {
                     JOptionPane.showMessageDialog(this, "Staff updated successfully!");
                 }
             }
@@ -275,7 +321,7 @@ public class ManageUsersPanel extends JPanel {
         });
     }
 
-    // --- LOGIC METHODS (Functionality Kept Exactly the Same) ---
+    // --- LOGIC METHODS ---
     private void handleDelete(int id, String name, String adminRole) {
         if (id == currentAdminId) {
             JOptionPane.showMessageDialog(this, "Security Error: You cannot delete your own account.");
@@ -326,11 +372,22 @@ public class ManageUsersPanel extends JPanel {
     }
 
     private void resetForm() {
-        nameField.setText(""); userField.setText("");
-        emailField.setText(""); passField.setText("");
+        nameField.setText(""); 
+        userField.setText("");
+        emailField.setText(""); 
+        passField.setText("");
         roleCombo.setSelectedIndex(0);
         selectedUserId = -1;
         saveBtn.setText("Save User Account");
         saveBtn.setBackground(PRIMARY_BLUE);
+    }
+        public void cleanup() {
+        System.out.println("Cleaning up ManageUsersPanel...");
+        // Clear table model to release references
+        if (tableModel != null) {
+            tableModel.setRowCount(0);
+        }
+        // Clear any pending operations
+        // The DAO connections will be closed automatically
     }
 }

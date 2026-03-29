@@ -14,7 +14,7 @@ public class ErrorDialog extends JDialog {
     public ErrorDialog(Frame parent, String title, String message) {
         super(parent, true);
         setUndecorated(true);
-        setSize(400, 300);
+        setSize(500, 500);
         setLocationRelativeTo(parent);
         setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 20, 20));
 

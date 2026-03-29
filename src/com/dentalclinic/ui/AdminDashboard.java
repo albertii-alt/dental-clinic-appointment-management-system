@@ -6,10 +6,15 @@ import com.dentalclinic.admin.AdminDashboardPanel;
 import com.dentalclinic.admin.ClinicSettingsPanel;
 import com.dentalclinic.admin.ManageUsersPanel;
 import com.dental.clinic.ui.components.LogoutDialog;
+import com.dentalclinic.admin.AuditTrailsPanel;
+import com.dentalclinic.admin.ManageRolesPanel;
+import com.dentalclinic.admin.SystemLogPanel;
 import com.dentalclinic.util.UserSession;
+import javax.swing.Timer;
 
 public class AdminDashboard extends JFrame {
-
+    
+    private JPanel currentPanel;
     private JPanel sidebar;
     private JPanel mainContent; 
     private JButton accessControlBtn, sysLogsBtn, auditBtn, logoutBtn;
@@ -24,6 +29,12 @@ public class AdminDashboard extends JFrame {
     private String currentAdminUsername;
     private ManageUsersPanel manageUsersPanel;
     private AdminDashboardPanel dashboardStatsPanel;
+    private ClinicSettingsPanel clinicSettingsPanel;
+    private ManageRolesPanel manageRolesPanel;
+    private AuditTrailsPanel auditTrailsPanel;
+    private SystemLogPanel systemLogPanel;
+    
+    private Timer sessionCheckTimer;
     
     private final int CONFIG_Y = 200; 
     private final int ACCESS_Y = 250; 
@@ -31,13 +42,19 @@ public class AdminDashboard extends JFrame {
     private final int LOGOUT_Y = 600;
 
     public AdminDashboard(int loggedUserId, boolean isSuper, String fullName, String email, String username) {
+        
+        if (!UserSession.isSessionValid()) {
+            new LoginPage();
+            dispose();
+            return;
+        }
+        
         this.currentAdminId = loggedUserId;
         this.isSuperAdmin = isSuper;
         this.currentAdminName = fullName; 
         this.currentAdminEmail = email; 
         this.currentAdminUsername = username;
         
-        this.manageUsersPanel = new ManageUsersPanel(this.currentAdminId, this.isSuperAdmin);
         this.dashboardStatsPanel = new AdminDashboardPanel();
 
         setTitle("Dental Clinic - Administrator Dashboard");
@@ -47,7 +64,6 @@ public class AdminDashboard extends JFrame {
 
         setLayout(new BorderLayout());
 
-        // --- SIDEBAR ---
         sidebar = new JPanel();
         sidebar.setBackground(new Color(44, 62, 80));
         sidebar.setPreferredSize(new Dimension(250, 700));
@@ -57,16 +73,23 @@ public class AdminDashboard extends JFrame {
         logoLabel.setForeground(Color.WHITE);
         logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
         logoLabel.setBounds(50, 30, 150, 30);
+        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                showPanel(dashboardStatsPanel);
+                dashboardStatsPanel.refreshStats();
+                UserSession.updateActivity();
+            }
+        });
         sidebar.add(logoLabel);
 
-        // --- SIDEBAR BUTTONS WITH PERMISSION CHECKS ---
-        
         // 1. Dashboard Stats
         if (UserSession.hasPermission("VIEW_DASHBOARD")) {
             JButton myDashBtn = createSidebarButton("My Dashboard", 100);
             myDashBtn.addActionListener(e -> {
                 showPanel(dashboardStatsPanel);
-                dashboardStatsPanel.refreshStats(); 
+                dashboardStatsPanel.refreshStats();
+                UserSession.updateActivity();
             });
             sidebar.add(myDashBtn);
         }
@@ -74,21 +97,36 @@ public class AdminDashboard extends JFrame {
         // 2. Audit Trails
         if (UserSession.hasPermission("VIEW_AUDIT_LOGS")) {
             auditBtn = createSidebarButton("Audit Trails", 150);
-            auditBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.AuditTrailsPanel(currentAdminId, isSuperAdmin)));
+            auditBtn.addActionListener(e -> {
+                if (auditTrailsPanel == null) {
+                    auditTrailsPanel = new AuditTrailsPanel(currentAdminId, isSuperAdmin);
+                }
+                showPanel(auditTrailsPanel);
+                UserSession.updateActivity();
+            });
             sidebar.add(auditBtn);
         }
         
         // 3. Clinic Configuration
         if (UserSession.hasPermission("MANAGE_CLINIC_SETTINGS")) {
             clinicConfigBtn = createSidebarButton("Clinic Configuration", CONFIG_Y);
-            clinicConfigBtn.addActionListener(e -> showPanel(new ClinicSettingsPanel(currentAdminId, isSuperAdmin)));
+            clinicConfigBtn.addActionListener(e -> {
+                if (clinicSettingsPanel == null) {
+                    clinicSettingsPanel = new ClinicSettingsPanel(currentAdminId, isSuperAdmin);
+                }
+                showPanel(clinicSettingsPanel);
+                UserSession.updateActivity();
+            });
             sidebar.add(clinicConfigBtn);
         }
 
         // 4. Access Control Section
         if (UserSession.hasPermission("MANAGE_USERS") || UserSession.hasPermission("MANAGE_ROLES")) {
             accessControlBtn = createSidebarButton("Access Control  ⌄", ACCESS_Y);
-            accessControlBtn.addActionListener(e -> toggleMenu());
+            accessControlBtn.addActionListener(e -> {
+                toggleMenu();
+                UserSession.updateActivity();
+            });
             sidebar.add(accessControlBtn);
 
             subMenuPanel = new JPanel(null);
@@ -96,18 +134,28 @@ public class AdminDashboard extends JFrame {
             subMenuPanel.setBounds(20, 295, 210, 80); 
             subMenuPanel.setVisible(false);
 
-        if (UserSession.hasPermission("MANAGE_USERS")) {
-                        JButton manageUsersBtn = createSubButton("Manage Users", 5);
-                        manageUsersBtn.addActionListener(e -> {
-                            showPanel(manageUsersPanel);
-                            manageUsersPanel.refreshTable();
-                        });
-                        subMenuPanel.add(manageUsersBtn);
+            if (UserSession.hasPermission("MANAGE_USERS")) {
+                JButton manageUsersBtn = createSubButton("Manage Users", 5);
+                manageUsersBtn.addActionListener(e -> {
+                    if (manageUsersPanel == null) {
+                        manageUsersPanel = new ManageUsersPanel(currentAdminId, isSuperAdmin);
                     }
+                    showPanel(manageUsersPanel);
+                    manageUsersPanel.refreshTable();
+                    UserSession.updateActivity();
+                });
+                subMenuPanel.add(manageUsersBtn);
+            }
             
             if (UserSession.hasPermission("MANAGE_ROLES")) {
                 JButton rolesBtn = createSubButton("Roles & Permissions", 40);
-                rolesBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.ManageRolesPanel()));
+                rolesBtn.addActionListener(e -> {
+                    if (manageRolesPanel == null) {
+                        manageRolesPanel = new ManageRolesPanel(currentAdminId, isSuper);
+                    }
+                    showPanel(manageRolesPanel);
+                    UserSession.updateActivity();
+                });
                 subMenuPanel.add(rolesBtn);
             }
             sidebar.add(subMenuPanel);
@@ -116,52 +164,89 @@ public class AdminDashboard extends JFrame {
         // 5. System Logs
         if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) {
             sysLogsBtn = createSidebarButton("System Logs", LOGS_Y);
-            sysLogsBtn.addActionListener(e -> showPanel(new com.dentalclinic.admin.SystemLogPanel(currentAdminId, isSuperAdmin)));
+            sysLogsBtn.addActionListener(e -> {
+                if (systemLogPanel == null) {
+                    systemLogPanel = new SystemLogPanel(currentAdminId, isSuperAdmin);
+                }
+                showPanel(systemLogPanel);
+                UserSession.updateActivity();
+            });
             sidebar.add(sysLogsBtn);
         }
 
-        // 6. Account Settings (Always Visible)
+        // 6. Account Settings
         JButton myAccountBtn = createSidebarButton("My Account Settings", 550);
         myAccountBtn.addActionListener(e -> {
             String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
             showPanel(new com.dentalclinic.admin.AccountSettingsPanel(
                 currentAdminId, roleStr, currentAdminName, currentAdminUsername, currentAdminEmail
             ));
+            UserSession.updateActivity();
         });
         sidebar.add(myAccountBtn);
 
-        // 7. Logout (Always Visible)
+        // 7. Logout 
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
         logoutBtn.setBackground(new Color(192, 57, 43));
         logoutBtn.addActionListener(e -> {
             boolean confirm = LogoutDialog.show(this);
-    
             if (confirm) {
-                // Clear the session
-                com.dentalclinic.util.UserSession.initialize(0, null, null, null);
-
-                // Return to login
-                new com.dentalclinic.ui.LoginPage();
-                this.dispose();
+                if (sessionCheckTimer != null) {
+                    sessionCheckTimer.stop();
+                }
+                UserSession.logout();
+                new LoginPage();
+                dispose();
             }
         });
         sidebar.add(logoutBtn);
-
-        // --- MAIN CONTENT AREA ---
+        
         mainContent = new JPanel(new BorderLayout());
         mainContent.setBackground(new Color(236, 240, 241));
+        
+        mainContent.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
         
         showPanel(dashboardStatsPanel);
         
         add(sidebar, BorderLayout.WEST);
         add(mainContent, BorderLayout.CENTER);
         
+        startSessionMonitor();
+        
         setVisible(true);
     }
 
-    private void showPanel(JPanel panel) {
-        mainContent.removeAll();
-        mainContent.add(panel, BorderLayout.CENTER);
+    private void startSessionMonitor() {
+        sessionCheckTimer = new Timer(10000, e -> {
+            if (!UserSession.isSessionValid()) {
+                sessionCheckTimer.stop();
+                com.dental.clinic.ui.components.ErrorDialog.show(this, 
+                    "Session Expired", 
+                    "Your session has expired due to inactivity.\nPlease login again.");
+                UserSession.logout();
+                new LoginPage();
+                dispose();
+            }
+        });
+        sessionCheckTimer.start();
+    }
+
+    /**
+     * Switch between panels - just hide/show, don't destroy
+     */
+    private void showPanel(JPanel newPanel) {
+        if (currentPanel != null && currentPanel != newPanel) {
+            // Just remove from view, don't destroy
+            mainContent.remove(currentPanel);
+            currentPanel = null;
+        }
+
+        currentPanel = newPanel;
+        mainContent.add(currentPanel, BorderLayout.CENTER);
         mainContent.revalidate();
         mainContent.repaint();
     }
@@ -178,6 +263,7 @@ public class AdminDashboard extends JFrame {
             sysLogsBtn.setLocation(sysLogsBtn.getX(), LOGS_Y + shift);
         }
         sidebar.repaint();
+        UserSession.updateActivity();
     }
 
     private JButton createSidebarButton(String text, int y) {
@@ -189,6 +275,13 @@ public class AdminDashboard extends JFrame {
         btn.setBorderPainted(false);
         btn.setFont(new Font("Arial", Font.PLAIN, 14));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
+        
         return btn;
     }
 
@@ -202,6 +295,13 @@ public class AdminDashboard extends JFrame {
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setFont(new Font("Arial", Font.PLAIN, 12));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
+        
         return btn;
     }
 }

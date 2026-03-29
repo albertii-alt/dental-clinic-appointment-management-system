@@ -5,6 +5,7 @@ import java.awt.*;
 import com.dentalclinic.staff.*; // Import panels from the staff package
 import com.dental.clinic.ui.components.LogoutDialog;
 import com.dentalclinic.util.UserSession;
+import javax.swing.Timer;
 
 public class DentistDashboard extends JFrame {
 
@@ -22,14 +23,25 @@ public class DentistDashboard extends JFrame {
     private String username;
     private String email;
     private String role = "Dentist";
+    
+    private Timer sessionCheckTimer; // Timer for session monitoring
 
     private final int LOGOUT_Y = 600;
 
     public DentistDashboard(int staffId, String staffName, String user, String mail) {
+        
+        // Check session validity before proceeding
+        if (!UserSession.isSessionValid()) {
+            new LoginPage();
+            dispose();
+            return;
+        }
+        
         this.staffId = staffId;
         this.staffName = staffName;
         this.username = user;
         this.email = mail;
+        
         setTitle("Dental Clinic - Dentist Dashboard");
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -37,6 +49,13 @@ public class DentistDashboard extends JFrame {
 
         mainPanel = new JPanel(new BorderLayout());
         add(mainPanel);
+
+        // Track activity on main panel
+        mainPanel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseMoved(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
 
         sidebar = new JPanel();
         sidebar.setBackground(new Color(44, 62, 80)); 
@@ -47,12 +66,22 @@ public class DentistDashboard extends JFrame {
         logoLabel.setForeground(Color.WHITE);
         logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
         logoLabel.setBounds(50, 30, 150, 30);
+        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                showWelcomeScreen();
+                UserSession.updateActivity();
+            }
+        });
         sidebar.add(logoLabel);
 
         // 1. View Appointments Dropdown (Permission: MANAGE_APPOINTMENTS)
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
             viewAppBtn = createSidebarButton("View Appointments ⌄", 100);
-            viewAppBtn.addActionListener(e -> toggleAppMenu());
+            viewAppBtn.addActionListener(e -> {
+                toggleAppMenu();
+                UserSession.updateActivity();
+            });
             sidebar.add(viewAppBtn);
 
             appointmentsSubMenu = new JPanel(null);
@@ -63,8 +92,14 @@ public class DentistDashboard extends JFrame {
             JButton todayBtn = createSubButton("Today's Schedule", 5);
             JButton upcomingBtn = createSubButton("Upcoming Treatments", 40);
 
-            todayBtn.addActionListener(e -> switchPanel(new TodaysAppointmentsPanel())); 
-            upcomingBtn.addActionListener(e -> switchPanel(new UpcomingAppointmentsPanel()));
+            todayBtn.addActionListener(e -> {
+                switchPanel(new TodaysAppointmentsPanel());
+                UserSession.updateActivity();
+            }); 
+            upcomingBtn.addActionListener(e -> {
+                switchPanel(new UpcomingAppointmentsPanel());
+                UserSession.updateActivity();
+            });
 
             appointmentsSubMenu.add(todayBtn);
             appointmentsSubMenu.add(upcomingBtn);
@@ -74,14 +109,20 @@ public class DentistDashboard extends JFrame {
         // 2. View Patient History (Permission: VIEW_MEDICAL_HISTORY)
         if (UserSession.hasPermission("VIEW_MEDICAL_HISTORY")) {
             historyBtn = createSidebarButton("View Patient History", 150); 
-            historyBtn.addActionListener(e -> switchPanel(new PatientHistoryPanel(true))); 
+            historyBtn.addActionListener(e -> {
+                switchPanel(new PatientHistoryPanel(true));
+                UserSession.updateActivity();
+            }); 
             sidebar.add(historyBtn);
         }
 
         // 3. Block Time Slots (Permission: MANAGE_SCHEDULE)
         if (UserSession.hasPermission("MANAGE_SCHEDULE")) {
             blockBtn = createSidebarButton("Block Time Slots", 200);
-            blockBtn.addActionListener(e -> switchPanel(new StaffManageSchedulePanel(staffId, staffName, role)));
+            blockBtn.addActionListener(e -> {
+                switchPanel(new StaffManageSchedulePanel(staffId, staffName, role));
+                UserSession.updateActivity();
+            });
             sidebar.add(blockBtn);
         }
         
@@ -91,50 +132,77 @@ public class DentistDashboard extends JFrame {
             switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
                 staffId, role, staffName, username, email
             ));
+            UserSession.updateActivity();
         });
         sidebar.add(settingsBtn);
         
         // Logout
         logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
         logoutBtn.setBackground(new Color(192, 57, 43));
-        logoutBtn.addActionListener(e -> { 
+        logoutBtn.addActionListener(e -> {
             boolean confirm = LogoutDialog.show(this);
-    
             if (confirm) {
-                // Clear the session
-                com.dentalclinic.util.UserSession.initialize(0, null, null, null);
-
+                // Stop session timer
+                if (sessionCheckTimer != null) {
+                    sessionCheckTimer.stop();
+                }
+                // Clear session
+                UserSession.logout();
                 // Return to login
-                new com.dentalclinic.ui.LoginPage();
-                this.dispose();
+                new LoginPage();
+                dispose();
             }
         });
-       
         sidebar.add(logoutBtn);
 
         mainPanel.add(sidebar, BorderLayout.WEST);
+        
+        // Start session monitor
+        startSessionMonitor();
+        
         showWelcomeScreen();
         setVisible(true);
+        
+    }
+
+    private void startSessionMonitor() {
+        sessionCheckTimer = new Timer(10000, e -> {
+            if (!UserSession.isSessionValid()) {
+                sessionCheckTimer.stop();
+                com.dental.clinic.ui.components.ErrorDialog.show(this, 
+                    "Session Expired", 
+                    "Your session has expired due to inactivity.\nPlease login again.");
+                UserSession.logout();
+                new LoginPage();
+                dispose();
+            }
+        });
+        sessionCheckTimer.start();
     }
 
     private void switchPanel(JPanel newPanel) {
-        if (currentContent != null) mainPanel.remove(currentContent);
+        if (currentContent != null) {
+            mainPanel.remove(currentContent);
+        }
         currentContent = newPanel;
         mainPanel.add(currentContent, BorderLayout.CENTER);
         mainPanel.revalidate();
         mainPanel.repaint();
+        UserSession.updateActivity(); // Track activity on panel change
     }
 
     private void showWelcomeScreen() {
         JPanel welcomePanel = new JPanel(new GridBagLayout());
-        JLabel welcomeMsg = new JLabel("Welcome, Dr. " + staffName); // Use the variable
+        welcomePanel.setBackground(new Color(236, 240, 241));
+        JLabel welcomeMsg = new JLabel("Welcome, Dr. " + staffName);
         welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
+        welcomeMsg.setForeground(new Color(44, 62, 80));
         welcomePanel.add(welcomeMsg);
         switchPanel(welcomePanel);
     }
 
     private void toggleAppMenu() {
-        if (appointmentsSubMenu == null) return; // Safety check
+        if (appointmentsSubMenu == null) return;
 
         isAppMenuOpen = !isAppMenuOpen;
         appointmentsSubMenu.setVisible(isAppMenuOpen);
@@ -150,6 +218,7 @@ public class DentistDashboard extends JFrame {
             blockBtn.setLocation(blockBtn.getX(), 200 + offset);
         }
         sidebar.repaint();
+        UserSession.updateActivity();
     }
 
     private JButton createSidebarButton(String text, int yPos) {
@@ -161,6 +230,13 @@ public class DentistDashboard extends JFrame {
         button.setBorderPainted(false);
         button.setFont(new Font("Arial", Font.PLAIN, 13));
         button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        button.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
+        
         return button;
     }
 
@@ -174,6 +250,13 @@ public class DentistDashboard extends JFrame {
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setFont(new Font("Arial", Font.PLAIN, 12));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                UserSession.updateActivity();
+            }
+        });
+        
         return btn;
     }
 }

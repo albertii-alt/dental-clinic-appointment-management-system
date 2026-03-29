@@ -34,7 +34,6 @@ public class DashboardDAO {
 
     public List<Object[]> getTodayAppointments() throws SQLException {
         List<Object[]> appts = new ArrayList<>();
-        // Using service_type directly from the appointments table since service_id was not found
         String query = "SELECT CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
                        "a.service_type, a.appointment_time, a.status " +
                        "FROM appointments a " +
@@ -43,12 +42,12 @@ public class DashboardDAO {
                        "ORDER BY a.appointment_time ASC";
 
         try (Connection conn = DBConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(query)) {
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 appts.add(new Object[]{
                     rs.getString("patient_name"),
-                    rs.getString("service_type"), // Changed from service_name
+                    rs.getString("service_type"),
                     rs.getString("appointment_time"),
                     rs.getString("status")
                 });
@@ -62,8 +61,8 @@ public class DashboardDAO {
         String query = "SELECT action, details, timestamp FROM activity_logs ORDER BY timestamp DESC LIMIT 5";
 
         try (Connection conn = DBConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(query)) {
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 java.sql.Timestamp ts = rs.getTimestamp("timestamp");
                 String time = new java.text.SimpleDateFormat("HH:mm").format(ts);
@@ -80,8 +79,8 @@ public class DashboardDAO {
         Map<String, Integer> data = new HashMap<>();
         String query = "SELECT service_type, COUNT(*) as count FROM appointments GROUP BY service_type LIMIT 5";
         try (Connection conn = DBConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(query)) {
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 data.put(rs.getString("service_type"), rs.getInt("count"));
             }
@@ -89,15 +88,13 @@ public class DashboardDAO {
         return data;
     }
     
-    // Add this method to your DashboardDAO class
     public Map<String, Integer> getAppointmentTrends() throws SQLException {
         Map<String, Integer> trends = new java.util.LinkedHashMap<>();
-        // This query counts how many of each service exists in the appointments table
         String query = "SELECT service_type, COUNT(*) as total FROM appointments WHERE status != 'Cancelled' GROUP BY service_type";
 
-        try (Connection conn = com.dentalclinic.util.DBConnection.getConnection();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(query)) {
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
                 trends.put(rs.getString("service_type"), rs.getInt("total"));
             }

@@ -345,4 +345,8 @@ public class AuditTrailsPanel extends JPanel {
         }
         return false;
     }
+
+    public void cleanup() {
+    System.out.println("Cleaning up AuditTrailsPanel...");
+}
 }

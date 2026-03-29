@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=Dental Clinic System
+Comment=Appointment Management System
+Exec=/home/ivylxvie/Applications/DentalClinicSystem/run.sh
+Icon=/home/ivylxvie/Applications/DentalClinicSystem/icon.png
+Terminal=false
+Type=Application
+Categories=Office;Utility;
+StartupNotify=true

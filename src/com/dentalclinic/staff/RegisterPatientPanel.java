@@ -7,6 +7,8 @@ import java.awt.*;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import com.dentalclinic.service.AuthService;
+import com.dentalclinic.util.PasswordValidator;
+import java.util.List;
 
 public class RegisterPatientPanel extends JPanel {
 
@@ -16,6 +18,13 @@ public class RegisterPatientPanel extends JPanel {
     private JDateChooser birthDatePicker;
     private JButton submitBtn, clearBtn;
     private AuthService authService = new AuthService();
+
+    // SECURITY: Input limits
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_ADDRESS_LENGTH = 200;
+    private static final int MAX_CONTACT_LENGTH = 11;
+    private static final int MAX_EMAIL_LENGTH = 100;
+    private static final int MAX_USERNAME_LENGTH = 50;
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -29,7 +38,7 @@ public class RegisterPatientPanel extends JPanel {
         setLayout(new GridBagLayout());
         setBackground(BG);
 
-        // --- THE FORM CONTAINER (LANDSCAPE OPTIMIZED) ---
+        // --- THE FORM CONTAINER ---
         JPanel container = new JPanel();
         container.setLayout(new BorderLayout(0, 20));
         container.setPreferredSize(new Dimension(850, 550)); 
@@ -80,7 +89,7 @@ public class RegisterPatientPanel extends JPanel {
         formGrid.add(createFieldGroup("Full Address", addressField = new JTextField()));
 
         // Column 2: Contact & Account
-        formGrid.add(createFieldGroup("Contact Number (11 Digits)", contactField = new JTextField()));
+        formGrid.add(createFieldGroup("Contact Number (7-11 digits)", contactField = new JTextField()));
         formGrid.add(createFieldGroup("Email Address", emailField = new JTextField()));
         formGrid.add(createFieldGroup("Username", usernameField = new JTextField()));
         
@@ -111,13 +120,13 @@ public class RegisterPatientPanel extends JPanel {
         container.add(footer, BorderLayout.SOUTH);
 
         // --- LISTENERS ---
-        contactField.addKeyListener(new KeyAdapter() {
-            public void keyTyped(KeyEvent e) {
-                if (!Character.isDigit(e.getKeyChar()) || contactField.getText().length() >= 11) {
-                    e.consume();
-                }
-            }
-        });
+        addContactValidation(contactField);
+        limitTextFieldLength(firstNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(middleNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(lastNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(addressField, MAX_ADDRESS_LENGTH);
+        limitTextFieldLength(emailField, MAX_EMAIL_LENGTH);
+        limitTextFieldLength(usernameField, MAX_USERNAME_LENGTH);
 
         birthDatePicker.addPropertyChangeListener("date", evt -> {
             if (birthDatePicker.getDate() != null) {
@@ -130,6 +139,49 @@ public class RegisterPatientPanel extends JPanel {
         clearBtn.addActionListener(e -> clearFields());
 
         add(container);
+    }
+
+    // SECURITY: Contact number validation (digits only)
+    private void addContactValidation(JTextField field) {
+        field.addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                if (!Character.isDigit(c) || field.getText().length() >= MAX_CONTACT_LENGTH) {
+                    e.consume();
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Limit text field length
+    private void limitTextFieldLength(JTextField field, int maxLength) {
+        field.addKeyListener(new KeyAdapter() {
+            public void keyTyped(KeyEvent evt) {
+                if (field.getText().length() >= maxLength) {
+                    evt.consume();
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        return input.replace("<", "")
+                    .replace(">", "")
+                    .replace("\"", "")
+                    .replace("'", "")
+                    .replace("&", "");
+    }
+    
+    // SECURITY: Validate email
+    private boolean isValidEmail(String email) {
+        return email != null && email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
+    }
+    
+    // SECURITY: Validate contact
+    private boolean isValidContact(String contact) {
+        return contact != null && contact.matches("\\d{7,11}");
     }
 
     // --- UI HELPERS ---
@@ -168,7 +220,7 @@ public class RegisterPatientPanel extends JPanel {
         btn.setBorder(new EmptyBorder(10, 25, 10, 25));
     }
 
-    // --- LOGIC (UNCHANGED) ---
+    // --- LOGIC ---
 
     private int calculateAge(java.util.Date birthDate) {
         java.time.LocalDate birth = new java.sql.Date(birthDate.getTime()).toLocalDate();
@@ -176,29 +228,58 @@ public class RegisterPatientPanel extends JPanel {
     }
 
     private void handleStaffRegistration() {
+        // SECURITY: Get and sanitize inputs
+        String fName = sanitizeInput(firstNameField.getText().trim());
+        String mName = sanitizeInput(middleNameField.getText().trim());
+        String lName = sanitizeInput(lastNameField.getText().trim());
+        String address = sanitizeInput(addressField.getText().trim());
+        String contact = contactField.getText().trim();
+        String email = emailField.getText().trim();
+        String user = usernameField.getText().trim();
         String pass = new String(passwordField.getPassword());
-        if (firstNameField.getText().isEmpty() || lastNameField.getText().isEmpty() || 
-            usernameField.getText().isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
+        
+        // Validate required fields
+        if (fName.isEmpty() || lName.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
             JOptionPane.showMessageDialog(this, "Please fill in all required fields.");
             return;
         }
-
-        if (contactField.getText().length() != 11) {
-            JOptionPane.showMessageDialog(this, "Contact number must be exactly 11 digits.");
+        
+        // Validate contact
+        if (!isValidContact(contact)) {
+            JOptionPane.showMessageDialog(this, "Contact number must be 7-11 digits.");
+            return;
+        }
+        
+        // Validate email
+        if (!email.isEmpty() && !isValidEmail(email)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid email address.");
+            return;
+        }
+        
+        // Validate password complexity
+        List<String> passwordErrors = PasswordValidator.validatePassword(pass);
+        if (!passwordErrors.isEmpty()) {
+            StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+            for (String error : passwordErrors) {
+                errorMsg.append("• ").append(error).append("\n");
+            }
+            JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         try {
             java.sql.Date sqlDate = new java.sql.Date(birthDatePicker.getDate().getTime());
             boolean success = authService.registerNewPatient(
-                firstNameField.getText(), middleNameField.getText(), lastNameField.getText(),
-                sqlDate, Integer.parseInt(ageField.getText()), addressField.getText(),
-                contactField.getText(), emailField.getText(), usernameField.getText(), pass
+                fName, mName, lName,
+                sqlDate, Integer.parseInt(ageField.getText()), address,
+                contact, email, user, pass
             );
 
             if (success) {
                 JOptionPane.showMessageDialog(this, "Patient Registered Successfully!");
                 clearFields();
+            } else {
+                JOptionPane.showMessageDialog(this, "Registration failed. Username may already exist.");
             }
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());

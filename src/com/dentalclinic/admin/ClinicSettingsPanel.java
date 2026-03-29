@@ -20,6 +20,7 @@ public class ClinicSettingsPanel extends JPanel {
     private int currentAdminId;
     private boolean isSuperAdmin;
     private String currentRole;
+    private boolean settingsLoaded = false;
 
     private String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
@@ -249,11 +250,22 @@ public class ClinicSettingsPanel extends JPanel {
                 String desc = serviceDescField.getText().trim();
                 String priceStr = servicePriceField.getText().trim();
 
+                // SECURITY: Sanitize inputs
+                name = sanitizeInput(name);
+                desc = sanitizeInput(desc);
+
+                // Validate name
                 if (name.isEmpty()) {
                     JOptionPane.showMessageDialog(this, "Service Name required.");
                     return;
                 }
-                if (desc.isEmpty()) desc = "No description provided.";
+
+                // Validate price
+                if (!isValidPrice(priceStr)) {
+                    JOptionPane.showMessageDialog(this, "Please enter a valid price (0-999999.99).");
+                    return;
+                }
+
                 double price = priceStr.isEmpty() ? 0.0 : Double.parseDouble(priceStr);
 
                 if (configDAO.addService(name, desc, price, currentAdminId, currentRole)) {
@@ -303,6 +315,9 @@ public class ClinicSettingsPanel extends JPanel {
     // ---------- ORIGINAL LOGIC (UNCHANGED) ----------
 
     private void loadCurrentSettings() {
+        if (settingsLoaded) return; // Only load once
+        settingsLoaded = true;
+
         try {
             leadTimeSpinner.setValue(appService.getBookingLeadTime());
             List<String> closedDays = appService.getClosedDays();
@@ -471,4 +486,31 @@ public class ClinicSettingsPanel extends JPanel {
             return new CompoundBorder(tb, new EmptyBorder(10, 10, 10, 10));
         }
     }
+    
+    // SECURITY: Sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        return input.replace("<", "")
+                    .replace(">", "")
+                    .replace("\"", "")
+                    .replace("'", "")
+                    .replace("&", "");
+    }
+
+    // SECURITY: Validate service price
+    private boolean isValidPrice(String priceStr) {
+        if (priceStr == null || priceStr.isEmpty()) return true;
+        try {
+            double price = Double.parseDouble(priceStr);
+            return price >= 0 && price <= 999999.99;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+    public void cleanup() {
+    // Clear any resources
+    System.out.println("Cleaning up ClinicSettingsPanel...");
+    // Cancel any timers, close any open resources
+    // The connections will be closed when the panel is garbage collected
+}
 }

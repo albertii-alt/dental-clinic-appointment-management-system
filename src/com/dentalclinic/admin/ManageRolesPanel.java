@@ -3,9 +3,11 @@ package com.dentalclinic.admin;
 import com.dentalclinic.dao.RolesPermissionDAO;
 import com.dentalclinic.service.LogService;
 import com.dentalclinic.util.UserSession;
+import com.dentalclinic.util.DBConnection;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -18,6 +20,10 @@ public class ManageRolesPanel extends JPanel {
     private JPanel permissionsContainer;
     private Map<Integer, JCheckBox> checkBoxes; 
     private List<RolesPermissionDAO.Permission> allPermissions;
+    private Map<String, Integer> roleIdMap; // Dynamically loaded
+    private int currentAdminId;
+    private boolean isSuperAdmin;
+    private String adminRole;
     
     // UI Style Constants
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
@@ -26,13 +32,24 @@ public class ManageRolesPanel extends JPanel {
     private final Color TEXT_DARK = new Color(44, 62, 80);
     private final Color TEXT_MUTED = new Color(127, 140, 141);
 
-    // Hardcoded roles based on existing SQL setup
-    private final String[] roles = {"Admin", "Dentist", "Staff"};
-    private final Map<String, Integer> roleIdMap = Map.of("Admin", 1, "Dentist", 2, "Staff", 3);
-
-    public ManageRolesPanel() {
+    public ManageRolesPanel(int adminId, boolean isSuper) {
+        this.currentAdminId = adminId;
+        this.isSuperAdmin = isSuper;
+        this.adminRole = isSuper ? "Super Admin" : "Admin";
+        // SECURITY FIX: Check if user has permission to manage roles
+        if (!UserSession.hasPermission("MANAGE_ROLES")) {
+            JOptionPane.showMessageDialog(null, 
+                "Access Denied: You do not have permission to manage roles.", 
+                "Security Error", 
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        
         dao = new RolesPermissionDAO();
         checkBoxes = new HashMap<>();
+        
+        // SECURITY FIX: Load role IDs dynamically from database
+        roleIdMap = loadRoleIdsFromDatabase();
         
         setLayout(new BorderLayout(25, 25));
         setBackground(BG_LIGHT);
@@ -64,11 +81,35 @@ public class ManageRolesPanel extends JPanel {
         loadPermissionsForSelectedRole();
     }
 
+    /**
+     * SECURITY FIX: Load role IDs dynamically from database instead of hardcoding
+     */
+    private Map<String, Integer> loadRoleIdsFromDatabase() {
+        Map<String, Integer> roleMap = new HashMap<>();
+        String query = "SELECT role_id, role_name FROM roles";
+        
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                roleMap.put(rs.getString("role_name"), rs.getInt("role_id"));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            // Fallback to hardcoded values if database query fails
+            roleMap.put("Admin", 1);
+            roleMap.put("Dentist", 2);
+            roleMap.put("Staff", 3);
+        }
+        return roleMap;
+    }
+
     private JSplitPane createSplitContent() {
         // --- LEFT SIDE: ROLE SELECTOR ---
+        String[] roles = roleIdMap.keySet().toArray(new String[0]);
         roleList = new JList<>(roles);
         roleList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        roleList.setSelectedIndex(0);
+        if (roles.length > 0) roleList.setSelectedIndex(0);
         roleList.setFixedCellHeight(50);
         roleList.setFont(new Font("Segoe UI", Font.BOLD, 14));
         roleList.setBackground(Color.WHITE);
@@ -133,7 +174,6 @@ public class ManageRolesPanel extends JPanel {
     private void loadAllPermissionCheckboxes() {
         allPermissions = dao.getAllPermissions();
         for (RolesPermissionDAO.Permission p : allPermissions) {
-            // --- FIXED: Using GridBagLayout for flexible row height ---
             JPanel itemPanel = new JPanel(new GridBagLayout());
             itemPanel.setBackground(Color.WHITE);
             itemPanel.setBorder(new EmptyBorder(8, 0, 12, 0));
@@ -155,9 +195,9 @@ public class ManageRolesPanel extends JPanel {
 
             // 2. The Description (The text below)
             gbc.gridy = 1;
-            gbc.insets = new Insets(2, 28, 0, 0); // Indent to align with text, not the box
+            gbc.insets = new Insets(2, 28, 0, 0);
 
-            // Using HTML to allow the description to wrap if it's too long
+            // Using HTML to allow the description to wrap
             JLabel descLabel = new JLabel("<html><body style='width: 100%'>" + p.description + "</body></html>");
             descLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
             descLabel.setForeground(TEXT_MUTED);
@@ -177,7 +217,8 @@ public class ManageRolesPanel extends JPanel {
         String selectedRole = roleList.getSelectedValue();
         if (selectedRole == null) return;
         
-        int roleId = roleIdMap.get(selectedRole);
+        Integer roleId = roleIdMap.get(selectedRole);
+        if (roleId == null) return;
 
         // Clear all checkboxes
         checkBoxes.values().forEach(cb -> cb.setSelected(false));
@@ -193,7 +234,11 @@ public class ManageRolesPanel extends JPanel {
 
     private void savePermissions() {
         String selectedRole = roleList.getSelectedValue();
-        int roleId = roleIdMap.get(selectedRole);
+        Integer roleId = roleIdMap.get(selectedRole);
+        if (roleId == null) {
+            JOptionPane.showMessageDialog(this, "Error: Role not found.", "System Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
         List<Integer> selectedIds = new ArrayList<>();
         checkBoxes.forEach((id, cb) -> {
@@ -201,7 +246,7 @@ public class ManageRolesPanel extends JPanel {
         });
 
         if (dao.updateRolePermissions(roleId, selectedIds)) {
-            // RECORD THE ACTIVITY
+            // SECURITY: Log the permission change
             LogService logService = new LogService();
             int adminId = UserSession.getUserId();
             String adminRole = UserSession.getUserRole();
@@ -219,4 +264,7 @@ public class ManageRolesPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Failed to update permissions.", "System Error", JOptionPane.ERROR_MESSAGE);
         }
     }
+    public void cleanup() {
+    System.out.println("Cleaning up ManageRolesPanel...");
+}
 }

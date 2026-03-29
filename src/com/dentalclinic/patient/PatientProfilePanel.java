@@ -6,6 +6,8 @@ import java.awt.*;
 import com.toedter.calendar.JDateChooser;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.util.PasswordValidator;
+import java.util.List;
 
 public class PatientProfilePanel extends JPanel {
     private JTextField txtFName, txtMName, txtLName, txtAge, txtAddr, txtPhone, txtEmail, txtUser;
@@ -13,20 +15,25 @@ public class PatientProfilePanel extends JPanel {
     private JPasswordField txtCurrentPass, txtNewPass, txtConfirmPass;
     private PatientDAO patientDao = new PatientDAO();
     private int patientID;
+    
+    // SECURITY: Input limits
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_ADDRESS_LENGTH = 200;
+    private static final int MAX_CONTACT_LENGTH = 11;
+    private static final int MAX_EMAIL_LENGTH = 100;
+    private static final int MAX_USERNAME_LENGTH = 50;
 
     public PatientProfilePanel(int pID) {
         this.patientID = pID;
         setLayout(new BorderLayout(15, 15));
-        setBackground(new Color(245, 247, 250)); // Slightly cleaner off-white
+        setBackground(new Color(245, 247, 250));
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
-        // --- HEADER ---
         JLabel header = new JLabel("My Profile Settings");
         header.setFont(new Font("Segoe UI", Font.BOLD, 26));
         header.setForeground(new Color(44, 62, 80));
         add(header, BorderLayout.NORTH);
 
-        // --- FORM CONTAINER ---
         JPanel formContainer = new JPanel();
         formContainer.setLayout(new BoxLayout(formContainer, BoxLayout.Y_AXIS));
         formContainer.setOpaque(false);
@@ -39,7 +46,6 @@ public class PatientProfilePanel extends JPanel {
         scroll.getViewport().setOpaque(false);
         add(scroll, BorderLayout.CENTER);
 
-        // --- SAVE BUTTON ---
         JButton btnSave = new JButton("Save All Changes");
         btnSave.setFont(new Font("Segoe UI", Font.BOLD, 16));
         btnSave.setBackground(new Color(41, 128, 185));
@@ -56,15 +62,18 @@ public class PatientProfilePanel extends JPanel {
             Patient p = patientDao.getPatientById(patientID);
             if (p == null) return;
 
-            // 1. GENERAL INFORMATION SECTION
             JPanel generalPnl = createSection("General Information");
             GridBagConstraints gbc = createGBC();
 
             txtFName = addField(generalPnl, "First Name:", p.getFirstName(), gbc, 0);
+            limitTextFieldLength(txtFName, MAX_NAME_LENGTH);
+            
             txtMName = addField(generalPnl, "Middle Name:", p.getMiddleName(), gbc, 1);
+            limitTextFieldLength(txtMName, MAX_NAME_LENGTH);
+            
             txtLName = addField(generalPnl, "Last Name:", p.getLastName(), gbc, 2);
+            limitTextFieldLength(txtLName, MAX_NAME_LENGTH);
 
-            // JDateChooser Row
             gbc.gridx = 0; gbc.gridy = 3;
             generalPnl.add(new JLabel("Birth Date:"), gbc);
             birthDatePicker = new JDateChooser();
@@ -72,7 +81,6 @@ public class PatientProfilePanel extends JPanel {
             birthDatePicker.setDate(p.getBirthDate());
             gbc.gridx = 1; generalPnl.add(birthDatePicker, gbc);
 
-            // Age Row
             gbc.gridx = 0; gbc.gridy = 4;
             generalPnl.add(new JLabel("Current Age:"), gbc);
             txtAge = new JTextField(String.valueOf(p.getAge()));
@@ -80,7 +88,6 @@ public class PatientProfilePanel extends JPanel {
             txtAge.setBackground(new Color(236, 240, 241));
             gbc.gridx = 1; generalPnl.add(txtAge, gbc);
 
-            // LOGIC: Age Sync
             birthDatePicker.addPropertyChangeListener("date", evt -> {
                 if (birthDatePicker.getDate() != null) {
                     txtAge.setText(String.valueOf(calculateAge(birthDatePicker.getDate())));
@@ -88,14 +95,29 @@ public class PatientProfilePanel extends JPanel {
             });
 
             txtAddr = addField(generalPnl, "Full Address:", p.getAddress(), gbc, 5);
+            limitTextFieldLength(txtAddr, MAX_ADDRESS_LENGTH);
+            
             txtPhone = addField(generalPnl, "Contact No:", p.getContactNumber(), gbc, 6);
+            limitTextFieldLength(txtPhone, MAX_CONTACT_LENGTH);
+            // SECURITY: Only allow digits
+            txtPhone.addKeyListener(new java.awt.event.KeyAdapter() {
+                public void keyTyped(java.awt.event.KeyEvent evt) {
+                    char c = evt.getKeyChar();
+                    if (!Character.isDigit(c) || txtPhone.getText().length() >= MAX_CONTACT_LENGTH) {
+                        evt.consume();
+                    }
+                }
+            });
+            
             txtEmail = addField(generalPnl, "Email Address:", p.getEmail(), gbc, 7);
+            limitTextFieldLength(txtEmail, MAX_EMAIL_LENGTH);
+            
             txtUser = addField(generalPnl, "Username:", p.getUsername(), gbc, 8);
+            limitTextFieldLength(txtUser, MAX_USERNAME_LENGTH);
 
             container.add(generalPnl);
             container.add(Box.createVerticalStrut(20));
 
-            // 2. SECURITY SECTION
             JPanel securityPnl = createSection("Account Security");
             GridBagConstraints sGbc = createGBC();
 
@@ -151,8 +173,24 @@ public class PatientProfilePanel extends JPanel {
         p.add(t, gbc);
         return t;
     }
+    
+    // SECURITY: Limit text field length
+    private void limitTextFieldLength(JTextField field, int maxLength) {
+        field.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                if (field.getText().length() >= maxLength) {
+                    evt.consume();
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        return input.replaceAll("[<>\"'&]", "");
+    }
 
-    // LOGIC: Functional Methods (Stay the Same)
     private int calculateAge(java.util.Date birthDate) {
         java.time.LocalDate birth = new java.sql.Date(birthDate.getTime()).toLocalDate();
         return java.time.Period.between(birth, java.time.LocalDate.now()).getYears();
@@ -162,8 +200,42 @@ public class PatientProfilePanel extends JPanel {
         String currentPass = new String(txtCurrentPass.getPassword());
         String newPass = new String(txtNewPass.getPassword());
         String confirmPass = new String(txtConfirmPass.getPassword());
+        
+        // SECURITY: Sanitize inputs
+        String fName = sanitizeInput(txtFName.getText().trim());
+        String mName = sanitizeInput(txtMName.getText().trim());
+        String lName = sanitizeInput(txtLName.getText().trim());
+        String address = sanitizeInput(txtAddr.getText().trim());
+        String phone = txtPhone.getText().trim();
+        String email = txtEmail.getText().trim();
+        String username = sanitizeInput(txtUser.getText().trim());
 
         try {
+            // Validate required fields
+            if (fName.isEmpty() || lName.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "First name and last name are required.");
+                return;
+            }
+            
+            // SECURITY: Validate phone number
+            if (!phone.matches("\\d{7,11}")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
+                return;
+            }
+            
+            // SECURITY: Validate email
+            if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid email address.");
+                return;
+            }
+            
+            // SECURITY: Validate username
+            if (username.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Username is required.");
+                return;
+            }
+            
+            // Verify current password
             if (!patientDao.verifyPassword(patientID, currentPass)) {
                 JOptionPane.showMessageDialog(this, "Verification Failed: Current password is incorrect.", "Security", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -175,19 +247,36 @@ public class PatientProfilePanel extends JPanel {
                     JOptionPane.showMessageDialog(this, "New passwords do not match!");
                     return;
                 }
+                
+                // SECURITY: Validate new password complexity
+                List<String> passwordErrors = PasswordValidator.validatePassword(newPass);
+                if (!passwordErrors.isEmpty()) {
+                    StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+                    for (String error : passwordErrors) {
+                        errorMsg.append("• ").append(error).append("\n");
+                    }
+                    JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
                 passToSave = newPass;
             }
 
             java.sql.Date sqlDob = new java.sql.Date(birthDatePicker.getDate().getTime());
 
             boolean success = patientDao.updateFullProfile(
-                patientID, txtFName.getText(), txtMName.getText(), txtLName.getText(),
-                sqlDob, Integer.parseInt(txtAge.getText()), txtAddr.getText(), 
-                txtPhone.getText(), txtEmail.getText(), txtUser.getText(), passToSave
+                patientID, fName, mName, lName,
+                sqlDob, Integer.parseInt(txtAge.getText()), address, 
+                phone, email, username, passToSave
             );
 
-            if (success) JOptionPane.showMessageDialog(this, "Profile updated successfully!");
+            if (success) {
+                JOptionPane.showMessageDialog(this, "Profile updated successfully!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Update failed. Username may already exist.");
+            }
 
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid age format.");
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }

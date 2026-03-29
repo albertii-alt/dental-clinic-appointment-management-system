@@ -1,4 +1,4 @@
-// UI ENHANCED VERSION (LOGIC UNCHANGED)
+// UI ENHANCED VERSION WITH SECURITY FIXES
 package com.dentalclinic.staff;
 
 import com.toedter.calendar.JDateChooser;
@@ -23,6 +23,11 @@ public class StaffBookAppointmentPanel extends JPanel {
     private JComboBox<String> serviceTypeCombo, timeSlotCombo;
     private JDateChooser appointmentDatePicker;
     private int selectedPatientID = -1;
+
+    // SECURITY: Input limits
+    private static final int MAX_CONTACT_LENGTH = 11;
+    private static final int MAX_AGE = 120;
+    private static final int MIN_AGE = 0;
 
     // THEME
     private final Color BG = new Color(245, 247, 250);
@@ -142,10 +147,64 @@ public class StaffBookAppointmentPanel extends JPanel {
         appointmentDatePicker.addPropertyChangeListener("date", evt -> refreshSlots());
         confirmBtn.addActionListener(e -> handleStaffBooking());
 
+        // SECURITY: Add input validation listeners
+        addContactValidation(contactField);
+        addAgeValidation(ageField);
+
         try { refreshPatientDropdown(""); } catch (Exception e) {}
 
         GridBagConstraints gbc = new GridBagConstraints();
         add(container, gbc);
+    }
+
+    // SECURITY: Contact number validation (digits only)
+    private void addContactValidation(JTextField field) {
+        field.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                char c = evt.getKeyChar();
+                if (!Character.isDigit(c) || field.getText().length() >= MAX_CONTACT_LENGTH) {
+                    evt.consume();
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Age validation
+    private void addAgeValidation(JTextField field) {
+        field.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                char c = evt.getKeyChar();
+                if (!Character.isDigit(c)) {
+                    evt.consume();
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Sanitize input
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        return input.replace("<", "")
+                    .replace(">", "")
+                    .replace("\"", "")
+                    .replace("'", "")
+                    .replace("&", "");
+    }
+    
+    // SECURITY: Validate age
+    private boolean isValidAge(String ageStr) {
+        if (ageStr == null || ageStr.isEmpty()) return true;
+        try {
+            int age = Integer.parseInt(ageStr);
+            return age >= MIN_AGE && age <= MAX_AGE;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+    
+    // SECURITY: Validate contact
+    private boolean isValidContact(String contact) {
+        return contact != null && contact.matches("\\d{7,11}");
     }
 
     // ---------- UI HELPERS ----------
@@ -225,15 +284,18 @@ public class StaffBookAppointmentPanel extends JPanel {
         btn.setBorder(new EmptyBorder(10, 20, 10, 20));
     }
 
-    // ---------- LOGIC (UNCHANGED) ----------
+    // ---------- LOGIC ----------
 
     private void selectPatient() {
         int idx = patientResultsCombo.getSelectedIndex();
         if (idx >= 0 && currentSearchResults != null && idx < currentSearchResults.size()) {
             Object[] p = currentSearchResults.get(idx);
             selectedPatientID = (int) p[0];
-            fNameField.setText((String) p[1]);
-            contactField.setText((String) p[4]);
+            // SECURITY: Sanitize patient name
+            String patientName = (String) p[1];
+            fNameField.setText(sanitizeInput(patientName));
+            String contact = (String) p[4];
+            contactField.setText(sanitizeInput(contact));
 
             java.sql.Date dob = (java.sql.Date) p[2];
             if (dob != null) {
@@ -252,7 +314,9 @@ public class StaffBookAppointmentPanel extends JPanel {
             }
             DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
             for (Object[] p : currentSearchResults) {
-                model.addElement(p[1] + " (ID: " + p[0] + ")");
+                // SECURITY: Sanitize display name
+                String displayName = sanitizeInput((String) p[1]) + " (ID: " + p[0] + ")";
+                model.addElement(displayName);
             }
             patientResultsCombo.setModel(model);
         } catch (SQLException e) {
@@ -284,10 +348,26 @@ public class StaffBookAppointmentPanel extends JPanel {
         }
 
         try {
+            // SECURITY: Validate age
             int ageValue = 0;
-            if (!ageField.getText().isEmpty()) {
-                ageValue = Integer.parseInt(ageField.getText());
+            String ageText = ageField.getText().trim();
+            if (!ageText.isEmpty()) {
+                if (!isValidAge(ageText)) {
+                    JOptionPane.showMessageDialog(this, "Please enter a valid age (0-120).");
+                    return;
+                }
+                ageValue = Integer.parseInt(ageText);
             }
+            
+            // SECURITY: Validate contact
+            String contact = contactField.getText().trim();
+            if (!isValidContact(contact)) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
+                return;
+            }
+            
+            // SECURITY: Sanitize contact
+            contact = sanitizeInput(contact);
 
             Appointment app = new Appointment(
                 selectedPatientID,
@@ -295,7 +375,7 @@ public class StaffBookAppointmentPanel extends JPanel {
                 new java.sql.Date(appointmentDatePicker.getDate().getTime()),
                 (String) timeSlotCombo.getSelectedItem(),
                 ageValue,
-                contactField.getText(),
+                contact,
                 "Approved"
             );
 
@@ -303,6 +383,8 @@ public class StaffBookAppointmentPanel extends JPanel {
             if (result != -1) {
                 JOptionPane.showMessageDialog(this, "Appointment Booked and Approved!");
             }
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid age format.");
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }

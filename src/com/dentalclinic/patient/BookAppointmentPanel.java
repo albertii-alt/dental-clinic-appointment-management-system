@@ -25,11 +25,23 @@ public class BookAppointmentPanel extends JPanel {
     private JButton confirmBtn;
     private JTextField fNameField, mNameField, lNameField, ageField, addressField, contactField;
     private int patientID;
+    
+    // SECURITY: Input limits
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_ADDRESS_LENGTH = 200;
+    private static final int MAX_CONTACT_LENGTH = 11;
 
     public BookAppointmentPanel(int pID, String fName, String mName, String lName, String dob, String age, String address, String contact) {
         this.patientID = pID;
         setBackground(new Color(245, 247, 250));
         setLayout(null);
+
+        // SECURITY: Sanitize inputs before display
+        String sanitizedFName = sanitizeInput(fName);
+        String sanitizedMName = sanitizeInput(mName);
+        String sanitizedLName = sanitizeInput(lName);
+        String sanitizedAddress = sanitizeInput(address);
+        String sanitizedContact = sanitizeInput(contact);
 
         int startX = 225; 
 
@@ -48,13 +60,19 @@ public class BookAppointmentPanel extends JPanel {
 
         // --- PATIENT INFO FORM ---
         createLabel("First Name", startX, 95);
-        fNameField = createField(fName, startX, 120, 125);
+        fNameField = createField(sanitizedFName, startX, 120, 125);
+        limitTextFieldLength(fNameField, MAX_NAME_LENGTH);
+        addSanitizeOnFocusLost(fNameField);
         
         createLabel("Middle Name", startX + 135, 95);
-        mNameField = createField(mName, startX + 135, 120, 125);
+        mNameField = createField(sanitizedMName, startX + 135, 120, 125);
+        limitTextFieldLength(mNameField, MAX_NAME_LENGTH);
+        addSanitizeOnFocusLost(mNameField);
         
         createLabel("Last Name", startX + 270, 95);
-        lNameField = createField(lName, startX + 270, 120, 130);
+        lNameField = createField(sanitizedLName, startX + 270, 120, 130);
+        limitTextFieldLength(lNameField, MAX_NAME_LENGTH);
+        addSanitizeOnFocusLost(lNameField);
 
         createLabel("Saved Birthdate", startX, 160);
         JTextField dobDisplay = createField(dob, startX, 185, 150);
@@ -63,12 +81,26 @@ public class BookAppointmentPanel extends JPanel {
 
         createLabel("Age", startX + 160, 160);
         ageField = createField(age, startX + 160, 185, 60);
+        ageField.setEditable(false);
+        ageField.setBackground(new Color(230, 230, 230));
 
         createLabel("Current Contact No.", startX + 230, 160);
-        contactField = createField(contact, startX + 230, 185, 170);
+        contactField = createField(sanitizedContact, startX + 230, 185, 170);
+        limitTextFieldLength(contactField, MAX_CONTACT_LENGTH);
+        // SECURITY: Only allow digits
+        contactField.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                char c = evt.getKeyChar();
+                if (!Character.isDigit(c) || contactField.getText().length() >= MAX_CONTACT_LENGTH) {
+                    evt.consume();
+                }
+            }
+        });
 
         createLabel("Current Full Address", startX, 225);
-        addressField = createField(address, startX, 250, 400);
+        addressField = createField(sanitizedAddress, startX, 250, 400);
+        limitTextFieldLength(addressField, MAX_ADDRESS_LENGTH);
+        addSanitizeOnFocusLost(addressField);
 
         // SEPARATOR
         JSeparator sep = new JSeparator();
@@ -120,6 +152,50 @@ public class BookAppointmentPanel extends JPanel {
         add(confirmBtn);
     }
 
+    // SECURITY: Sanitize when focus is lost
+    private void addSanitizeOnFocusLost(JTextField field) {
+        field.addFocusListener(new java.awt.event.FocusAdapter() {
+            public void focusLost(java.awt.event.FocusEvent e) {
+                String text = field.getText();
+                String sanitized = sanitizeInput(text);
+                if (!text.equals(sanitized)) {
+                    field.setText(sanitized);
+                }
+            }
+        });
+    }
+    
+    // SECURITY: Sanitize input - remove dangerous characters
+    private String sanitizeInput(String input) {
+        if (input == null) return "";
+        // Remove dangerous characters
+        String sanitized = input.replace("<", "")
+                                 .replace(">", "")
+                                 .replace("\"", "")
+                                 .replace("'", "")
+                                 .replace("&", "");
+        return sanitized;
+    }
+    
+    // SECURITY: Validate input for dangerous characters
+    private boolean hasDangerousCharacters(String input) {
+        if (input == null) return false;
+        return input.contains("<") || input.contains(">") || 
+               input.contains("\"") || input.contains("'") || 
+               input.contains("&");
+    }
+    
+    // SECURITY: Limit text field length
+    private void limitTextFieldLength(JTextField field, int maxLength) {
+        field.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                if (field.getText().length() >= maxLength) {
+                    evt.consume();
+                }
+            }
+        });
+    }
+
     private void refreshTimeSlots() {
         java.util.Date selectedDate = appointmentDatePicker.getDate();
         if (selectedDate == null) return;
@@ -149,6 +225,31 @@ public class BookAppointmentPanel extends JPanel {
             JOptionPane.showMessageDialog(this, "Please select a valid time slot.");
             return;
         }
+        
+        // SECURITY: Get and sanitize all inputs
+        String fName = sanitizeInput(fNameField.getText().trim());
+        String mName = sanitizeInput(mNameField.getText().trim());
+        String lName = sanitizeInput(lNameField.getText().trim());
+        String address = sanitizeInput(addressField.getText().trim());
+        String contact = contactField.getText().trim();
+        
+        // SECURITY: Validate contact number
+        if (!contact.matches("\\d{7,11}")) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
+            return;
+        }
+        
+        // SECURITY: Validate address is not empty
+        if (address.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Please enter your full address.");
+            return;
+        }
+        
+        // SECURITY: Validate name fields
+        if (fName.isEmpty() || lName.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "First name and last name are required.");
+            return;
+        }
 
         try {
             if (!appService.canPatientBook(patientID)) {
@@ -162,7 +263,7 @@ public class BookAppointmentPanel extends JPanel {
                 new java.sql.Date(appointmentDatePicker.getDate().getTime()),
                 selectedTime,
                 Integer.parseInt(ageField.getText()),
-                contactField.getText(),
+                contact,
                 "Pending"
             );
 
@@ -173,6 +274,8 @@ public class BookAppointmentPanel extends JPanel {
                 confirmBtn.setEnabled(false);
             }
 
+        } catch (NumberFormatException ex) {
+            JOptionPane.showMessageDialog(this, "Invalid age format.");
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
@@ -228,21 +331,22 @@ public class BookAppointmentPanel extends JPanel {
 
     private void showBookingSummary(Appointment app, int refID) {
         JDialog receipt = new JDialog((JFrame) SwingUtilities.getWindowAncestor(this), "Success", true);
-        receipt.setUndecorated(true); // Optional: makes it look cleaner like a modern popup
+        receipt.setUndecorated(true);
         receipt.setLayout(new BorderLayout());
         receipt.setSize(420, 520);
         receipt.setLocationRelativeTo(this);
 
-        // Main Container
         JPanel mainP = new JPanel();
         mainP.setLayout(new BoxLayout(mainP, BoxLayout.Y_AXIS));
         mainP.setBorder(new CompoundBorder(
-            new LineBorder(new Color(230, 230, 230), 1), // Subtle border
+            new LineBorder(new Color(230, 230, 230), 1),
             new EmptyBorder(30, 40, 30, 40)
         ));
         mainP.setBackground(Color.WHITE);
 
-        // Refined HTML for better table alignment
+        // SECURITY: Escape any HTML in the summary
+        String escapedService = sanitizeInput(app.getServiceType());
+
         String receiptText = "<html><body style='width: 250px; font-family: Segoe UI; text-align: center;'>" +
             "<h1 style='color: #2ecc71; margin: 0;'>Booking Sent!</h1>" +
             "<p style='color: #7f8c8d; margin-top: 5px;'>Your request is now in our queue.</p>" +
@@ -250,14 +354,18 @@ public class BookAppointmentPanel extends JPanel {
             "<div style='background-color: #fcfcfc; border: 1px solid #f0f0f0; padding: 20px; border-radius: 12px;'>" +
                 "<div style='font-size: 16px; margin-bottom: 15px;'><b>Ref ID: <span style='color: #2c3e50;'>#" + refID + "</span></b></div>" +
                 "<table style='width: 100%; font-size: 13px;'>" +
-                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Service:</td>" +
-                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getServiceType() + "</b></td></tr>" +
-                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Date:</td>" +
-                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentDate() + "</b></td></tr>" +
-                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Time:</td>" +
-                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentTime() + "</b></td></tr>" +
-                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Status:</td>" +
-                        "<td style='text-align: right; color: #e67e22;'><b>PENDING</b></td></tr>" +
+                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Service: </td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + escapedService + "</b></td>" +
+                    "</tr>" +
+                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Date: </td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentDate() + "</b></td>" +
+                    "</tr>" +
+                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Time: </td>" +
+                        "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentTime() + "</b></td>" +
+                    "</tr>" +
+                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Status: </td>" +
+                        "<td style='text-align: right; color: #e67e22;'><b>PENDING</b></td>" +
+                    "</tr>" +
                 "</table>" +
             "</div>" +
             "<p style='font-size: 10px; color: #bdc3c7; margin-top: 25px;'>" +
@@ -265,20 +373,19 @@ public class BookAppointmentPanel extends JPanel {
             "</body></html>";
 
         JLabel contentLbl = new JLabel(receiptText);
-        contentLbl.setAlignmentX(Component.CENTER_ALIGNMENT); // Centering the component
+        contentLbl.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JButton closeBtn = new JButton("Got it!");
-        closeBtn.setMaximumSize(new Dimension(220, 45)); // Ensure button doesn't stretch too wide
+        closeBtn.setMaximumSize(new Dimension(220, 45));
         closeBtn.setBackground(new Color(41, 128, 185));
         closeBtn.setForeground(Color.WHITE);
         closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         closeBtn.setFocusPainted(false);
         closeBtn.setBorderPainted(false);
         closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT); // Centering the button
+        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
         closeBtn.addActionListener(e -> receipt.dispose());
 
-        // Adding components with spacing
         mainP.add(contentLbl);
         mainP.add(Box.createVerticalStrut(30));
         mainP.add(closeBtn);

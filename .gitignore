@@ -1,1 +1,14 @@
-/dist/
+# Database config with passwords
+.dental_clinic/
+db.properties
+*.properties
+
+# Build files
+build/
+dist/
+nbproject/private/
+
+# NetBeans
+*.swp
+*.lock
+
