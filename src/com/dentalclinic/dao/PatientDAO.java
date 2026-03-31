@@ -159,7 +159,7 @@ public class PatientDAO {
         String query = "SELECT patient_id, first_name, last_name, birth_date, address, contact_number FROM patients";
 
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query);  // Fixed!
+             PreparedStatement pstmt = conn.prepareStatement(query);
              ResultSet rs = pstmt.executeQuery()) {
             
             while (rs.next()) {
@@ -238,14 +238,13 @@ public class PatientDAO {
     }
     
     // ==========================================================
-    // ACCOUNT LOCKOUT METHODS
+    // ACCOUNT LOCKOUT METHODS (FIXED)
     // ==========================================================
 
     /**
      * Record a failed login attempt for a patient
      */
     public void recordFailedLoginAttempt(String username) throws SQLException {
-        // Remove is_active condition since patients table doesn't have it
         String query = "UPDATE patients SET failed_login_attempts = failed_login_attempts + 1, " +
                        "account_locked = CASE WHEN failed_login_attempts + 1 >= 5 THEN 1 ELSE 0 END, " +
                        "lockout_time = CASE WHEN failed_login_attempts + 1 >= 5 THEN NOW() ELSE lockout_time END " +
@@ -259,10 +258,12 @@ public class PatientDAO {
     }
 
     /**
-     * Check if a patient account is locked
+     * Check if a patient account is locked (FIXED: uses database time)
      */
     public boolean isAccountLocked(String username) throws SQLException {
-        String query = "SELECT account_locked, lockout_time FROM patients WHERE username = ?";
+        String query = "SELECT account_locked, lockout_time, " +
+                       "TIMESTAMPDIFF(MINUTE, lockout_time, NOW()) as minutes_elapsed " +
+                       "FROM patients WHERE username = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -272,10 +273,10 @@ public class PatientDAO {
                     boolean isLocked = rs.getInt("account_locked") == 1;
                     Timestamp lockoutTime = rs.getTimestamp("lockout_time");
 
-                    // If locked and lockout time is more than 30 minutes ago, auto-unlock
+                    // Auto-unlock after 30 minutes using database time
                     if (isLocked && lockoutTime != null) {
-                        long minutesSinceLockout = (System.currentTimeMillis() - lockoutTime.getTime()) / (1000 * 60);
-                        if (minutesSinceLockout >= 30) {
+                        int minutesElapsed = rs.getInt("minutes_elapsed");
+                        if (minutesElapsed >= 30) {
                             resetFailedLoginAttempts(username);
                             return false;
                         }
@@ -301,22 +302,20 @@ public class PatientDAO {
     }
 
     /**
-     * Get remaining lockout time in minutes
+     * Get remaining lockout time in minutes (FIXED: uses database time)
      */
     public int getRemainingLockoutMinutes(String username) throws SQLException {
-        String query = "SELECT lockout_time FROM patients WHERE username = ? AND account_locked = 1";
+        String query = "SELECT lockout_time, TIMESTAMPDIFF(MINUTE, lockout_time, NOW()) as minutes_elapsed " +
+                       "FROM patients WHERE username = ? AND account_locked = 1";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, username);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    Timestamp lockoutTime = rs.getTimestamp("lockout_time");
-                    if (lockoutTime != null) {
-                        long minutesSinceLockout = (System.currentTimeMillis() - lockoutTime.getTime()) / (1000 * 60);
-                        int remaining = 30 - (int) minutesSinceLockout;
-                        return Math.max(0, remaining);
-                    }
+                    int minutesElapsed = rs.getInt("minutes_elapsed");
+                    int remaining = 30 - minutesElapsed;
+                    return Math.max(0, remaining);
                 }
             }
         }

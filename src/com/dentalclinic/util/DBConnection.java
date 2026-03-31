@@ -43,7 +43,7 @@ public class DBConnection {
     private static Map<Connection, StackTraceElement[]> connectionTraces = new ConcurrentHashMap<>();
     
     // Connection limits
-    private static final int MAX_CONNECTIONS = 200;
+    private static final int MAX_CONNECTIONS = 50;
     private static final long CONNECTION_TIMEOUT_MS = 30000;
     
     // SECURITY: Load configuration on class initialization

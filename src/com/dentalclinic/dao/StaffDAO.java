@@ -254,7 +254,7 @@ public class StaffDAO {
     }
     
     // ==========================================================
-    // ACCOUNT LOCKOUT METHODS
+    // ACCOUNT LOCKOUT METHODS (FIXED)
     // ==========================================================
 
     /**
@@ -274,10 +274,12 @@ public class StaffDAO {
     }
 
     /**
-     * Check if a staff account is locked
+     * Check if a staff account is locked (FIXED: uses database time)
      */
     public boolean isAccountLocked(String username) throws SQLException {
-        String query = "SELECT account_locked, lockout_time FROM staff WHERE username = ?";
+        String query = "SELECT account_locked, lockout_time, " +
+                       "TIMESTAMPDIFF(MINUTE, lockout_time, NOW()) as minutes_elapsed " +
+                       "FROM staff WHERE username = ?";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -287,10 +289,10 @@ public class StaffDAO {
                     boolean isLocked = rs.getInt("account_locked") == 1;
                     Timestamp lockoutTime = rs.getTimestamp("lockout_time");
 
-                    // Auto-unlock after 30 minutes
+                    // Auto-unlock after 30 minutes using database time
                     if (isLocked && lockoutTime != null) {
-                        long minutesSinceLockout = (System.currentTimeMillis() - lockoutTime.getTime()) / (1000 * 60);
-                        if (minutesSinceLockout >= 30) {
+                        int minutesElapsed = rs.getInt("minutes_elapsed");
+                        if (minutesElapsed >= 30) {
                             resetFailedLoginAttempts(username);
                             return false;
                         }
@@ -316,22 +318,20 @@ public class StaffDAO {
     }
 
     /**
-     * Get remaining lockout time in minutes
+     * Get remaining lockout time in minutes (FIXED: uses database time)
      */
     public int getRemainingLockoutMinutes(String username) throws SQLException {
-        String query = "SELECT lockout_time FROM staff WHERE username = ? AND account_locked = 1";
+        String query = "SELECT lockout_time, TIMESTAMPDIFF(MINUTE, lockout_time, NOW()) as minutes_elapsed " +
+                       "FROM staff WHERE username = ? AND account_locked = 1";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, username);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    Timestamp lockoutTime = rs.getTimestamp("lockout_time");
-                    if (lockoutTime != null) {
-                        long minutesSinceLockout = (System.currentTimeMillis() - lockoutTime.getTime()) / (1000 * 60);
-                        int remaining = 30 - (int) minutesSinceLockout;
-                        return Math.max(0, remaining);
-                    }
+                    int minutesElapsed = rs.getInt("minutes_elapsed");
+                    int remaining = 30 - minutesElapsed;
+                    return Math.max(0, remaining);
                 }
             }
         }

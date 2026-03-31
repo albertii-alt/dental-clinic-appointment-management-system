@@ -3,9 +3,7 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/home/ivylxvie/Applications/DentalClinicSystem/src/com/dentalclinic/util/UserSession.java</file>
-            <file>file:/home/ivylxvie/Applications/DentalClinicSystem/src/com/dentalclinic/util/PasswordValidator.java</file>
-            <file>file:/home/ivylxvie/Applications/DentalClinicSystem/src/com/dentalclinic/util/PasswordUtil.java</file>
+            <file>file:/home/ivylxvie/Applications/DentalClinicSystem/src/com/dentalclinic/util/DBConnection.java</file>
             <file>file:/home/ivylxvie/Applications/DentalClinicSystem/src/com/dentalclinic/util/DatabaseSetupWizard.java</file>
         </group>
     </open-files>
