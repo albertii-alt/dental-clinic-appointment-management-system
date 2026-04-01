@@ -6,6 +6,7 @@ nbbuild/
 dist/
 nbdist/
 .nb-gradle/
+dental_clinic_db.sql/
 
 # Java compiled files
 *.class
