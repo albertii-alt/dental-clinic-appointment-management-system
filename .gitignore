@@ -1,14 +1,17 @@
-# Database config with passwords
-.dental_clinic/
-db.properties
-*.properties
-
-# Build files
-build/
-dist/
+# NetBeans specific
 nbproject/private/
+build/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
 
-# NetBeans
-*.swp
-*.lock
+# Java compiled files
+*.class
+*.jar
+*.war
+*.ear
 
+# OS generated files
+.DS_Store
+Thumbs.db
