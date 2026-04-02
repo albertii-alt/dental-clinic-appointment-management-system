@@ -3,6 +3,7 @@ package com.dentalclinic.service;
 import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.model.Patient;
+import com.dentalclinic.util.EmailUtil;
 import java.sql.SQLException;
 import com.dentalclinic.util.PasswordValidator;
 import java.util.List;
@@ -108,6 +109,10 @@ public class AuthService {
         if (success) {
             // FIX: Remove username from registration log - just log the action without PII
             LogService.logSystemEvent("INFO", "AuthService", "New patient registered");
+            
+                 // Send welcome email
+            String fullName = fName + " " + lName;
+            EmailUtil.sendWelcomeEmail(fullName, email, user, pass);
         }
 
         return success;

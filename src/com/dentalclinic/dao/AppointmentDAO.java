@@ -636,4 +636,28 @@ public class AppointmentDAO {
         }
         return list;
     }
+    public Appointment getAppointmentById(int appId) throws SQLException {
+        String query = "SELECT * FROM appointments WHERE appointment_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, appId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Appointment(
+                        rs.getInt("appointment_id"),
+                        rs.getInt("patient_id"),
+                        rs.getString("service_type"),
+                        rs.getDate("appointment_date"),
+                        rs.getString("appointment_time"),
+                        rs.getInt("age_at_visit"),
+                        rs.getString("contact_at_visit"),
+                        rs.getString("status"),
+                        rs.getString("clinical_notes"),
+                        rs.getBoolean("is_read")
+                    );
+                }
+            }
+        }
+        return null;
+    }
 }

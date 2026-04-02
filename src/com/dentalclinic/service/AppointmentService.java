@@ -7,6 +7,7 @@ import java.util.List;
 import com.dentalclinic.util.DBConnection; // Added for Database access
 import java.sql.Connection;               // Added to fix your error
 import java.sql.PreparedStatement;
+import com.dentalclinic.util.EmailUtil;
 
 public class AppointmentService {
     private AppointmentDAO appointmentDAO = new AppointmentDAO();
@@ -42,17 +43,61 @@ public class AppointmentService {
         // 1. Fetch the service type from the DAO first
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
 
-        // 2. Perform the update
+        // 2. Get appointment and patient details for email (before updating)
+        Appointment appointment = appointmentDAO.getAppointmentById(appId);
+        com.dentalclinic.model.Patient patient = null;
+        if (appointment != null) {
+            com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
+            patient = patientDAO.getPatientById(appointment.getPatientId());
+        }
+
+        // 3. Perform the update
         boolean success = appointmentDAO.updateStatus(appId, status);
 
         if (success) {
-            // 3. Construct the detailed log string with the "Service: | " format
+            // 4. Log the action
             String detailedLog = "Service: " + serviceName + " | Appt #" + appId + " set to " + status;
             logService.record(actorId, actorRole, "Status Update", detailedLog);
+
+            // 5. Send email notification for approval
+            if (status.equalsIgnoreCase("Approved") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
+                EmailUtil.sendAppointmentConfirmation(
+                    patient.getFirstName() + " " + patient.getLastName(),
+                    patient.getEmail(),
+                    serviceName,
+                    appointment.getAppointmentDate().toString(),
+                    appointment.getAppointmentTime(),
+                    appId
+                );
+            }
+
+            // 6. Send email notification for cancellation
+            if (status.equalsIgnoreCase("Cancelled") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
+                EmailUtil.sendCancellationNotification(
+                    patient.getFirstName() + " " + patient.getLastName(),
+                    patient.getEmail(),
+                    serviceName,
+                    appointment.getAppointmentDate().toString(),
+                    appointment.getAppointmentTime()
+                );
+            }
+
+            // 7. Send email notification for declined (NEW)
+            if (status.equalsIgnoreCase("Declined") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
+                String reason = appointment.getClinicalNotes();
+                EmailUtil.sendDeclinedNotification(
+                    patient.getFirstName() + " " + patient.getLastName(),
+                    patient.getEmail(),
+                    serviceName,
+                    appointment.getAppointmentDate().toString(),
+                    appointment.getAppointmentTime(),
+                    reason
+                );
+            }
         }
         return success;
     }
-    
+
         // Add this to com.dentalclinic.service.AppointmentService
     public List<String> getAllTimeSlots() throws SQLException {
         return appointmentDAO.getAllTimeSlotsFromDB();
@@ -118,14 +163,37 @@ public class AppointmentService {
     public boolean rescheduleAppointment(int appId, java.sql.Date newDate, String newTime, int actorId, String actorRole) throws SQLException {
         // 1. Fetch Service Name first
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
-        
-        // 2. Perform the actual reschedule
+
+        // 2. Get original appointment details for email
+        Appointment originalApp = appointmentDAO.getAppointmentById(appId);
+        String oldDate = originalApp.getAppointmentDate().toString();
+        String oldTime = originalApp.getAppointmentTime();
+
+        // 3. Get patient details for email
+        com.dentalclinic.model.Patient patient = null;
+        if (originalApp != null) {
+            com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
+            patient = patientDAO.getPatientById(originalApp.getPatientId());
+        }
+
+        // 4. Perform the actual reschedule
         boolean success = appointmentDAO.updateDateTime(appId, newDate, newTime); 
 
-        // 3. Log the action with the special format
+        // 5. Log the action
         if (success) {
             String details = "Service: " + serviceName + " | Rescheduled Appt #" + appId + " to " + newDate + " at " + newTime;
             logService.record(actorId, actorRole, "Reschedule", details);
+
+            // 6. Send email notification
+            if (patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
+                EmailUtil.sendRescheduledNotification(
+                    patient.getFirstName() + " " + patient.getLastName(),
+                    patient.getEmail(),
+                    serviceName,
+                    oldDate, oldTime,
+                    newDate.toString(), newTime
+                );
+            }
         }
         return success;
     }
