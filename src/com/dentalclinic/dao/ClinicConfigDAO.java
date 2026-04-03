@@ -176,4 +176,22 @@ public class ClinicConfigDAO {
             return success;
         }
     }
+    
+    // 9. Update Service (EDIT)
+    public boolean updateService(String oldName, String newName, String description, double price, int staffId, String role) throws SQLException {
+        String query = "UPDATE services SET service_name = ?, description = ?, price = ? WHERE service_name = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, newName);
+            pstmt.setString(2, (description == null || description.isEmpty()) ? "No description" : description);
+            pstmt.setDouble(3, price);
+            pstmt.setString(4, oldName);
+            boolean success = pstmt.executeUpdate() > 0;
+            if (success) {
+                logService.record(staffId, role, "Update Service", 
+                    "Updated service: " + oldName + " → " + newName + " (Price: " + price + ")");
+            }
+            return success;
+        }
+    }
 }

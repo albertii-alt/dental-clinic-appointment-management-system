@@ -3,10 +3,17 @@ package com.dentalclinic.admin;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.ArrayList;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.dao.ClinicConfigDAO;
+import com.dentalclinic.util.DBConnection;
 
 public class ClinicSettingsPanel extends JPanel {
     private JSpinner leadTimeSpinner;
@@ -315,7 +322,7 @@ public class ClinicSettingsPanel extends JPanel {
     // ---------- ORIGINAL LOGIC (UNCHANGED) ----------
 
     private void loadCurrentSettings() {
-        if (settingsLoaded) return; // Only load once
+        if (settingsLoaded) return;
         settingsLoaded = true;
 
         try {
@@ -443,6 +450,14 @@ public class ClinicSettingsPanel extends JPanel {
                 JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
                 btnPanel.setBackground(CARD);
 
+                // EDIT BUTTON
+                JButton editBtn = new JButton("Edit");
+                styleButton(editBtn, new Color(52, 152, 219));
+                editBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                editBtn.addActionListener(e -> {
+                    showEditServiceDialog(name);
+                });
+
                 JButton toggleBtn = new JButton(isActive ? "Disable" : "Enable");
                 styleButton(toggleBtn, isActive ? TEXT_MUTED : PRIMARY);
                 toggleBtn.setFont(new Font("Segoe UI", Font.BOLD, 11));
@@ -466,6 +481,7 @@ public class ClinicSettingsPanel extends JPanel {
                     }
                 });
 
+                btnPanel.add(editBtn);
                 btnPanel.add(toggleBtn);
                 btnPanel.add(delBtn);
                 row.add(btnPanel, BorderLayout.EAST);
@@ -474,6 +490,117 @@ public class ClinicSettingsPanel extends JPanel {
         } catch (Exception e) { e.printStackTrace(); }
         servicePanel.revalidate();
         servicePanel.repaint();
+    }
+
+    /**
+     * Show Edit Service Dialog
+     */
+    private void showEditServiceDialog(String serviceName) {
+        // Fetch current service details
+        String currentName = serviceName;
+        String currentDesc = "";
+        double currentPrice = 0.0;
+        
+        try {
+            String query = "SELECT description, price FROM services WHERE service_name = ?";
+            try (Connection conn = DBConnection.getConnection();
+                 PreparedStatement pstmt = conn.prepareStatement(query)) {
+                pstmt.setString(1, serviceName);
+                ResultSet rs = pstmt.executeQuery();
+                if (rs.next()) {
+                    currentDesc = rs.getString("description");
+                    currentPrice = rs.getDouble("price");
+                }
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        
+        // Create dialog
+        JDialog editDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Edit Service", true);
+        editDialog.setLayout(new BorderLayout());
+        editDialog.setSize(450, 350);
+        editDialog.setLocationRelativeTo(this);
+        
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
+        panel.setBackground(Color.WHITE);
+        
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        
+        panel.add(new JLabel("Service Name:"), gbc);
+        gbc.gridx = 1;
+        JTextField nameField = new JTextField(currentName, 20);
+        panel.add(nameField, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        panel.add(new JLabel("Description:"), gbc);
+        gbc.gridx = 1;
+        JTextArea descArea = new JTextArea(3, 20);
+        descArea.setText(currentDesc);
+        descArea.setLineWrap(true);
+        descArea.setWrapStyleWord(true);
+        JScrollPane descScroll = new JScrollPane(descArea);
+        panel.add(descScroll, gbc);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        panel.add(new JLabel("Price:"), gbc);
+        gbc.gridx = 1;
+        JTextField priceField = new JTextField(String.format("%.2f", currentPrice), 10);
+        panel.add(priceField, gbc);
+        
+        // Buttons
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton saveBtn = new JButton("Save Changes");
+        JButton cancelBtn = new JButton("Cancel");
+        
+        styleButton(saveBtn, SUCCESS);
+        styleButton(cancelBtn, TEXT_MUTED);
+        
+        saveBtn.addActionListener(e -> {
+            String newName = nameField.getText().trim();
+            String newDesc = descArea.getText().trim();
+            String priceStr = priceField.getText().trim();
+            
+            if (newName.isEmpty()) {
+                JOptionPane.showMessageDialog(editDialog, "Service name cannot be empty.");
+                return;
+            }
+            
+            if (!isValidPrice(priceStr)) {
+                JOptionPane.showMessageDialog(editDialog, "Please enter a valid price (0-999999.99).");
+                return;
+            }
+            
+            double newPrice = Double.parseDouble(priceStr);
+            
+            try {
+                if (configDAO.updateService(serviceName, newName, newDesc, newPrice, currentAdminId, currentRole)) {
+                    JOptionPane.showMessageDialog(editDialog, "Service updated successfully!");
+                    editDialog.dispose();
+                    buildServiceList();
+                } else {
+                    JOptionPane.showMessageDialog(editDialog, "Failed to update service.");
+                }
+            } catch (SQLException ex) {
+                JOptionPane.showMessageDialog(editDialog, "Error: " + ex.getMessage());
+            }
+        });
+        
+        cancelBtn.addActionListener(e -> editDialog.dispose());
+        
+        buttonPanel.add(saveBtn);
+        buttonPanel.add(cancelBtn);
+        
+        editDialog.add(panel, BorderLayout.CENTER);
+        editDialog.add(buttonPanel, BorderLayout.SOUTH);
+        editDialog.setVisible(true);
     }
     
     // Helper for titled borders with custom padding
@@ -507,10 +634,8 @@ public class ClinicSettingsPanel extends JPanel {
             return false;
         }
     }
+    
     public void cleanup() {
-    // Clear any resources
-    System.out.println("Cleaning up ClinicSettingsPanel...");
-    // Cancel any timers, close any open resources
-    // The connections will be closed when the panel is garbage collected
-}
+        System.out.println("Cleaning up ClinicSettingsPanel...");
+    }
 }
