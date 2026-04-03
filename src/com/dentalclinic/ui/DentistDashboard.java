@@ -161,6 +161,18 @@ public class DentistDashboard extends JFrame {
         startSessionMonitor();
         
         showWelcomeScreen();
+        // Auto-send reminders for tomorrow's appointments (runs in background)
+        new Thread(() -> {
+            try {
+                com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
+                int sent = appService.sendAllRemindersForTomorrow();
+                if (sent > 0) {
+                    System.out.println("Sent " + sent + " appointment reminders for tomorrow");
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send reminders: " + e.getMessage());
+            }
+        }).start();
         setVisible(true);
         
     }

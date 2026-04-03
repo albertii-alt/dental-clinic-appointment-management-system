@@ -500,6 +500,52 @@ public class EmailUtil {
     }
     
     /**
+    * Send appointment reminder with audit trail (Async)
+    * Automatically adjusts wording based on how far away the appointment is
+    */
+   public static void sendAppointmentReminderWithActor(int actorId, String actorRole,
+                                                        String patientName, String email, 
+                                                        String serviceType, String date, String time) {
+
+       // Parse the appointment date
+       java.time.LocalDate appointmentDate = java.time.LocalDate.parse(date);
+       java.time.LocalDate today = java.time.LocalDate.now();
+       long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, appointmentDate);
+
+       String subject;
+       String reminderText;
+
+       if (daysUntil == 0) {
+           subject = "Appointment Reminder - Today at Vantage Dental Clinic";
+           reminderText = "This is a reminder about your appointment TODAY.";
+       } else if (daysUntil == 1) {
+           subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
+           reminderText = "This is a friendly reminder about your appointment TOMORROW.";
+       } else {
+           subject = "Appointment Reminder - Vantage Dental Clinic";
+           reminderText = "This is a reminder about your upcoming appointment on " + date + ".";
+       }
+
+       String body = "Dear " + patientName + ",\n\n" +
+                     reminderText + "\n\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     "APPOINTMENT DETAILS\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     "Service: " + serviceType + "\n" +
+                     "Date: " + date + "\n" +
+                     "Time: " + time + "\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                     "Please arrive 10 minutes before your scheduled time.\n\n" +
+                     "To cancel or reschedule, please contact the clinic.\n\n" +
+                     "Thank you for choosing Vantage Dental Clinic!\n\n" +
+                     "Best regards,\n" +
+                     "Vantage Dental Clinic Team";
+
+       String actionDescription = "Appointment reminder sent to patient: " + patientName + " (" + daysUntil + " days away)";
+       sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
+   }
+    
+    /**
      * Check if email is configured
      */
     public static boolean isConfigured() {

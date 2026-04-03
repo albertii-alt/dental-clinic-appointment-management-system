@@ -4,11 +4,15 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.List;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.util.EmailUtil;
+import com.dentalclinic.util.UserSession;
 import com.toedter.calendar.JDateChooser;
 
 public class UpcomingAppointmentsPanel extends JPanel {
@@ -22,6 +26,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
     private final Color CARD = Color.WHITE;
     private final Color PRIMARY = new Color(41, 128, 185);
     private final Color SUCCESS = new Color(39, 174, 96);
+    private final Color WARNING = new Color(243, 156, 18);
     private final Color TEXT = new Color(44, 62, 80);
     private final Color BORDER_COLOR = new Color(220, 220, 220);
 
@@ -46,7 +51,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 24));
         title.setForeground(PRIMARY);
         
-        JLabel subtitle = new JLabel("Manage and view all approved patient schedules.");
+        JLabel subtitle = new JLabel("Manage, view, and send reminders for approved patient schedules.");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(Color.GRAY);
         
@@ -58,28 +63,43 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
         cardContainer.add(header, BorderLayout.NORTH);
 
-        // --- TABLE SETUP ---
-        String[] columns = {"App ID", "Patient ID", "Patient Name", "Service", "Date", "Time", "Status"};
+        // --- TABLE SETUP (Added Action Column) ---
+        String[] columns = {"App ID", "Patient ID", "Patient Name", "Service", "Date", "Time", "Status", "Action"};
         model = new DefaultTableModel(columns, 0) {
             @Override
-            public boolean isCellEditable(int row, int column) { return false; }
+            public boolean isCellEditable(int row, int column) { 
+                // Only allow the Action column to be editable (for button click)
+                return column == 7;
+            }
         };
 
         table = new JTable(model);
         styleTable(table);
         
-        // Hide IDs
+        // Hide ID columns
         table.getColumnModel().getColumn(0).setMinWidth(0);
         table.getColumnModel().getColumn(0).setMaxWidth(0);
         table.getColumnModel().getColumn(1).setMinWidth(0);
         table.getColumnModel().getColumn(1).setMaxWidth(0);
+        
+        // Set column widths
+        table.getColumnModel().getColumn(2).setPreferredWidth(150);
+        table.getColumnModel().getColumn(3).setPreferredWidth(120);
+        table.getColumnModel().getColumn(4).setPreferredWidth(100);
+        table.getColumnModel().getColumn(5).setPreferredWidth(80);
+        table.getColumnModel().getColumn(6).setPreferredWidth(80);
+        table.getColumnModel().getColumn(7).setPreferredWidth(120);
+
+        // Add Button Renderer and Editor for Action column
+        table.getColumnModel().getColumn(7).setCellRenderer(new ButtonRenderer());
+        table.getColumnModel().getColumn(7).setCellEditor(new ButtonEditor(new JCheckBox()));
 
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (e.getClickCount() == 2) {
                     int row = table.getSelectedRow();
-                    if (row != -1) {
+                    if (row != -1 && row < model.getRowCount()) {
                         int appId = (int) model.getValueAt(row, 0);
                         int pId = (int) model.getValueAt(row, 1);
                         showUpcomingDetailModal(appId, pId);
@@ -97,7 +117,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
     }
 
     private void styleTable(JTable table) {
-        table.setRowHeight(40);
+        table.setRowHeight(45);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         table.setSelectionBackground(new Color(232, 241, 249));
         table.setSelectionForeground(TEXT);
@@ -135,7 +155,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
                     String fullName = p.getFirstName() + " " + p.getLastName();
                     model.addRow(new Object[]{
                         a.getAppointmentId(), a.getPatientId(), fullName, 
-                        a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus()
+                        a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus(),
+                        "Send Reminder"
                     });
                 }
             }
@@ -179,20 +200,180 @@ public class UpcomingAppointmentsPanel extends JPanel {
             detailPanel.add(createCompactLabel("Contact No: ", app.getContactAtVisit()));
             detailPanel.add(createCompactLabel("Full Address: ", p.getAddress()));
 
-            String[] options = {"Reschedule", "Cancel Appointment", "Close"};
+            String[] options = {"Send Reminder", "Reschedule", "Cancel Appointment", "Close"};
             int choice = JOptionPane.showOptionDialog(
                 this, detailPanel, "Appointment Detail Record",
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
-                null, options, options[2]
+                null, options, options[3]
             );
 
             if (choice == 0) { 
-                openRescheduleDialog(appId);
+                sendManualReminder(app, p);
             } else if (choice == 1) { 
+                openRescheduleDialog(appId);
+            } else if (choice == 2) { 
                 handleStaffCancellation(appId);
             }
         } catch (Exception ex) { ex.printStackTrace(); }
     }
+
+    /**
+    * Send manual reminder for an appointment with warning for early reminders
+    */
+   private void sendManualReminder(Appointment appointment, Patient patient) {
+       if (patient.getEmail() == null || patient.getEmail().isEmpty()) {
+           JOptionPane.showMessageDialog(this, 
+               "This patient does not have an email address on file.\nCannot send reminder.",
+               "No Email",
+               JOptionPane.WARNING_MESSAGE);
+           return;
+       }
+
+       // Calculate days until appointment
+       java.time.LocalDate appointmentDate = appointment.getAppointmentDate().toLocalDate();
+       java.time.LocalDate today = java.time.LocalDate.now();
+       long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, appointmentDate);
+
+       // Build warning message based on days until appointment
+       String warningMessage = "";
+       String warningLevel = "";
+
+       if (daysUntil < 0) {
+           // Appointment already passed
+           JOptionPane.showMessageDialog(this,
+               "This appointment has already passed.\nCannot send reminder for past appointments.",
+               "Past Appointment",
+               JOptionPane.ERROR_MESSAGE);
+           return;
+       } else if (daysUntil == 0) {
+           warningLevel = "SAME DAY";
+           warningMessage = "⚠️ This appointment is TODAY.\n" +
+                            "The patient may already be on their way.\n\n";
+       } else if (daysUntil == 1) {
+           warningLevel = "STANDARD";
+           // No warning needed - this is the ideal time
+       } else if (daysUntil <= 3) {
+           warningLevel = "EARLY";
+           warningMessage = "⚠️ This appointment is " + daysUntil + " days away.\n" +
+                            "Sending a reminder this early may be less effective.\n\n" +
+                            "Standard practice is to send reminders 1 day before.\n\n";
+       } else if (daysUntil <= 7) {
+           warningLevel = "VERY EARLY";
+           warningMessage = "⚠️⚠️ This appointment is " + daysUntil + " days away.\n\n" +
+                            "This is VERY early for a reminder.\n" +
+                            "The patient may forget again by the appointment date.\n\n" +
+                            "Are you sure you want to send this now?\n\n";
+       } else {
+           warningLevel = "TOO EARLY";
+           warningMessage = "🔴🔴🔴 WARNING: This appointment is " + daysUntil + " days away!\n\n" +
+                            "Sending a reminder this early is NOT recommended.\n" +
+                            "The patient will likely forget by the appointment date.\n\n" +
+                            "Only send this if the patient specifically requested it.\n\n";
+       }
+
+       // Build the confirmation message
+       String confirmMessage = "Send reminder to:\n\n" +
+           "Patient: " + patient.getFirstName() + " " + patient.getLastName() + "\n" +
+           "Email: " + patient.getEmail() + "\n" +
+           "Service: " + appointment.getServiceType() + "\n" +
+           "Date: " + appointment.getAppointmentDate() + "\n" +
+           "Time: " + appointment.getAppointmentTime() + "\n" +
+           "Days until appointment: " + daysUntil + "\n\n";
+
+       // Add warning if applicable
+       if (!warningMessage.isEmpty()) {
+           confirmMessage += warningMessage;
+       }
+
+       confirmMessage += "Proceed?";
+
+       // Set dialog title based on warning level
+       String dialogTitle;
+       int optionType;
+
+       switch (warningLevel) {
+           case "TOO EARLY":
+               dialogTitle = "⚠️⚠️⚠️ EXTREME CAUTION ⚠️⚠️⚠️";
+               optionType = JOptionPane.OK_CANCEL_OPTION;
+               break;
+           case "VERY EARLY":
+               dialogTitle = "⚠️⚠️ Early Reminder Warning ⚠️⚠️";
+               optionType = JOptionPane.OK_CANCEL_OPTION;
+               break;
+           case "EARLY":
+               dialogTitle = "⚠️ Early Reminder Warning";
+               optionType = JOptionPane.YES_NO_OPTION;
+               break;
+           case "SAME DAY":
+               dialogTitle = "⚠️ Same Day Reminder";
+               optionType = JOptionPane.YES_NO_OPTION;
+               break;
+           default:
+               dialogTitle = "Send Reminder";
+               optionType = JOptionPane.YES_NO_OPTION;
+               break;
+       }
+
+       int confirm;
+       if (warningLevel.equals("TOO EARLY") || warningLevel.equals("VERY EARLY")) {
+           // Use OK/CANCEL for extreme cases (more emphasis)
+           confirm = JOptionPane.showConfirmDialog(this,
+               confirmMessage,
+               dialogTitle,
+               JOptionPane.OK_CANCEL_OPTION,
+               JOptionPane.WARNING_MESSAGE);
+           // For OK/CANCEL, OK_OPTION = 0, CANCEL_OPTION = 2
+           if (confirm != JOptionPane.OK_OPTION) {
+               return;
+           }
+       } else {
+           confirm = JOptionPane.showConfirmDialog(this,
+               confirmMessage,
+               dialogTitle,
+               optionType,
+               JOptionPane.QUESTION_MESSAGE);
+           if (confirm != JOptionPane.YES_OPTION) {
+               return;
+           }
+       }
+
+       // Send the reminder
+       try {
+           int actorId = UserSession.getUserId();
+           String actorRole = UserSession.getUserRole();
+
+           EmailUtil.sendAppointmentReminderWithActor(
+               actorId, actorRole,
+               patient.getFirstName() + " " + patient.getLastName(),
+               patient.getEmail(),
+               appointment.getServiceType(),
+               appointment.getAppointmentDate().toString(),
+               appointment.getAppointmentTime()
+           );
+
+           // Show success message with warning level note if applicable
+           String successMessage = "Reminder sent successfully to:\n" + patient.getEmail();
+           if (warningLevel.equals("TOO EARLY")) {
+               successMessage += "\n\n⚠️ Note: This reminder was sent very early (" + daysUntil + " days before).\n" +
+                                 "Consider sending another reminder 1 day before the appointment.";
+           } else if (warningLevel.equals("VERY EARLY")) {
+               successMessage += "\n\nNote: This reminder was sent " + daysUntil + " days early.\n" +
+                                 "You may want to send another reminder closer to the date.";
+           }
+
+           JOptionPane.showMessageDialog(this,
+               successMessage,
+               "Reminder Sent",
+               JOptionPane.INFORMATION_MESSAGE);
+
+       } catch (Exception e) {
+           JOptionPane.showMessageDialog(this,
+               "Failed to send reminder: " + e.getMessage(),
+               "Error",
+               JOptionPane.ERROR_MESSAGE);
+       }
+   }
+    
 
     private JLabel createHeaderLabel(String text) {
         JLabel lbl = new JLabel(text);
@@ -278,8 +459,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
             java.sql.Date sqlDate = new java.sql.Date(dateChooser.getDate().getTime());
             String selectedTime = (String) timeBox.getSelectedItem();
-            int actorId = com.dentalclinic.util.UserSession.getUserId();
-            String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+            int actorId = UserSession.getUserId();
+            String actorRole = UserSession.getUserRole();
 
             try {
                 if (appService.rescheduleAppointment(appId, sqlDate, selectedTime, actorId, actorRole)) {
@@ -317,8 +498,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             try {
-                int actorId = com.dentalclinic.util.UserSession.getUserId();
-                String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+                int actorId = UserSession.getUserId();
+                String actorRole = UserSession.getUserRole();
                 if (appService.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled.");
                     loadUpcomingData(); 
@@ -326,6 +507,89 @@ public class UpcomingAppointmentsPanel extends JPanel {
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
             }
+        }
+    }
+
+    // ==========================================================
+    // Button Renderer and Editor for Action Column
+    // ==========================================================
+
+    class ButtonRenderer extends JButton implements TableCellRenderer {
+        public ButtonRenderer() {
+            setOpaque(true);
+            setBackground(WARNING);
+            setForeground(Color.WHITE);
+            setFont(new Font("Segoe UI", Font.BOLD, 11));
+            setFocusPainted(false);
+        }
+        
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value,
+                boolean isSelected, boolean hasFocus, int row, int column) {
+            setText((value == null) ? "Send Reminder" : value.toString());
+            return this;
+        }
+    }
+
+    class ButtonEditor extends DefaultCellEditor {
+        protected JButton button;
+        private String label;
+        private boolean isPushed;
+        private int currentRow;
+        
+        public ButtonEditor(JCheckBox checkBox) {
+            super(checkBox);
+            button = new JButton();
+            button.setOpaque(true);
+            button.setBackground(WARNING);
+            button.setForeground(Color.WHITE);
+            button.setFont(new Font("Segoe UI", Font.BOLD, 11));
+            button.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    fireEditingStopped();
+                }
+            });
+        }
+        
+        @Override
+        public Component getTableCellEditorComponent(JTable table, Object value,
+                boolean isSelected, int row, int column) {
+            currentRow = row;
+            label = (value == null) ? "Send Reminder" : value.toString();
+            button.setText(label);
+            isPushed = true;
+            return button;
+        }
+        
+        @Override
+        public Object getCellEditorValue() {
+            if (isPushed) {
+                try {
+                    int appId = (int) model.getValueAt(currentRow, 0);
+                    int pId = (int) model.getValueAt(currentRow, 1);
+                    
+                    Patient patient = pDao.getPatientById(pId);
+                    List<Appointment> history = appService.getPatientAppointmentHistory(pId);
+                    Appointment appointment = history.stream()
+                        .filter(a -> a.getAppointmentId() == appId)
+                        .findFirst().orElse(null);
+                    
+                    if (appointment != null && patient != null) {
+                        sendManualReminder(appointment, patient);
+                    }
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(null, "Error: " + ex.getMessage());
+                }
+            }
+            isPushed = false;
+            return label;
+        }
+        
+        @Override
+        public boolean stopCellEditing() {
+            isPushed = false;
+            return super.stopCellEditing();
         }
     }
 }

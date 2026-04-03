@@ -42,10 +42,7 @@ public class AppointmentService {
     }
     
     public boolean updateAppointmentStatus(int appId, String status, int actorId, String actorRole) throws SQLException {
-        // 1. Fetch the service type from the DAO first
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
-
-        // 2. Get appointment and patient details for email (before updating)
         Appointment appointment = appointmentDAO.getAppointmentById(appId);
         com.dentalclinic.model.Patient patient = null;
         if (appointment != null) {
@@ -53,15 +50,12 @@ public class AppointmentService {
             patient = patientDAO.getPatientById(appointment.getPatientId());
         }
 
-        // 3. Perform the update
         boolean success = appointmentDAO.updateStatus(appId, status);
 
         if (success) {
-            // 4. Log the action
             String detailedLog = "Service: " + serviceName + " | Appt #" + appId + " set to " + status;
             logService.record(actorId, actorRole, "Status Update", detailedLog);
 
-            // 5. Send email notification for approval (WITH AUDIT TRAIL)
             if (status.equalsIgnoreCase("Approved") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
                 EmailUtil.sendAppointmentConfirmationWithActor(
                     actorId, actorRole,
@@ -74,7 +68,6 @@ public class AppointmentService {
                 );
             }
 
-            // 6. Send email notification for cancellation (WITH AUDIT TRAIL)
             if (status.equalsIgnoreCase("Cancelled") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
                 EmailUtil.sendCancellationNotificationWithActor(
                     actorId, actorRole,
@@ -86,7 +79,6 @@ public class AppointmentService {
                 );
             }
 
-            // 7. Send email notification for declined (WITH AUDIT TRAIL)
             if (status.equalsIgnoreCase("Declined") && patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
                 String reason = appointment.getClinicalNotes();
                 EmailUtil.sendDeclinedNotificationWithActor(
@@ -114,15 +106,11 @@ public class AppointmentService {
     public List<String> getAvailableSlotsForDate(java.util.Date date) throws SQLException {
         String[] allSlotsArray = appointmentDAO.getDynamicTimeSlots(); 
         List<String> availableSlots = new java.util.ArrayList<>(java.util.Arrays.asList(allSlotsArray));
-
         java.sql.Date sqlDate = new java.sql.Date(date.getTime());
-
         List<String> occupiedSlots = appointmentDAO.getOccupiedSlots(sqlDate);
         List<String> staffBlockedSlots = appointmentDAO.getBlockedSlotsByDate(sqlDate);
-
         availableSlots.removeAll(occupiedSlots);
         availableSlots.removeAll(staffBlockedSlots);
-
         return availableSlots;
     }
 
@@ -158,32 +146,20 @@ public class AppointmentService {
         return appointmentDAO.updateDateTime(appId, newDate, newTime);
     }
     
-    // Updated Reschedule with Service Type Formatting and WITH AUDIT TRAIL email
     public boolean rescheduleAppointment(int appId, java.sql.Date newDate, String newTime, int actorId, String actorRole) throws SQLException {
-        // 1. Fetch Service Name first
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
-
-        // 2. Get original appointment details for email
         Appointment originalApp = appointmentDAO.getAppointmentById(appId);
         String oldDate = originalApp.getAppointmentDate().toString();
         String oldTime = originalApp.getAppointmentTime();
-
-        // 3. Get patient details for email
         com.dentalclinic.model.Patient patient = null;
         if (originalApp != null) {
             com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
             patient = patientDAO.getPatientById(originalApp.getPatientId());
         }
-
-        // 4. Perform the actual reschedule
         boolean success = appointmentDAO.updateDateTime(appId, newDate, newTime); 
-
-        // 5. Log the action
         if (success) {
             String details = "Service: " + serviceName + " | Rescheduled Appt #" + appId + " to " + newDate + " at " + newTime;
             logService.record(actorId, actorRole, "Reschedule", details);
-
-            // 6. Send email notification (WITH AUDIT TRAIL)
             if (patient != null && patient.getEmail() != null && !patient.getEmail().isEmpty()) {
                 EmailUtil.sendRescheduledNotificationWithActor(
                     actorId, actorRole,
@@ -216,9 +192,7 @@ public class AppointmentService {
 
     public boolean updateTreatmentRecord(int appId, String status, String notes, int actorId, String actorRole) throws SQLException {
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
-        
         boolean success = appointmentDAO.updateTreatmentRecord(appId, status, notes);
-        
         if (success) {
             String details = "Service: " + serviceName + " | Appt #" + appId + " completed. Notes: " + notes;
             logService.record(actorId, actorRole, "Treatment Recorded", details);
@@ -276,5 +250,50 @@ public class AppointmentService {
     
     public List<Appointment> getAutoArchivedCancelled(int pId) throws SQLException {
         return appointmentDAO.getRecentCancelledByPatient(pId, 30);
+    }
+
+    // ==========================================================
+    // EMAIL REMINDER METHODS (NEW)
+    // ==========================================================
+
+    public List<Appointment> getAppointmentsForTomorrow() throws SQLException {
+        return appointmentDAO.getAppointmentsForTomorrow();
+    }
+
+    public boolean sendReminderForAppointment(int appId, int actorId, String actorRole) throws SQLException {
+        Appointment appointment = appointmentDAO.getAppointmentByIdForReminder(appId);
+        if (appointment == null) {
+            return false;
+        }
+        com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
+        com.dentalclinic.model.Patient patient = patientDAO.getPatientById(appointment.getPatientId());
+        if (patient == null || patient.getEmail() == null || patient.getEmail().isEmpty()) {
+            return false;
+        }
+        EmailUtil.sendAppointmentReminderWithActor(
+            actorId, actorRole,
+            patient.getFirstName() + " " + patient.getLastName(),
+            patient.getEmail(),
+            appointment.getServiceType(),
+            appointment.getAppointmentDate().toString(),
+            appointment.getAppointmentTime()
+        );
+        return appointmentDAO.markReminderSent(appId);
+    }
+
+    public int sendAllRemindersForTomorrow() throws SQLException {
+        List<Appointment> appointments = getAppointmentsForTomorrow();
+        int sentCount = 0;
+        for (Appointment app : appointments) {
+            try {
+                if (sendReminderForAppointment(app.getAppointmentId(), 0, "System")) {
+                    sentCount++;
+                    System.out.println("Reminder sent for appointment #" + app.getAppointmentId());
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send reminder for appointment #" + app.getAppointmentId() + ": " + e.getMessage());
+            }
+        }
+        return sentCount;
     }
 }

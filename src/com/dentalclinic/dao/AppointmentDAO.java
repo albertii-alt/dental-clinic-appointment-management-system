@@ -97,7 +97,6 @@ public class AppointmentDAO {
     
     public List<Appointment> getAppointmentsByPatient(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        // REMOVED "AND is_archived = FALSE" so this method returns EVERYTHING
         String query = "SELECT * FROM appointments WHERE patient_id = ?"; 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -111,7 +110,6 @@ public class AppointmentDAO {
                         rs.getString("contact_at_visit"), rs.getString("status"),
                         rs.getString("clinical_notes"), rs.getBoolean("is_read")
                     );
-                    // IMPORTANT: You must map the is_archived column from DB to your Model
                     app.setArchived(rs.getBoolean("is_archived")); 
                     list.add(app);
                 }
@@ -230,11 +228,11 @@ public class AppointmentDAO {
         }
         return list;
     }
-    // UPDATE 2: Add "AND is_archived = FALSE" to the list fetcher
+    
     public List<Appointment> getUnreadNotifications(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
         String query = "SELECT * FROM appointments WHERE patient_id = ? " +
-                       "AND is_read = FALSE AND is_archived = FALSE " + // Added archived check
+                       "AND is_read = FALSE AND is_archived = FALSE " +
                        "AND status IN ('Cancelled', 'Declined', 'Approved')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -289,10 +287,9 @@ public class AppointmentDAO {
         }
     }
 
-    // UPDATE 1: Add "AND is_archived = FALSE" to the count
     public int getUnreadNotificationCount(int pId) throws SQLException {
         String query = "SELECT COUNT(*) FROM appointments WHERE patient_id = ? " +
-                       "AND is_read = FALSE AND is_archived = FALSE " + // Added archived check
+                       "AND is_read = FALSE AND is_archived = FALSE " +
                        "AND status IN ('Cancelled', 'Declined', 'Approved')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -381,7 +378,6 @@ public class AppointmentDAO {
         }
     }
     
-        // Check if patient has a pending request
     public boolean hasPendingAppointment(int pId) throws SQLException {
         String query = "SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND status = 'Pending'";
         try (Connection conn = DBConnection.getConnection();
@@ -394,7 +390,6 @@ public class AppointmentDAO {
         return false;
     }
 
-    // Reschedule logic
     public boolean updateDateTime(int appId, java.sql.Date newDate, String newTime) throws SQLException {
         String query = "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -406,7 +401,6 @@ public class AppointmentDAO {
         }
     }
 
-    // Fetch Cancelled/Declined for Staff Tables
     public List<Object[]> getCancelledAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_date, a.appointment_time, a.status " +
@@ -420,34 +414,27 @@ public class AppointmentDAO {
         return list;
     }
 
-    // Today's Appointments with Patient Names
     public List<Object[]> getTodaysAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-
-        // 1. Added a.status to the SELECT statement
         String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_time, a.status " +
                        "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
                        "WHERE a.appointment_date = CURDATE() AND a.status = 'Approved'";
-
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
-
             while (rs.next()) {
-                // 2. Included rs.getString(6) in the Object array
                 list.add(new Object[]{ 
-                    rs.getInt(1),                             // ID
-                    rs.getString(2) + " " + rs.getString(3), // Patient Name
-                    rs.getString(4),                         // Service
-                    rs.getString(5),                         // Time
-                    rs.getString(6)                          // Status (THIS WAS MISSING)
+                    rs.getInt(1),
+                    rs.getString(2) + " " + rs.getString(3),
+                    rs.getString(4),
+                    rs.getString(5),
+                    rs.getString(6)
                 });
             }
         }
         return list;
     }
 
-    // Completed History with Patient Names
     public List<Object[]> getCompletedAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
         String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_date, a.clinical_notes " +
@@ -460,12 +447,11 @@ public class AppointmentDAO {
         }
         return list;
     }
+    
     public List<Appointment> getAppointmentsByDateRange(boolean onlyToday) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        // ADDED: AND status = 'Approved' to both queries
         String query = onlyToday ? "SELECT * FROM appointments WHERE appointment_date = CURDATE() AND status = 'Approved'" 
                                  : "SELECT * FROM appointments WHERE appointment_date >= CURDATE() AND status = 'Approved'";
-
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
@@ -482,26 +468,22 @@ public class AppointmentDAO {
         return list;
     }
 
-    // Missing for getFullServiceList
     public List<Object[]> getServiceDetails() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        // Ensure 'is_active' is part of the SELECT statement
         String query = "SELECT service_name, is_active FROM services ORDER BY service_name ASC";
-
         try (Connection conn = DBConnection.getConnection();
              Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
                 list.add(new Object[]{
                     rs.getString("service_name"), 
-                    rs.getInt("is_active") // This MUST be here
+                    rs.getInt("is_active")
                 });
             }
         }
         return list;
     }
 
-    // Missing for getAllTimeSlots
     public List<String> getAllTimeSlotsFromDB() throws SQLException {
         List<String> list = new ArrayList<>();
         String query = "SELECT time_slot FROM clinic_hours";
@@ -511,7 +493,6 @@ public class AppointmentDAO {
         return list;
     }
     
-    // Method to block every single slot for a specific date
     public void blockAllDay(java.sql.Date date, String[] allSlots, int staffId, String role) throws SQLException {
         String sql = "INSERT IGNORE INTO blocked_slots (block_date, time_slot, reason) VALUES (?, ?, ?)";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -527,16 +508,13 @@ public class AppointmentDAO {
         }
     }
 
-    // Method to remove all blocks for a specific date
     public boolean unblockAllDay(java.sql.Date date, int staffId, String role) throws SQLException {
         String query = "DELETE FROM blocked_slots WHERE block_date = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setDate(1, date);
             int affected = pstmt.executeUpdate();
-
             if (affected > 0) {
-                // Record the action in activity_logs
                 new com.dentalclinic.service.LogService().record(
                     staffId, 
                     role, 
@@ -548,7 +526,6 @@ public class AppointmentDAO {
         }
     }
     
-    // Archive a single notification
     public boolean archiveNotification(int appId) throws SQLException {
         String query = "UPDATE appointments SET is_archived = TRUE WHERE appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -558,11 +535,7 @@ public class AppointmentDAO {
         }
     }
 
-    // Archive all notifications for a patient
-    // Archive all notifications for a patient (Only those that are already processed)
     public boolean archiveAllNotifications(int pId) throws SQLException {
-        // Crucial: We only archive things that are NOT 'Pending' 
-        // This ensures your "Pending" panel stays untouched.
         String query = "UPDATE appointments SET is_archived = TRUE WHERE patient_id = ? AND status != 'Pending'";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -571,12 +544,9 @@ public class AppointmentDAO {
         }
     }
     
-    // Add this to AppointmentDAO.java
     public List<Appointment> getApprovedUpcomingAppointments() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        // This query filters for future dates AND only Approved status
         String query = "SELECT * FROM appointments WHERE appointment_date >= CURDATE() AND status = 'Approved' ORDER BY appointment_date ASC";
-
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
@@ -605,21 +575,17 @@ public class AppointmentDAO {
         return "Unknown";
     }
     
-    // Add this to AppointmentDAO.java
     public List<Appointment> getRecentCancelledByPatient(int pId, int daysLimit) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        // Fetches cancelled appointments that are NOT archived AND within the last X days
         String query = "SELECT * FROM appointments WHERE patient_id = ? " +
                        "AND status = 'Cancelled' " +
                        "AND is_archived = FALSE " +
                        "AND appointment_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) " +
                        "ORDER BY appointment_date DESC";
-
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             pstmt.setInt(2, daysLimit);
-
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
                     Appointment app = new Appointment(
@@ -636,6 +602,7 @@ public class AppointmentDAO {
         }
         return list;
     }
+    
     public Appointment getAppointmentById(int appId) throws SQLException {
         String query = "SELECT * FROM appointments WHERE appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -654,6 +621,60 @@ public class AppointmentDAO {
                         rs.getString("status"),
                         rs.getString("clinical_notes"),
                         rs.getBoolean("is_read")
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
+    // ==========================================================
+    // EMAIL REMINDER METHODS (NEW)
+    // ==========================================================
+
+    public List<Appointment> getAppointmentsForTomorrow() throws SQLException {
+        List<Appointment> list = new ArrayList<>();
+        String query = "SELECT * FROM appointments WHERE appointment_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                       "AND status = 'Approved' AND reminder_sent = 0";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                Appointment app = new Appointment(
+                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
+                    rs.getString("service_type"), rs.getDate("appointment_date"),
+                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
+                    rs.getString("contact_at_visit"), rs.getString("status"),
+                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
+                );
+                list.add(app);
+            }
+        }
+        return list;
+    }
+
+    public boolean markReminderSent(int appId) throws SQLException {
+        String query = "UPDATE appointments SET reminder_sent = 1 WHERE appointment_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, appId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public Appointment getAppointmentByIdForReminder(int appId) throws SQLException {
+        String query = "SELECT * FROM appointments WHERE appointment_id = ? AND status = 'Approved'";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, appId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Appointment(
+                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
+                        rs.getString("service_type"), rs.getDate("appointment_date"),
+                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
+                        rs.getString("contact_at_visit"), rs.getString("status"),
+                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
                     );
                 }
             }
