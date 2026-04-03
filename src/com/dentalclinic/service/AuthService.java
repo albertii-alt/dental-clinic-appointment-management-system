@@ -112,7 +112,7 @@ public class AuthService {
             
                  // Send welcome email
             String fullName = fName + " " + lName;
-            EmailUtil.sendWelcomeEmail(fullName, email, user, pass);
+            EmailUtil.sendWelcomeEmailAsync(fullName, email, user, pass);
         }
 
         return success;

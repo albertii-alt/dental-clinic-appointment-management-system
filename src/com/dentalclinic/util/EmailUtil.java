@@ -1,10 +1,13 @@
 package com.dentalclinic.util;
 
+import com.dentalclinic.service.LogService;
 import java.util.Properties;
 import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.mail.*;
 import javax.mail.internet.*;
 
@@ -16,6 +19,9 @@ public class EmailUtil {
     private static String SMTP_HOST;
     private static String SMTP_PORT;
     private static boolean configLoaded = false;
+    
+    // Background email sender thread pool (max 5 concurrent emails)
+    private static final ExecutorService emailExecutor = Executors.newFixedThreadPool(5);
     
     // Load email config from file
     static {
@@ -38,31 +44,63 @@ public class EmailUtil {
             if (FROM_EMAIL != null && !FROM_EMAIL.isEmpty()) {
                 configLoaded = true;
                 System.out.println("Email configuration loaded successfully");
+                logEmailEvent("INFO", "Email system initialized from: " + FROM_EMAIL);
             }
         } catch (IOException e) {
             System.err.println("Email config not found. Email notifications disabled.");
+            logEmailEvent("ERROR", "Email config not found");
         }
     }
     
     /**
-     * Send email notification
+     * Log email events for system logs
+     */
+    private static void logEmailEvent(String level, String message) {
+        try {
+            LogService.logSystemEvent(level, "EmailUtil", message);
+        } catch (Exception e) {
+            System.out.println("[EMAIL " + level + "] " + message);
+        }
+    }
+    
+    /**
+     * Add to audit trails
+     */
+    private static void addToAuditTrail(int actorId, String actorRole, String action, String details) {
+        if (actorId > 0) {
+            try {
+                LogService logService = new LogService();
+                logService.record(actorId, actorRole, action, details);
+            } catch (Exception e) {
+                System.err.println("Audit log failed: " + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * Send email notification (blocking - waits for email to send)
      */
     public static boolean sendEmail(String toEmail, String subject, String body) {
         if (!configLoaded) {
             System.err.println("Email not configured. Notification not sent.");
+            logEmailEvent("WARNING", "Attempted to send email but email not configured");
             return false;
         }
         
+        String maskedEmail = maskEmail(toEmail);
+        
+        logEmailEvent("INFO", "Attempting to send email to: " + maskedEmail + " | Subject: " + subject);
+        
         try {
-            // SMTP properties
             Properties props = new Properties();
             props.put("mail.smtp.host", SMTP_HOST);
             props.put("mail.smtp.port", SMTP_PORT);
             props.put("mail.smtp.auth", "true");
             props.put("mail.smtp.starttls.enable", "true");
             props.put("mail.smtp.ssl.trust", SMTP_HOST);
+            props.put("mail.smtp.timeout", "10000");
+            props.put("mail.smtp.connectiontimeout", "10000");
             
-            // Create session with authentication
             Session session = Session.getInstance(props, new Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
@@ -70,58 +108,164 @@ public class EmailUtil {
                 }
             });
             
-            // Create email message
             Message message = new MimeMessage(session);
             message.setFrom(new InternetAddress(FROM_EMAIL, "Vantage Dental Clinic"));
             message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
             message.setSubject(subject);
             message.setText(body);
             
-            // Send email
             Transport.send(message);
-            System.out.println("Email sent to: " + toEmail);
+            System.out.println("Email sent to: " + maskedEmail);
+            logEmailEvent("INFO", "SUCCESS - Email sent to: " + maskedEmail);
             return true;
             
         } catch (MessagingException e) {
-            System.err.println("Failed to send email: " + e.getMessage());
+            System.err.println("Failed to send email to: " + maskedEmail + " | Error: " + e.getMessage());
+            logEmailEvent("ERROR", "FAILED - Email to " + maskedEmail + " | Error: " + e.getMessage());
             return false;
         } catch (Exception e) {
-            System.err.println("Email error: " + e.getMessage());
+            System.err.println("Email error to: " + maskedEmail + " | Error: " + e.getMessage());
+            logEmailEvent("ERROR", "FAILED - Email to " + maskedEmail + " | Error: " + e.getMessage());
             return false;
         }
     }
     
     /**
-     * Send welcome email after patient registration
+     * Send email notification with audit trail (blocking)
      */
-    public static void sendWelcomeEmail(String patientName, String email, String username, String password) {
+    public static boolean sendEmail(String toEmail, String subject, String body, int actorId, String actorRole, String actionDescription) {
+        if (!configLoaded) {
+            System.err.println("Email not configured. Notification not sent.");
+            logEmailEvent("WARNING", "Attempted to send email but email not configured");
+            return false;
+        }
+        
+        String maskedEmail = maskEmail(toEmail);
+        
+        logEmailEvent("INFO", "Attempting to send email to: " + maskedEmail + " | Subject: " + subject);
+        
+        try {
+            Properties props = new Properties();
+            props.put("mail.smtp.host", SMTP_HOST);
+            props.put("mail.smtp.port", SMTP_PORT);
+            props.put("mail.smtp.auth", "true");
+            props.put("mail.smtp.starttls.enable", "true");
+            props.put("mail.smtp.ssl.trust", SMTP_HOST);
+            props.put("mail.smtp.timeout", "10000");
+            props.put("mail.smtp.connectiontimeout", "10000");
+            
+            Session session = Session.getInstance(props, new Authenticator() {
+                @Override
+                protected PasswordAuthentication getPasswordAuthentication() {
+                    return new PasswordAuthentication(FROM_EMAIL, FROM_PASSWORD);
+                }
+            });
+            
+            Message message = new MimeMessage(session);
+            message.setFrom(new InternetAddress(FROM_EMAIL, "Vantage Dental Clinic"));
+            message.setRecipients(Message.RecipientType.TO, InternetAddress.parse(toEmail));
+            message.setSubject(subject);
+            message.setText(body);
+            
+            Transport.send(message);
+            System.out.println("Email sent to: " + maskedEmail);
+            logEmailEvent("INFO", "SUCCESS - Email sent to: " + maskedEmail);
+            
+            // Add to Audit Trails
+            if (actorId > 0 && actionDescription != null) {
+                addToAuditTrail(actorId, actorRole, "Email Sent", actionDescription + " | To: " + maskedEmail);
+            }
+            
+            return true;
+            
+        } catch (MessagingException e) {
+            System.err.println("Failed to send email to: " + maskedEmail + " | Error: " + e.getMessage());
+            logEmailEvent("ERROR", "FAILED - Email to " + maskedEmail + " | Error: " + e.getMessage());
+            return false;
+        } catch (Exception e) {
+            System.err.println("Email error to: " + maskedEmail + " | Error: " + e.getMessage());
+            logEmailEvent("ERROR", "FAILED - Email to " + maskedEmail + " | Error: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    /**
+     * Send email in background (non-blocking) - Recommended for better performance
+     */
+    public static void sendEmailAsync(String toEmail, String subject, String body) {
+        emailExecutor.submit(() -> {
+            sendEmail(toEmail, subject, body);
+        });
+    }
+    
+    /**
+     * Send email in background with audit trail (non-blocking)
+     */
+    public static void sendEmailAsync(String toEmail, String subject, String body, int actorId, String actorRole, String actionDescription) {
+        emailExecutor.submit(() -> {
+            sendEmail(toEmail, subject, body, actorId, actorRole, actionDescription);
+        });
+    }
+    
+    /**
+     * Mask email for privacy in logs (shows first 3 chars + domain)
+     */
+    private static String maskEmail(String email) {
+        if (email == null || !email.contains("@")) {
+            return "invalid@email.com";
+        }
+        String[] parts = email.split("@");
+        String localPart = parts[0];
+        String domain = parts[1];
+        
+        if (localPart.length() <= 3) {
+            return "***@" + domain;
+        }
+        return localPart.substring(0, 3) + "***@" + domain;
+    }
+    
+    // ==========================================================
+    // ASYNC VERSIONS (Recommended - non-blocking)
+    // ==========================================================
+    
+    /**
+     * Send welcome email after patient registration (Async) - System generated
+     */
+    public static void sendWelcomeEmailAsync(String patientName, String email, String username, String password) {
         String subject = "Welcome to Vantage Dental Clinic! 🦷";
         String body = "Dear " + patientName + ",\n\n" +
                       "Thank you for registering with Vantage Dental Clinic!\n\n" +
                       "Your account has been created successfully.\n\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                      "LOGIN CREDENTIALS\n" +
+                      "YOUR ACCOUNT INFORMATION\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                      "Username: " + username + "\n" +
-                      "Password: " + password + "\n" +
-                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "Username: " + username + "\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
                       "You can now:\n" +
                       "✓ Book appointments online\n" +
                       "✓ View your medical history\n" +
                       "✓ Receive appointment reminders\n\n" +
-                      "To login, open the Dental Clinic application.\n\n" +
                       "Best regards,\n" +
-                      "Vantage Dental Clinic Team\n" +
-                      "http://localhost/phpmyadmin";
-        
-        sendEmail(email, subject, body);
+                      "Vantage Dental Clinic Team";
+
+        sendEmailAsync(email, subject, body);
+        addToAuditTrail(0, "System", "Email Sent", "Welcome email to new patient: " + patientName);
     }
     
     /**
-     * Send appointment confirmation email
+     * Send appointment confirmation email (Async)
      */
-    public static void sendAppointmentConfirmation(String patientName, String email, 
-                                                     String serviceType, String date, String time, int appointmentId) {
+    public static void sendAppointmentConfirmationAsync(String patientName, String email, 
+                                                         String serviceType, String date, String time, int appointmentId) {
+        sendAppointmentConfirmationWithActor(0, "System", patientName, email, serviceType, date, time, appointmentId);
+    }
+    
+    /**
+     * Send appointment confirmation email with audit trail (Async)
+     */
+    public static void sendAppointmentConfirmationWithActor(int actorId, String actorRole,
+                                                             String patientName, String email, 
+                                                             String serviceType, String date, String time, int appointmentId) {
         String subject = "Appointment Confirmation - Vantage Dental Clinic";
         String body = "Dear " + patientName + ",\n\n" +
                       "Your appointment has been CONFIRMED!\n\n" +
@@ -139,35 +283,24 @@ public class EmailUtil {
                       "Best regards,\n" +
                       "Vantage Dental Clinic Team";
         
-        sendEmail(email, subject, body);
+        String actionDescription = "Appointment confirmation sent to patient: " + patientName + " for appointment #" + appointmentId;
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
     }
     
     /**
-     * Send appointment reminder (day before)
+     * Send appointment cancellation notification (Async)
      */
-    public static void sendAppointmentReminder(String patientName, String email, 
-                                                String serviceType, String date, String time) {
-        String subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
-        String body = "Dear " + patientName + ",\n\n" +
-                      "This is a reminder about your appointment TOMORROW.\n\n" +
-                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                      "Service: " + serviceType + "\n" +
-                      "Date: " + date + "\n" +
-                      "Time: " + time + "\n" +
-                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                      "Please bring any relevant medical records.\n\n" +
-                      "We look forward to seeing you!\n\n" +
-                      "Best regards,\n" +
-                      "Vantage Dental Clinic Team";
-        
-        sendEmail(email, subject, body);
+    public static void sendCancellationNotificationAsync(String patientName, String email, 
+                                                          String serviceType, String date, String time) {
+        sendCancellationNotificationWithActor(0, "System", patientName, email, serviceType, date, time);
     }
     
     /**
-     * Send appointment cancellation notification
+     * Send appointment cancellation notification with audit trail (Async)
      */
-    public static void sendCancellationNotification(String patientName, String email, 
-                                                     String serviceType, String date, String time) {
+    public static void sendCancellationNotificationWithActor(int actorId, String actorRole,
+                                                              String patientName, String email, 
+                                                              String serviceType, String date, String time) {
         String subject = "Appointment Cancelled - Vantage Dental Clinic";
         String body = "Dear " + patientName + ",\n\n" +
                       "We regret to inform you that your appointment has been CANCELLED.\n\n" +
@@ -180,20 +313,24 @@ public class EmailUtil {
                       "Best regards,\n" +
                       "Vantage Dental Clinic Team";
         
-        sendEmail(email, subject, body);
+        String actionDescription = "Cancellation notification sent to patient: " + patientName;
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
     }
     
     /**
-     * Check if email is configured
+     * Send appointment declined notification (Async)
      */
-    public static boolean isConfigured() {
-        return configLoaded;
+    public static void sendDeclinedNotificationAsync(String patientName, String email, 
+                                                      String serviceType, String date, String time, String reason) {
+        sendDeclinedNotificationWithActor(0, "System", patientName, email, serviceType, date, time, reason);
     }
+    
     /**
- * Send appointment declined notification
- */
-    public static void sendDeclinedNotification(String patientName, String email, 
-                                                  String serviceType, String date, String time, String reason) {
+     * Send appointment declined notification with audit trail (Async)
+     */
+    public static void sendDeclinedNotificationWithActor(int actorId, String actorRole,
+                                                          String patientName, String email, 
+                                                          String serviceType, String date, String time, String reason) {
         String subject = "Appointment Declined - Vantage Dental Clinic";
         String body = "Dear " + patientName + ",\n\n" +
                       "We regret to inform you that your appointment request has been DECLINED.\n\n" +
@@ -214,15 +351,26 @@ public class EmailUtil {
                 "Best regards,\n" +
                 "Vantage Dental Clinic Team";
 
-        sendEmail(email, subject, body);
+        String actionDescription = "Declined notification sent to patient: " + patientName;
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
     }
-
+    
     /**
-     * Send appointment rescheduled notification
+     * Send appointment rescheduled notification (Async)
      */
-    public static void sendRescheduledNotification(String patientName, String email, 
-                                                    String serviceType, String oldDate, String oldTime, 
-                                                    String newDate, String newTime) {
+    public static void sendRescheduledNotificationAsync(String patientName, String email, 
+                                                         String serviceType, String oldDate, String oldTime, 
+                                                         String newDate, String newTime) {
+        sendRescheduledNotificationWithActor(0, "System", patientName, email, serviceType, oldDate, oldTime, newDate, newTime);
+    }
+    
+    /**
+     * Send appointment rescheduled notification with audit trail (Async)
+     */
+    public static void sendRescheduledNotificationWithActor(int actorId, String actorRole,
+                                                             String patientName, String email, 
+                                                             String serviceType, String oldDate, String oldTime, 
+                                                             String newDate, String newTime) {
         String subject = "Appointment Rescheduled - Vantage Dental Clinic";
         String body = "Dear " + patientName + ",\n\n" +
                       "Your appointment has been RESCHEDULED.\n\n" +
@@ -243,12 +391,142 @@ public class EmailUtil {
                       "Best regards,\n" +
                       "Vantage Dental Clinic Team";
 
+        String actionDescription = "Reschedule notification sent to patient: " + patientName;
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
+    }
+    
+    /**
+     * Send appointment reminder (day before) - Async
+     */
+    public static void sendAppointmentReminderAsync(String patientName, String email, 
+                                                     String serviceType, String date, String time) {
+        String subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
+        String body = "Dear " + patientName + ",\n\n" +
+                      "This is a reminder about your appointment TOMORROW.\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "Service: " + serviceType + "\n" +
+                      "Date: " + date + "\n" +
+                      "Time: " + time + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "Please bring any relevant medical records.\n\n" +
+                      "We look forward to seeing you!\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
+        
+        sendEmailAsync(email, subject, body);
+    }
+    
+    // ==========================================================
+    // SYNC VERSIONS (Blocking - for backward compatibility)
+    // ==========================================================
+    
+    /**
+     * Send welcome email after patient registration (Sync)
+     */
+    public static void sendWelcomeEmail(String patientName, String email, String username, String password) {
+        String subject = "Welcome to Vantage Dental Clinic! 🦷";
+        String body = "Dear " + patientName + ",\n\n" +
+                      "Thank you for registering with Vantage Dental Clinic!\n\n" +
+                      "Your account has been created successfully.\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "LOGIN CREDENTIALS\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "Username: " + username + "\n" +
+                      "Password: " + password + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "You can now:\n" +
+                      "✓ Book appointments online\n" +
+                      "✓ View your medical history\n" +
+                      "✓ Receive appointment reminders\n\n" +
+                      "To login, open the Dental Clinic application.\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
+        
         sendEmail(email, subject, body);
     }
+    
+    /**
+     * Send appointment confirmation email (Sync)
+     */
+    public static void sendAppointmentConfirmation(String patientName, String email, 
+                                                     String serviceType, String date, String time, int appointmentId) {
+        sendAppointmentConfirmationWithActor(0, "System", patientName, email, serviceType, date, time, appointmentId);
+    }
+    
+    /**
+     * Send appointment cancellation notification (Sync)
+     */
+    public static void sendCancellationNotification(String patientName, String email, 
+                                                     String serviceType, String date, String time) {
+        sendCancellationNotificationWithActor(0, "System", patientName, email, serviceType, date, time);
+    }
+    
+    /**
+     * Send appointment declined notification (Sync)
+     */
+    public static void sendDeclinedNotification(String patientName, String email, 
+                                                  String serviceType, String date, String time, String reason) {
+        sendDeclinedNotificationWithActor(0, "System", patientName, email, serviceType, date, time, reason);
+    }
+    
+    /**
+     * Send appointment rescheduled notification (Sync)
+     */
+    public static void sendRescheduledNotification(String patientName, String email, 
+                                                    String serviceType, String oldDate, String oldTime, 
+                                                    String newDate, String newTime) {
+        sendRescheduledNotificationWithActor(0, "System", patientName, email, serviceType, oldDate, oldTime, newDate, newTime);
+    }
+    
+    /**
+     * Send appointment reminder (day before) - Sync
+     */
+    public static void sendAppointmentReminder(String patientName, String email, 
+                                                String serviceType, String date, String time) {
+        String subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
+        String body = "Dear " + patientName + ",\n\n" +
+                      "This is a reminder about your appointment TOMORROW.\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "Service: " + serviceType + "\n" +
+                      "Date: " + date + "\n" +
+                      "Time: " + time + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "Please bring any relevant medical records.\n\n" +
+                      "We look forward to seeing you!\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
+        
+        sendEmail(email, subject, body);
+    }
+    
+    /**
+     * Check if email is configured
+     */
+    public static boolean isConfigured() {
+        return configLoaded;
+    }
+    
+    /**
+     * Test email configuration (sends test email)
+     */
     public static void testConfig() {
         System.out.println("Email configured: " + configLoaded);
         System.out.println("From Email: " + FROM_EMAIL);
         System.out.println("SMTP Host: " + SMTP_HOST);
         System.out.println("SMTP Port: " + SMTP_PORT);
+        
+        if (configLoaded && FROM_EMAIL != null) {
+            sendEmailAsync(FROM_EMAIL, "Test Email from Dental Clinic", 
+                "This is a test email to verify SMTP configuration.\n\n" +
+                "If you receive this, email is working correctly.");
+        }
+    }
+    
+    /**
+     * Shutdown email executor (call when app closes)
+     */
+    public static void shutdown() {
+        emailExecutor.shutdown();
+        logEmailEvent("INFO", "Email executor shutdown");
     }
 }
