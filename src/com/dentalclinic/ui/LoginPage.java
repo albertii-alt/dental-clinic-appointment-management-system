@@ -39,6 +39,7 @@ public class LoginPage extends JFrame {
     private final Color TEXT_DARK = new Color(44, 62, 80);
     private final Color TEXT_GRAY = new Color(127, 140, 141);
     private final Color BORDER_COLOR = new Color(218, 226, 234);
+    private final Color SUCCESS_GREEN = new Color(46, 204, 113);
 
     public LoginPage() {
         // Initialize DAOs
@@ -47,7 +48,6 @@ public class LoginPage extends JFrame {
         
         setTitle("Vantage Dental - Login");
         if (!com.dentalclinic.util.DBConnection.testConnection()) {
-            // Database not configured - show setup wizard
             com.dentalclinic.util.DatabaseSetupWizard.showSetupWizard(this);
             return;
         }
@@ -86,17 +86,14 @@ public class LoginPage extends JFrame {
 
         gbcL.gridy = 4; gbcL.weighty = 1.0; sidebar.add(Box.createVerticalGlue(), gbcL);
         
-        // --- Enhanced Footer Section ---
         JPanel footerContainer = new JPanel(new BorderLayout(15, 0));
         footerContainer.setOpaque(false);
 
-        // Modern Accent Bar
         JPanel accentBar = new JPanel();
         accentBar.setPreferredSize(new Dimension(4, 0));
         accentBar.setBackground(PRIMARY_BLUE);
         footerContainer.add(accentBar, BorderLayout.WEST);
 
-        // Text Content
         JLabel footerText = new JLabel("<html><div style='font-family: Segoe UI;'>" +
                 "<b style='font-size: 14px; color: " + String.format("#%02x%02x%02x", TEXT_DARK.getRed(), TEXT_DARK.getGreen(), TEXT_DARK.getBlue()) + ";'>Manage Your Oral Health</b><br>" +
                 "<span style='font-size: 11px; color: " + String.format("#%02x%02x%02x", TEXT_GRAY.getRed(), TEXT_GRAY.getGreen(), TEXT_GRAY.getBlue()) + ";'>Log in to view clinic schedules, treatment<br>history, and digital prescriptions.</span></div></html>");
@@ -140,23 +137,58 @@ public class LoginPage extends JFrame {
         gbcR.gridy = 7; gbcR.insets = new Insets(0, 0, 35, 0);
         formArea.add(roleDropdown, gbcR);
 
+        // --- Form (Right) Buttons Row ---
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         btns.setOpaque(false);
+        
         loginButton = new JButton("Login");
         styleFormButton(loginButton, SECONDARY_BLUE, Color.WHITE);
         loginButton.setPreferredSize(new Dimension(140, 50));
+        
         registerButton = new JButton("Create Account");
         styleFormButton(registerButton, Color.WHITE, TEXT_DARK);
         registerButton.setBorder(new LineBorder(BORDER_COLOR));
         registerButton.setPreferredSize(new Dimension(160, 50));
-        btns.add(loginButton); btns.add(Box.createHorizontalStrut(15)); btns.add(registerButton);
+        
+        btns.add(loginButton); 
+        btns.add(Box.createHorizontalStrut(15)); 
+        btns.add(registerButton);
 
-        gbcR.gridy = 8; gbcR.insets = new Insets(0, 0, 0, 0);
+        // Add the buttons at row 8
+        gbcR.gridy = 8;
+        gbcR.insets = new Insets(0, 0, 10, 0); // 10px spacing before the link
         formArea.add(btns, gbcR);
+
+        // --- Forgot Password Link Row ---
+        JButton forgotPasswordBtn = new JButton("Forgot Password?");
+        forgotPasswordBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        forgotPasswordBtn.setForeground(SECONDARY_BLUE);
+        forgotPasswordBtn.setContentAreaFilled(false);
+        forgotPasswordBtn.setBorderPainted(false);
+        forgotPasswordBtn.setFocusPainted(false);
+        forgotPasswordBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        
+        // Modern hover effect
+        forgotPasswordBtn.addMouseListener(new MouseAdapter() {
+            public void mouseEntered(MouseEvent e) { forgotPasswordBtn.setText("<html><u>Forgot Password?</u></html>"); }
+            public void mouseExited(MouseEvent e) { forgotPasswordBtn.setText("Forgot Password?"); }
+        });
+        forgotPasswordBtn.addActionListener(e -> showForgotPasswordDialog());
+
+        // Create new constraints for centering the link
+        GridBagConstraints gbcCenter = new GridBagConstraints();
+        gbcCenter.gridx = 0;
+        gbcCenter.gridy = 9;
+        gbcCenter.gridwidth = 1;
+        gbcCenter.anchor = GridBagConstraints.CENTER; // This centers it horizontally
+        gbcCenter.insets = new Insets(5, 0, 0, 0);
+        
+        formArea.add(forgotPasswordBtn, gbcCenter);
 
         masterPanel.add(formArea);
         initActionListeners();
         setVisible(true);
+
     }
 
     private void addInputSection(JPanel p, String label, JTextField field, GridBagConstraints c, int row) {
@@ -207,31 +239,19 @@ public class LoginPage extends JFrame {
 
             try {
                 Object result = authService.login(user, pass, role);
-                
-                // NEW: Check if account is locked
+
                 if (result instanceof Object[] && ((Object[]) result)[0].equals("ACCOUNT_LOCKED")) {
                     Object[] lockData = (Object[]) result;
                     int remainingMinutes = (int) lockData[1];
-
                     String message = "Your account has been locked due to multiple failed login attempts.\n" +
                                     "Please try again in " + remainingMinutes + " minute(s).";
                     ErrorDialog.show(this, "Account Locked", message);
                     return;
                 }
 
-                // Check if password reset is required
                 if (result instanceof Object[] && ((Object[]) result)[0].equals("RESET_REQUIRED")) {
                     Object[] resetData = (Object[]) result;
                     Object userData = resetData[1];
-                    showPasswordResetDialog(userData, role);
-                    return;
-                }
-                // Check if password reset is required
-                if (result instanceof Object[] && ((Object[]) result)[0].equals("RESET_REQUIRED")) {
-                    Object[] resetData = (Object[]) result;
-                    Object userData = resetData[1];
-                    
-                    // Show password reset dialog
                     showPasswordResetDialog(userData, role);
                     return;
                 }
@@ -248,7 +268,7 @@ public class LoginPage extends JFrame {
                     UserSession.initialize(id, name, isS ? "Super Admin" : rStr, rpDao.getPermissionNamesForRole(rId));
 
                     SuccessDialog.show(this, "Access Granted", "Welcome back, " + name + "!");
-                    
+
                     if (rStr.equalsIgnoreCase("ADMIN")) new AdminDashboard(id, isS, name, email, user);
                     else if (rStr.equalsIgnoreCase("DENTIST")) new DentistDashboard(id, name, user, email);
                     else if (rStr.equalsIgnoreCase("STAFF")) new StaffDashboard(id, name, user, email);
@@ -294,13 +314,11 @@ public class LoginPage extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 20, 10, 20);
 
-        // Warning message
         JLabel warningLabel = new JLabel("<html><center><b>Security Notice</b><br>For security reasons, you must change your password.<br>This is required once due to system security upgrade.</center></html>");
         warningLabel.setForeground(new Color(255, 100, 100));
         gbc.gridy = 0;
         dialog.add(warningLabel, gbc);
 
-        // New password field
         gbc.gridy = 1;
         dialog.add(new JLabel("New Password:"), gbc);
 
@@ -309,7 +327,6 @@ public class LoginPage extends JFrame {
         gbc.gridy = 2;
         dialog.add(newPassField, gbc);
 
-        // Confirm password field
         gbc.gridy = 3;
         dialog.add(new JLabel("Confirm Password:"), gbc);
 
@@ -318,71 +335,67 @@ public class LoginPage extends JFrame {
         gbc.gridy = 4;
         dialog.add(confirmPassField, gbc);
 
-        // Requirements label
         JLabel reqLabel = new JLabel("<html><small>Password must be at least 6 characters</small></html>");
         reqLabel.setForeground(Color.GRAY);
         gbc.gridy = 5;
         dialog.add(reqLabel, gbc);
 
-        // Buttons
         JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton resetButton = new JButton("Reset Password");
         JButton cancelButton = new JButton("Logout");
 
         resetButton.addActionListener(evt -> {
-        String newPass = new String(newPassField.getPassword());
-        String confirmPass = new String(confirmPassField.getPassword());
+            String newPass = new String(newPassField.getPassword());
+            String confirmPass = new String(confirmPassField.getPassword());
 
-        // Validate password complexity
-        List<String> passwordErrors = PasswordValidator.validatePassword(newPass);
-        if (!passwordErrors.isEmpty()) {
-            StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
-            for (String error : passwordErrors) {
-                errorMsg.append("• ").append(error).append("\n");
-            }
-            ErrorDialog.show(LoginPage.this, "Invalid Password", errorMsg.toString());
-            return;
-        }
-
-        if (!newPass.equals(confirmPass)) {
-            ErrorDialog.show(LoginPage.this, "Error", "Passwords do not match");
-            return;
-        }
-
-        try {
-            boolean success = false;
-
-            if (role.equalsIgnoreCase("Patient")) {
-                Patient patient = (Patient) userData;
-                String hashedPass = PasswordUtil.hashPassword(newPass);
-                success = updatePatientPassword(patient.getPatientId(), hashedPass);
-                if (success) {
-                    patientDAO.clearPasswordResetFlag(patient.getPatientId());
+            List<String> passwordErrors = PasswordValidator.validatePassword(newPass);
+            if (!passwordErrors.isEmpty()) {
+                StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+                for (String error : passwordErrors) {
+                    errorMsg.append("• ").append(error).append("\n");
                 }
-            } else {
-                Object[] staffData = (Object[]) userData;
-                int staffId = (int) staffData[0];
-                String hashedPass = PasswordUtil.hashPassword(newPass);
-                success = updateStaffPassword(staffId, hashedPass);
-                if (success) {
-                    staffDAO.clearPasswordResetFlag(staffId);
-                }
+                ErrorDialog.show(LoginPage.this, "Invalid Password", errorMsg.toString());
+                return;
             }
 
-            if (success) {
-                SuccessDialog.show(LoginPage.this, "Success", "Password updated successfully! Please login again.");
-                dialog.dispose();
-            } else {
-                ErrorDialog.show(LoginPage.this, "Error", "Failed to update password. Please try again.");
+            if (!newPass.equals(confirmPass)) {
+                ErrorDialog.show(LoginPage.this, "Error", "Passwords do not match");
+                return;
             }
-        } catch (SQLException ex) {
-            ErrorDialog.show(LoginPage.this, "Database Error", ex.getMessage());
-        }
-    });
+
+            try {
+                boolean success = false;
+
+                if (role.equalsIgnoreCase("Patient")) {
+                    Patient patient = (Patient) userData;
+                    String hashedPass = PasswordUtil.hashPassword(newPass);
+                    success = updatePatientPassword(patient.getPatientId(), hashedPass);
+                    if (success) {
+                        patientDAO.clearPasswordResetFlag(patient.getPatientId());
+                    }
+                } else {
+                    Object[] staffData = (Object[]) userData;
+                    int staffId = (int) staffData[0];
+                    String hashedPass = PasswordUtil.hashPassword(newPass);
+                    success = updateStaffPassword(staffId, hashedPass);
+                    if (success) {
+                        staffDAO.clearPasswordResetFlag(staffId);
+                    }
+                }
+
+                if (success) {
+                    SuccessDialog.show(LoginPage.this, "Success", "Password updated successfully! Please login again.");
+                    dialog.dispose();
+                } else {
+                    ErrorDialog.show(LoginPage.this, "Error", "Failed to update password. Please try again.");
+                }
+            } catch (SQLException ex) {
+                ErrorDialog.show(LoginPage.this, "Database Error", ex.getMessage());
+            }
+        });
 
         cancelButton.addActionListener(evt -> {
             dialog.dispose();
-            // Clear the login fields
             usernameField.setText("");
             passwordField.setText("");
         });
@@ -414,5 +427,251 @@ public class LoginPage extends JFrame {
             pstmt.setInt(2, staffId);
             return pstmt.executeUpdate() > 0;
         }
+    }
+    
+    /**
+     * Show Forgot Password dialog - Now uses USERNAME instead of email
+     */
+    private void showForgotPasswordDialog() {
+        JDialog forgotDialog = new JDialog(this, "Forgot Password", true);
+        forgotDialog.setSize(450, 300);
+        forgotDialog.setLocationRelativeTo(this);
+        forgotDialog.setLayout(new GridBagLayout());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 20, 10, 20);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+
+        JLabel instructionLabel = new JLabel("Enter your username:");
+        instructionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridy = 0;
+        forgotDialog.add(instructionLabel, gbc);
+
+        JTextField usernameField = new JTextField(20);
+        usernameField.setPreferredSize(new Dimension(300, 35));
+        gbc.gridy = 1;
+        forgotDialog.add(usernameField, gbc);
+
+        JButton sendButton = new JButton("Send Reset Code");
+        styleFormButton(sendButton, PRIMARY_BLUE, Color.WHITE);
+        gbc.gridy = 2;
+        forgotDialog.add(sendButton, gbc);
+
+        sendButton.addActionListener(evt -> {
+            String username = usernameField.getText().trim();
+            if (username.isEmpty()) {
+                ErrorDialog.show(LoginPage.this, "Error", "Please enter your username.");
+                return;
+            }
+
+            sendButton.setEnabled(false);
+            sendButton.setText("Sending...");
+
+            new Thread(() -> {
+                try {
+                    AuthService authService = new AuthService();
+                    String maskedEmail = authService.requestPasswordResetByUsername(username);
+
+                    SwingUtilities.invokeLater(() -> {
+                        sendButton.setEnabled(true);
+                        sendButton.setText("Send Reset Code");
+                        forgotDialog.dispose();
+
+                        if (maskedEmail != null) {
+                            SuccessDialog.show(LoginPage.this, "Code Sent", 
+                                "A 6-digit reset code has been sent to:\n" + maskedEmail + "\n\n" +
+                                "The code will expire in 15 minutes.");
+                            showVerifyCodeDialog(username);
+                        } else {
+                            // Don't reveal if username exists or not (security)
+                            SuccessDialog.show(LoginPage.this, "Code Sent", 
+                                "If an account exists with that username, a reset code has been sent.");
+                        }
+                    });
+                } catch (SQLException ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        sendButton.setEnabled(true);
+                        sendButton.setText("Send Reset Code");
+                        ErrorDialog.show(LoginPage.this, "Error", "Database error: " + ex.getMessage());
+                    });
+                }
+            }).start();
+        });
+
+        forgotDialog.setVisible(true);
+    }
+
+    /**
+     * Show Verify Code dialog
+     */
+    private void showVerifyCodeDialog(String username) {
+        JDialog verifyDialog = new JDialog(this, "Verify Reset Code", true);
+        verifyDialog.setSize(450, 300);
+        verifyDialog.setLocationRelativeTo(this);
+        verifyDialog.setLayout(new GridBagLayout());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 20, 10, 20);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+
+        JLabel instructionLabel = new JLabel("Enter the 6-digit code sent to your email:");
+        instructionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridy = 0;
+        verifyDialog.add(instructionLabel, gbc);
+
+        JTextField codeField = new JTextField(20);
+        codeField.setPreferredSize(new Dimension(300, 35));
+        codeField.setHorizontalAlignment(JTextField.CENTER);
+        codeField.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        gbc.gridy = 1;
+        verifyDialog.add(codeField, gbc);
+
+        JButton verifyButton = new JButton("Verify Code");
+        styleFormButton(verifyButton, PRIMARY_BLUE, Color.WHITE);
+        gbc.gridy = 2;
+        verifyDialog.add(verifyButton, gbc);
+
+        verifyButton.addActionListener(evt -> {
+            String code = codeField.getText().trim();
+            if (code.length() != 6 || !code.matches("\\d+")) {
+                ErrorDialog.show(LoginPage.this, "Invalid Code", "Please enter a valid 6-digit code.");
+                return;
+            }
+
+            verifyButton.setEnabled(false);
+            verifyButton.setText("Verifying...");
+
+            new Thread(() -> {
+                try {
+                    AuthService authService = new AuthService();
+                    boolean valid = authService.verifyResetCode(code);
+
+                    SwingUtilities.invokeLater(() -> {
+                        verifyButton.setEnabled(true);
+                        verifyButton.setText("Verify Code");
+
+                        if (valid) {
+                            verifyDialog.dispose();
+                            showResetPasswordDialog(username, code);
+                        } else {
+                            ErrorDialog.show(LoginPage.this, "Invalid Code", 
+                                "The code is invalid or has expired. Please request a new code.");
+                        }
+                    });
+                } catch (SQLException ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        verifyButton.setEnabled(true);
+                        verifyButton.setText("Verify Code");
+                        ErrorDialog.show(LoginPage.this, "Error", "Database error: " + ex.getMessage());
+                    });
+                }
+            }).start();
+        });
+
+        verifyDialog.setVisible(true);
+    }
+
+    /**
+     * Show Reset Password dialog
+     */
+    private void showResetPasswordDialog(String username, String resetCode) {
+        JDialog resetDialog = new JDialog(this, "Reset Password", true);
+        resetDialog.setSize(450, 400);
+        resetDialog.setLocationRelativeTo(this);
+        resetDialog.setLayout(new GridBagLayout());
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 20, 10, 20);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.gridx = 0;
+
+        JLabel instructionLabel = new JLabel("Enter your new password:");
+        instructionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridy = 0;
+        resetDialog.add(instructionLabel, gbc);
+
+        JPasswordField newPassField = new JPasswordField();
+        newPassField.setPreferredSize(new Dimension(300, 35));
+        gbc.gridy = 1;
+        resetDialog.add(newPassField, gbc);
+
+        JLabel confirmLabel = new JLabel("Confirm new password:");
+        confirmLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        gbc.gridy = 2;
+        resetDialog.add(confirmLabel, gbc);
+
+        JPasswordField confirmPassField = new JPasswordField();
+        confirmPassField.setPreferredSize(new Dimension(300, 35));
+        gbc.gridy = 3;
+        resetDialog.add(confirmPassField, gbc);
+
+        JLabel reqLabel = new JLabel("<html><small>Password must be at least 8 characters with uppercase,<br>lowercase, number, and special character.</small></html>");
+        reqLabel.setForeground(Color.GRAY);
+        gbc.gridy = 4;
+        resetDialog.add(reqLabel, gbc);
+
+        JButton resetButton = new JButton("Reset Password");
+        styleFormButton(resetButton, SUCCESS_GREEN, Color.WHITE);
+        gbc.gridy = 5;
+        resetDialog.add(resetButton, gbc);
+
+        resetButton.addActionListener(evt -> {
+            String newPass = new String(newPassField.getPassword());
+            String confirmPass = new String(confirmPassField.getPassword());
+
+            List<String> passwordErrors = PasswordValidator.validatePassword(newPass);
+            if (!passwordErrors.isEmpty()) {
+                StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
+                for (String error : passwordErrors) {
+                    errorMsg.append("• ").append(error).append("\n");
+                }
+                ErrorDialog.show(LoginPage.this, "Invalid Password", errorMsg.toString());
+                return;
+            }
+
+            if (!newPass.equals(confirmPass)) {
+                ErrorDialog.show(LoginPage.this, "Error", "Passwords do not match");
+                return;
+            }
+
+            resetButton.setEnabled(false);
+            resetButton.setText("Resetting...");
+
+            new Thread(() -> {
+                try {
+                    AuthService authService = new AuthService();
+                    boolean success = authService.resetPasswordByUsername(username, resetCode, newPass);
+
+                    SwingUtilities.invokeLater(() -> {
+                        if (success) {
+                            SuccessDialog.show(LoginPage.this, "Success", 
+                                "Your password has been reset successfully!\n\nPlease login with your new password.");
+                            resetDialog.dispose();
+                        } else {
+                            ErrorDialog.show(LoginPage.this, "Error", 
+                                "Failed to reset password. The code may have expired. Please request a new code.");
+                        }
+                        resetButton.setEnabled(true);
+                        resetButton.setText("Reset Password");
+                    });
+                } catch (IllegalArgumentException ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        ErrorDialog.show(LoginPage.this, "Invalid Password", ex.getMessage());
+                        resetButton.setEnabled(true);
+                        resetButton.setText("Reset Password");
+                    });
+                } catch (SQLException ex) {
+                    SwingUtilities.invokeLater(() -> {
+                        ErrorDialog.show(LoginPage.this, "Error", "Database error: " + ex.getMessage());
+                        resetButton.setEnabled(true);
+                        resetButton.setText("Reset Password");
+                    });
+                }
+            }).start();
+        });
+
+        resetDialog.setVisible(true);
     }
 }

@@ -575,4 +575,24 @@ public class EmailUtil {
         emailExecutor.shutdown();
         logEmailEvent("INFO", "Email executor shutdown");
     }
+    
+    /**
+    * Send password reset code email
+    */
+   public static void sendPasswordResetCode(String email, String code) {
+       String subject = "Password Reset Code - Vantage Dental Clinic";
+       String body = "Dear User,\n\n" +
+                     "We received a request to reset your password for your Vantage Dental Clinic account.\n\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     "YOUR RESET CODE\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     code + "\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                     "This code will expire in 15 minutes.\n\n" +
+                     "If you did not request this, please ignore this email.\n\n" +
+                     "Best regards,\n" +
+                     "Vantage Dental Clinic Team";
+
+       sendEmailAsync(email, subject, body);
+   }
 }
