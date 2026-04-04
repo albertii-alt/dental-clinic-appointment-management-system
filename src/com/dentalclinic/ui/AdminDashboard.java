@@ -9,6 +9,7 @@ import com.dental.clinic.ui.components.LogoutDialog;
 import com.dentalclinic.admin.AuditTrailsPanel;
 import com.dentalclinic.admin.ManageRolesPanel;
 import com.dentalclinic.admin.SystemLogPanel;
+import com.dentalclinic.admin.ReportsPanel;
 import com.dentalclinic.ui.components.Sidebar;
 import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
@@ -35,15 +36,15 @@ public class AdminDashboard extends JFrame {
     private ManageRolesPanel manageRolesPanel;
     private AuditTrailsPanel auditTrailsPanel;
     private SystemLogPanel systemLogPanel;
+    private ReportsPanel reportsPanel;
     
     // Sidebar components
-    private SidebarButton myDashBtn, auditBtn, clinicConfigBtn, accessControlBtn, sysLogsBtn;
+    private SidebarButton myDashBtn, auditBtn, clinicConfigBtn, accessControlBtn, sysLogsBtn, reportsBtn;
     private JPanel subMenuPanel;
     private SidebarButton manageUsersBtn, rolesBtn;
     private List<JComponent> componentsToShift = new ArrayList<>();
     private boolean isSubMenuOpen = false;
     private int shiftAmount = 85;
-    private int originalSysLogsY = 305;
 
     public AdminDashboard(int loggedUserId, boolean isSuper, String fullName, String email, String username) {
         
@@ -149,7 +150,7 @@ public class AdminDashboard extends JFrame {
         // MIDDLE SECTION (Shifts when submenu opens)
         // ==========================================================
         
-        // 5. System Logs (This will shift)
+        // 4. System Logs (This will shift)
         if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) {
             sysLogsBtn = sidebar.addButtonAt("System Logs", 305, () -> {
                 if (systemLogPanel == null) {
@@ -160,9 +161,23 @@ public class AdminDashboard extends JFrame {
             });
         }
         
+        // 5. Reports (NEW - This will also shift with System Logs)
+        if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) { // Use appropriate permission
+            reportsBtn = sidebar.addButtonAt("Reports", 355, () -> {
+                if (reportsPanel == null) {
+                    reportsPanel = new ReportsPanel(currentAdminId, isSuperAdmin);
+                }
+                showPanel(reportsPanel);
+                UserSession.updateActivity();
+            });
+        }
+        
         // Register components that shift when submenu opens
         if (sysLogsBtn != null) {
             componentsToShift.add(sysLogsBtn);
+        }
+        if (reportsBtn != null) {
+            componentsToShift.add(reportsBtn);
         }
         
         // ==========================================================
