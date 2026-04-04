@@ -681,4 +681,45 @@ public class AppointmentDAO {
         }
         return null;
     }
+    
+    // ==========================================================
+    // DAY-OF REMINDER METHODS
+    // ==========================================================
+
+    /**
+     * Get appointments for TODAY that haven't received day-of reminder yet
+     */
+    public List<Appointment> getAppointmentsForToday() throws SQLException {
+        List<Appointment> list = new ArrayList<>();
+        String query = "SELECT * FROM appointments WHERE appointment_date = CURDATE() " +
+                       "AND status = 'Approved' AND day_of_reminder_sent = 0";
+
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                Appointment app = new Appointment(
+                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
+                    rs.getString("service_type"), rs.getDate("appointment_date"),
+                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
+                    rs.getString("contact_at_visit"), rs.getString("status"),
+                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
+                );
+                list.add(app);
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Mark day-of reminder as sent for an appointment
+     */
+    public boolean markDayOfReminderSent(int appId) throws SQLException {
+        String query = "UPDATE appointments SET day_of_reminder_sent = 1 WHERE appointment_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, appId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
 }

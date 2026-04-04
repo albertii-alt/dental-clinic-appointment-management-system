@@ -3,10 +3,11 @@ package com.dentalclinic.ui;
 import javax.swing.*;
 import java.awt.*;
 import com.dentalclinic.staff.*;
-import com.dental.clinic.ui.components.LogoutDialog;
+import com.dentalclinic.ui.components.LogoutDialog;
 import com.dentalclinic.ui.components.Sidebar;
 import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.Timer;
 
 public class StaffDashboard extends JFrame {
@@ -44,14 +45,12 @@ public class StaffDashboard extends JFrame {
         mainPanel = new JPanel(new BorderLayout());
         mainPanel.setBackground(new Color(236, 240, 241));
         
-        // Track activity
         mainPanel.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseMoved(java.awt.event.MouseEvent e) {
                 UserSession.updateActivity();
             }
         });
         
-        // Create sidebar
         sidebar = new Sidebar();
         sidebar.addLogo("Staff Portal", () -> {
             showWelcomeScreen();
@@ -61,22 +60,22 @@ public class StaffDashboard extends JFrame {
         
         // Appointment Management Section
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
-            sidebar.addButton("Pending Appointments", () -> {
+            sidebar.addButton("Pending Appointments", FontAwesomeSolid.CLOCK, () -> {
                 switchPanel(new PendingRequestsPanel());
                 UserSession.updateActivity();
             });
             
-            sidebar.addButton("Today's Appointments", () -> {
+            sidebar.addButton("Today's Appointments", FontAwesomeSolid.CALENDAR_DAY, () -> {
                 switchPanel(new TodaysAppointmentsPanel());
                 UserSession.updateActivity();
             });
             
-            sidebar.addButton("Cancelled Appointments", () -> {
+            sidebar.addButton("Cancelled Appointments", FontAwesomeSolid.BAN, () -> {
                 switchPanel(new CancelledAppointmentsPanel(staffId, staffName));
                 UserSession.updateActivity();
             });
             
-            sidebar.addButton("Upcoming Appointments", () -> {
+            sidebar.addButton("Upcoming Appointments", FontAwesomeSolid.CALENDAR_WEEK, () -> {
                 switchPanel(new UpcomingAppointmentsPanel());
                 UserSession.updateActivity();
             });
@@ -89,7 +88,7 @@ public class StaffDashboard extends JFrame {
         
         // Register Patient
         if (UserSession.hasPermission("MANAGE_PATIENTS")) {
-            sidebar.addButtonAt("Register Patient", yOffset, () -> {
+            sidebar.addButtonAt("Register Patient", FontAwesomeSolid.USER_PLUS, yOffset, () -> {
                 switchPanel(new RegisterPatientPanel());
                 UserSession.updateActivity();
             });
@@ -98,7 +97,7 @@ public class StaffDashboard extends JFrame {
         
         // Create Appointment
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
-            sidebar.addButtonAt("Create Appointment", yOffset, () -> {
+            sidebar.addButtonAt("Create Appointment", FontAwesomeSolid.CALENDAR_PLUS, yOffset, () -> {
                 switchPanel(new StaffBookAppointmentPanel());
                 UserSession.updateActivity();
             });
@@ -107,7 +106,7 @@ public class StaffDashboard extends JFrame {
         
         // View Patient History
         if (UserSession.hasPermission("VIEW_MEDICAL_HISTORY")) {
-            sidebar.addButtonAt("View Patient History", yOffset, () -> {
+            sidebar.addButtonAt("View Patient History", FontAwesomeSolid.NOTES_MEDICAL, yOffset, () -> {
                 switchPanel(new PatientHistoryPanel(false));
                 UserSession.updateActivity();
             });
@@ -116,14 +115,14 @@ public class StaffDashboard extends JFrame {
         
         // Manage Schedule
         if (UserSession.hasPermission("MANAGE_SCHEDULE")) {
-            sidebar.addButtonAt("Manage Schedule", yOffset, () -> {
+            sidebar.addButtonAt("Manage Schedule", FontAwesomeSolid.COG, yOffset, () -> {
                 switchPanel(new StaffManageSchedulePanel(staffId, staffName, role));
                 UserSession.updateActivity();
             });
         }
         
         // My Settings
-        sidebar.addButtonAt("My Settings", 540, () -> {
+        sidebar.addButtonAt("My Settings", FontAwesomeSolid.SLIDERS_H, 540, () -> {
             switchPanel(new com.dentalclinic.admin.AccountSettingsPanel(
                 staffId, "STAFF", staffName, username, email
             ));
@@ -147,13 +146,16 @@ public class StaffDashboard extends JFrame {
         startSessionMonitor();
         showWelcomeScreen();
         
-        // Auto-send reminders
         new Thread(() -> {
             try {
                 com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
-                int sent = appService.sendAllRemindersForTomorrow();
-                if (sent > 0) {
-                    System.out.println("Sent " + sent + " appointment reminders for tomorrow");
+                int tomorrowSent = appService.sendAllRemindersForTomorrow();
+                if (tomorrowSent > 0) {
+                    System.out.println("Sent " + tomorrowSent + " appointment reminders for tomorrow");
+                }
+                int todaySent = appService.sendAllDayOfReminders();
+                if (todaySent > 0) {
+                    System.out.println("Sent " + todaySent + " day-of appointment reminders");
                 }
             } catch (Exception e) {
                 System.err.println("Failed to send reminders: " + e.getMessage());
@@ -167,7 +169,7 @@ public class StaffDashboard extends JFrame {
         sessionCheckTimer = new Timer(10000, e -> {
             if (!UserSession.isSessionValid()) {
                 sessionCheckTimer.stop();
-                com.dental.clinic.ui.components.ErrorDialog.show(this, 
+                com.dentalclinic.ui.components.ErrorDialog.show(this, 
                     "Session Expired", 
                     "Your session has expired due to inactivity.\nPlease login again.");
                 UserSession.logout();

@@ -1,4 +1,4 @@
-package com.dental.clinic.ui.components;
+package com.dentalclinic.ui.components;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;

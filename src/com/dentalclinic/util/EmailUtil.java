@@ -595,4 +595,29 @@ public class EmailUtil {
 
        sendEmailAsync(email, subject, body);
    }
+   
+   /**
+    * Send day-of appointment reminder (TODAY)
+    */
+   public static void sendDayOfReminderWithActor(int actorId, String actorRole,
+                                                  String patientName, String email, 
+                                                  String serviceType, String date, String time) {
+       String subject = "🔔 Your Dental Appointment is TODAY!";
+       String body = "Dear " + patientName + ",\n\n" +
+                     "This is a reminder that your appointment is TODAY.\n\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     "APPOINTMENT DETAILS\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                     "Service: " + serviceType + "\n" +
+                     "Date: TODAY, " + date + "\n" +
+                     "Time: " + time + "\n" +
+                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                     "Please arrive 10 minutes before your scheduled time.\n\n" +
+                     "To cancel or reschedule, please contact the clinic immediately.\n\n" +
+                     "Best regards,\n" +
+                     "Vantage Dental Clinic Team";
+
+       String actionDescription = "Day-of reminder sent to patient: " + patientName;
+       sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
+   }
 }

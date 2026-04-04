@@ -1,9 +1,10 @@
 package com.dentalclinic.ui;
 
-import com.dental.clinic.ui.components.LogoutDialog;
+import com.dentalclinic.ui.components.LogoutDialog;
 import com.dentalclinic.ui.components.Sidebar;
 import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.*;
 import java.awt.*;
 
@@ -42,7 +43,6 @@ public class PatientDashboard extends JFrame {
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
 
-        // Create sidebar
         sidebar = new Sidebar();
         sidebar.addLogo("Patient Portal", () -> {
             renderDashboardHome();
@@ -50,50 +50,48 @@ public class PatientDashboard extends JFrame {
             UserSession.updateActivity();
         });
         
-        // Add buttons
-        sidebar.addButton("Book Appointment", () -> {
+        sidebar.addButton("Book Appointment", FontAwesomeSolid.CALENDAR_PLUS, () -> {
             showPanel(new com.dentalclinic.patient.BookAppointmentPanel(
                 pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
             ));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("Today's Schedule", () -> {
+        sidebar.addButton("Today's Schedule", FontAwesomeSolid.CALENDAR_DAY, () -> {
             showPanel(new com.dentalclinic.patient.PatientTodayPanel(pID));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("Upcoming Visits", () -> {
+        sidebar.addButton("Upcoming Visits", FontAwesomeSolid.CALENDAR_WEEK, () -> {
             showPanel(new com.dentalclinic.patient.PatientUpcomingPanel(pID));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("My Appointment Requests", () -> {
+        sidebar.addButton("My Appointment Requests", FontAwesomeSolid.CLOCK, () -> {
             showPanel(new com.dentalclinic.patient.ViewAppointmentsPanel(pID));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("Medical History", () -> {
+        sidebar.addButton("Medical History", FontAwesomeSolid.NOTES_MEDICAL, () -> {
             showPanel(new com.dentalclinic.patient.PatientHistoryPanel(pID));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("Cancelled List", () -> {
+        sidebar.addButton("Cancelled List", FontAwesomeSolid.BAN, () -> {
             showPanel(new com.dentalclinic.patient.PatientCancelledPanel(pID));
             UserSession.updateActivity();
         });
         
-        notificationBtn = sidebar.addButton("Notifications", () -> {
+        notificationBtn = sidebar.addButton("Notifications", FontAwesomeSolid.BELL, () -> {
             showPanel(new com.dentalclinic.patient.PatientNotificationPanel(pID, this));
             UserSession.updateActivity();
         });
         
-        sidebar.addButton("Profile", () -> {
+        sidebar.addButton("Profile", FontAwesomeSolid.USER, () -> {
             showPanel(new com.dentalclinic.patient.PatientProfilePanel(pID));
             UserSession.updateActivity();
         });
         
-        // Logout
         sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
@@ -104,7 +102,6 @@ public class PatientDashboard extends JFrame {
             }
         });
         
-        // Content area
         contentArea = new JPanel(new GridBagLayout());
         contentArea.setBackground(new Color(236, 240, 241));
         
@@ -115,13 +112,16 @@ public class PatientDashboard extends JFrame {
         renderDashboardHome();
         refreshNotificationBadge();
         
-        // Auto-send reminders
         new Thread(() -> {
             try {
                 com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
-                int sent = appService.sendAllRemindersForTomorrow();
-                if (sent > 0) {
-                    System.out.println("Sent " + sent + " appointment reminders for tomorrow");
+                int tomorrowSent = appService.sendAllRemindersForTomorrow();
+                if (tomorrowSent > 0) {
+                    System.out.println("Sent " + tomorrowSent + " appointment reminders for tomorrow");
+                }
+                int todaySent = appService.sendAllDayOfReminders();
+                if (todaySent > 0) {
+                    System.out.println("Sent " + todaySent + " day-of appointment reminders");
                 }
             } catch (Exception e) {
                 System.err.println("Failed to send reminders: " + e.getMessage());
@@ -135,7 +135,7 @@ public class PatientDashboard extends JFrame {
         sessionCheckTimer = new Timer(10000, e -> {
             if (!UserSession.isSessionValid()) {
                 sessionCheckTimer.stop();
-                com.dental.clinic.ui.components.ErrorDialog.show(this, 
+                com.dentalclinic.ui.components.ErrorDialog.show(this, 
                     "Session Expired", 
                     "Your session has expired due to inactivity.\nPlease login again.");
                 UserSession.logout();

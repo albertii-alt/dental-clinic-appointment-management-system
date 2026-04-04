@@ -296,4 +296,59 @@ public class AppointmentService {
         }
         return sentCount;
     }
+    
+    // ==========================================================
+    // DAY-OF REMINDER METHODS
+    // ==========================================================
+
+    /**
+     * Get appointments for TODAY
+     */
+    public List<Appointment> getAppointmentsForToday() throws SQLException {
+        return appointmentDAO.getAppointmentsForToday();
+    }
+
+    /**
+     * Send day-of reminder for a single appointment
+     */
+    public boolean sendDayOfReminderForAppointment(int appId, int actorId, String actorRole) throws SQLException {
+        Appointment appointment = appointmentDAO.getAppointmentByIdForReminder(appId);
+        if (appointment == null) {
+            return false;
+        }
+        com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
+        com.dentalclinic.model.Patient patient = patientDAO.getPatientById(appointment.getPatientId());
+        if (patient == null || patient.getEmail() == null || patient.getEmail().isEmpty()) {
+            return false;
+        }
+
+        EmailUtil.sendDayOfReminderWithActor(
+            actorId, actorRole,
+            patient.getFirstName() + " " + patient.getLastName(),
+            patient.getEmail(),
+            appointment.getServiceType(),
+            appointment.getAppointmentDate().toString(),
+            appointment.getAppointmentTime()
+        );
+        return appointmentDAO.markDayOfReminderSent(appId);
+    }
+
+    /**
+     * Send all day-of reminders for TODAY (called on app startup)
+     */
+    public int sendAllDayOfReminders() throws SQLException {
+        List<Appointment> appointments = getAppointmentsForToday();
+        int sentCount = 0;
+        for (Appointment app : appointments) {
+            try {
+                if (sendDayOfReminderForAppointment(app.getAppointmentId(), 0, "System")) {
+                    sentCount++;
+                    System.out.println("Day-of reminder sent for appointment #" + app.getAppointmentId());
+                }
+            } catch (Exception e) {
+                System.err.println("Failed to send day-of reminder for appointment #" + app.getAppointmentId() + ": " + e.getMessage());
+            }
+        }
+        return sentCount;
+    }
 }

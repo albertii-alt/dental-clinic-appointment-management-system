@@ -1,8 +1,8 @@
 package com.dentalclinic.patient;
 
 import com.dentalclinic.ui.LoginPage;
-import com.dental.clinic.ui.components.SuccessDialog;
-import com.dental.clinic.ui.components.ErrorDialog;
+import com.dentalclinic.ui.components.SuccessDialog;
+import com.dentalclinic.ui.components.ErrorDialog;
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -318,13 +318,13 @@ public class RegisterPatientForm extends JFrame {
 
         // Basic validation
         if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
-            com.dental.clinic.ui.components.ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
             return;
         }
 
         // Check if passwords match
         if (!pass.equals(confirm)) {
-            com.dental.clinic.ui.components.ErrorDialog.show(this, "Password Mismatch", "Passwords do not match!");
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Password Mismatch", "Passwords do not match!");
             return;
         }
 
@@ -335,7 +335,7 @@ public class RegisterPatientForm extends JFrame {
             for (String error : passwordErrors) {
                 errorMsg.append("• ").append(error).append("\n");
             }
-            com.dental.clinic.ui.components.ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
             return;
         }
 
@@ -347,17 +347,17 @@ public class RegisterPatientForm extends JFrame {
             boolean success = authService.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
 
             if (success) {
-                com.dental.clinic.ui.components.SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
+                com.dentalclinic.ui.components.SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
                 new LoginPage();
                 dispose();
             } else {
-                com.dental.clinic.ui.components.ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
+                com.dentalclinic.ui.components.ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
             }
         } catch (SQLException ex) {
-            com.dental.clinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server: " + ex.getMessage());
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server: " + ex.getMessage());
         } catch (IllegalArgumentException ex) {
             // Fallback for any validation errors from the service
-            com.dental.clinic.ui.components.ErrorDialog.show(this, "Invalid Password", ex.getMessage());
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", ex.getMessage());
         }
     }
 

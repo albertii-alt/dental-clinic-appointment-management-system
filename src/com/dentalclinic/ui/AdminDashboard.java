@@ -5,7 +5,7 @@ import java.awt.*;
 import com.dentalclinic.admin.AdminDashboardPanel;
 import com.dentalclinic.admin.ClinicSettingsPanel;
 import com.dentalclinic.admin.ManageUsersPanel;
-import com.dental.clinic.ui.components.LogoutDialog;
+import com.dentalclinic.ui.components.LogoutDialog;
 import com.dentalclinic.admin.AuditTrailsPanel;
 import com.dentalclinic.admin.ManageRolesPanel;
 import com.dentalclinic.admin.SystemLogPanel;
@@ -13,6 +13,7 @@ import com.dentalclinic.admin.ReportsPanel;
 import com.dentalclinic.ui.components.Sidebar;
 import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.Timer;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,7 +84,7 @@ public class AdminDashboard extends JFrame {
         
         // 1. My Dashboard
         if (UserSession.hasPermission("VIEW_DASHBOARD")) {
-            myDashBtn = sidebar.addButton("My Dashboard", () -> {
+            myDashBtn = sidebar.addButton("My Dashboard", FontAwesomeSolid.TACHOMETER_ALT, () -> {
                 showPanel(dashboardStatsPanel);
                 dashboardStatsPanel.refreshStats();
                 UserSession.updateActivity();
@@ -92,7 +93,7 @@ public class AdminDashboard extends JFrame {
         
         // 2. Audit Trails
         if (UserSession.hasPermission("VIEW_AUDIT_LOGS")) {
-            auditBtn = sidebar.addButtonAt("Audit Trails", 150, () -> {
+            auditBtn = sidebar.addButtonAt("Audit Trails", FontAwesomeSolid.HISTORY, 150, () -> {
                 if (auditTrailsPanel == null) {
                     auditTrailsPanel = new AuditTrailsPanel(currentAdminId, isSuperAdmin);
                 }
@@ -103,7 +104,7 @@ public class AdminDashboard extends JFrame {
         
         // 3. Clinic Configuration
         if (UserSession.hasPermission("MANAGE_CLINIC_SETTINGS")) {
-            clinicConfigBtn = sidebar.addButtonAt("Clinic Configuration", 200, () -> {
+            clinicConfigBtn = sidebar.addButtonAt("Clinic Configuration", FontAwesomeSolid.COGS, 200, () -> {
                 if (clinicSettingsPanel == null) {
                     clinicSettingsPanel = new ClinicSettingsPanel(currentAdminId, isSuperAdmin);
                 }
@@ -118,6 +119,7 @@ public class AdminDashboard extends JFrame {
         
         if (UserSession.hasPermission("MANAGE_USERS") || UserSession.hasPermission("MANAGE_ROLES")) {
             accessControlBtn = new SidebarButton("Access Control  ⌄");
+            accessControlBtn.setIcon(FontAwesomeSolid.LOCK);
             accessControlBtn.setBounds(20, 250, 210, 40);
             accessControlBtn.addActionListener(e -> toggleSubMenu());
             sidebar.add(accessControlBtn);
@@ -125,7 +127,7 @@ public class AdminDashboard extends JFrame {
             subMenuPanel = sidebar.createSubMenu(295, 80);
             
             if (UserSession.hasPermission("MANAGE_USERS")) {
-                manageUsersBtn = sidebar.addSubButton(subMenuPanel, "Manage Users", 5, () -> {
+                manageUsersBtn = sidebar.addSubButton(subMenuPanel, "Manage Users", FontAwesomeSolid.USERS, 5, () -> {
                     if (manageUsersPanel == null) {
                         manageUsersPanel = new ManageUsersPanel(currentAdminId, isSuperAdmin);
                     }
@@ -136,7 +138,7 @@ public class AdminDashboard extends JFrame {
             }
             
             if (UserSession.hasPermission("MANAGE_ROLES")) {
-                rolesBtn = sidebar.addSubButton(subMenuPanel, "Roles & Permissions", 40, () -> {
+                rolesBtn = sidebar.addSubButton(subMenuPanel, "Roles & Permissions", FontAwesomeSolid.USER_TAG, 40, () -> {
                     if (manageRolesPanel == null) {
                         manageRolesPanel = new ManageRolesPanel(currentAdminId, isSuper);
                     }
@@ -152,7 +154,7 @@ public class AdminDashboard extends JFrame {
         
         // 4. System Logs (This will shift)
         if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) {
-            sysLogsBtn = sidebar.addButtonAt("System Logs", 305, () -> {
+            sysLogsBtn = sidebar.addButtonAt("System Logs", FontAwesomeSolid.FILE_ALT, 305, () -> {
                 if (systemLogPanel == null) {
                     systemLogPanel = new SystemLogPanel(currentAdminId, isSuperAdmin);
                 }
@@ -161,9 +163,9 @@ public class AdminDashboard extends JFrame {
             });
         }
         
-        // 5. Reports (NEW - This will also shift with System Logs)
-        if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) { // Use appropriate permission
-            reportsBtn = sidebar.addButtonAt("Reports", 355, () -> {
+        // 5. Reports
+        if (UserSession.hasPermission("VIEW_SYSTEM_LOGS")) {
+            reportsBtn = sidebar.addButtonAt("Reports", FontAwesomeSolid.CHART_LINE, 355, () -> {
                 if (reportsPanel == null) {
                     reportsPanel = new ReportsPanel(currentAdminId, isSuperAdmin);
                 }
@@ -186,6 +188,7 @@ public class AdminDashboard extends JFrame {
         
         // 6. My Account Settings (Moved to bottom section - DOES NOT SHIFT)
         SidebarButton myAccountBtn = new SidebarButton("My Account Settings");
+        myAccountBtn.setIcon(FontAwesomeSolid.USER_COG);
         myAccountBtn.setBounds(20, 550, 210, 40);
         myAccountBtn.addActionListener(e -> {
             String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
@@ -227,9 +230,15 @@ public class AdminDashboard extends JFrame {
         new Thread(() -> {
             try {
                 com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
-                int sent = appService.sendAllRemindersForTomorrow();
-                if (sent > 0) {
-                    System.out.println("Sent " + sent + " appointment reminders for tomorrow");
+                
+                int tomorrowSent = appService.sendAllRemindersForTomorrow();
+                if (tomorrowSent > 0) {
+                    System.out.println("Sent " + tomorrowSent + " appointment reminders for tomorrow");
+                }
+                
+                int todaySent = appService.sendAllDayOfReminders();
+                if (todaySent > 0) {
+                    System.out.println("Sent " + todaySent + " day-of appointment reminders");
                 }
             } catch (Exception e) {
                 System.err.println("Failed to send reminders: " + e.getMessage());
@@ -243,7 +252,7 @@ public class AdminDashboard extends JFrame {
         sessionCheckTimer = new Timer(10000, e -> {
             if (!UserSession.isSessionValid()) {
                 sessionCheckTimer.stop();
-                com.dental.clinic.ui.components.ErrorDialog.show(this, 
+                com.dentalclinic.ui.components.ErrorDialog.show(this, 
                     "Session Expired", 
                     "Your session has expired due to inactivity.\nPlease login again.");
                 UserSession.logout();
@@ -269,7 +278,6 @@ public class AdminDashboard extends JFrame {
         
         int shift = isSubMenuOpen ? shiftAmount : -shiftAmount;
         
-        // Only shift the components in the middle section
         for (JComponent comp : componentsToShift) {
             comp.setLocation(comp.getX(), comp.getY() + shift);
         }

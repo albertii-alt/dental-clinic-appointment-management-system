@@ -1,13 +1,12 @@
 package com.dentalclinic.ui.components;
 
+import org.kordamp.ikonli.Ikon;
+import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Reusable sidebar component for all dashboards
- */
 public class Sidebar extends JPanel {
     
     private final Color SIDEBAR_BG = new Color(44, 62, 80);
@@ -18,8 +17,6 @@ public class Sidebar extends JPanel {
     private SidebarButton currentActiveButton;
     private JPanel subMenuPanel;
     private int nextY = 100;
-    private int subMenuStartY = 0;
-    private int subMenuHeight = 0;
     private List<JComponent> shiftableComponents = new ArrayList<>();
     private boolean isSubMenuOpen = false;
     
@@ -29,13 +26,10 @@ public class Sidebar extends JPanel {
         setPreferredSize(new Dimension(250, 700));
     }
     
-    /**
-     * Add logo/title to sidebar
-     */
     public void addLogo(String title, Runnable onClick) {
         JLabel logoLabel = new JLabel(title);
         logoLabel.setForeground(Color.WHITE);
-        logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
+        logoLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
         logoLabel.setBounds(50, 30, 150, 30);
         logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
         logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -47,11 +41,9 @@ public class Sidebar extends JPanel {
         allComponents.add(logoLabel);
     }
     
-    /**
-     * Add a main sidebar button
-     */
-    public SidebarButton addButton(String text, Runnable onClick) {
+    public SidebarButton addButton(String text, Ikon icon, Runnable onClick) {
         SidebarButton btn = new SidebarButton(text);
+        btn.setIcon(icon);
         btn.setBounds(20, nextY, 210, 40);
         btn.addActionListener(e -> {
             setActiveButton(btn);
@@ -64,11 +56,9 @@ public class Sidebar extends JPanel {
         return btn;
     }
     
-    /**
-     * Add a button with custom Y position
-     */
-    public SidebarButton addButtonAt(String text, int y, Runnable onClick) {
+    public SidebarButton addButtonAt(String text, Ikon icon, int y, Runnable onClick) {
         SidebarButton btn = new SidebarButton(text);
+        btn.setIcon(icon);
         btn.setBounds(20, y, 210, 40);
         btn.addActionListener(e -> {
             setActiveButton(btn);
@@ -80,24 +70,16 @@ public class Sidebar extends JPanel {
         return btn;
     }
     
-    /**
-     * Add a separator/label
-     */
     public void addLabel(String text, int y) {
         JLabel label = new JLabel(text);
         label.setForeground(new Color(171, 183, 183));
-        label.setFont(new Font("Arial", Font.PLAIN, 11));
+        label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         label.setBounds(25, y, 150, 20);
         add(label);
         allComponents.add(label);
     }
     
-    /**
-     * Create a submenu panel (must be called before adding buttons below it)
-     */
     public JPanel createSubMenu(int y, int height) {
-        this.subMenuStartY = y;
-        this.subMenuHeight = height;
         subMenuPanel = new JPanel(null);
         subMenuPanel.setBackground(SUBMENU_BG);
         subMenuPanel.setBounds(20, y, 210, height);
@@ -107,13 +89,11 @@ public class Sidebar extends JPanel {
         return subMenuPanel;
     }
     
-    /**
-     * Add a submenu button
-     */
-    public SidebarButton addSubButton(JPanel subMenu, String text, int y, Runnable onClick) {
+    public SidebarButton addSubButton(JPanel subMenu, String text, Ikon icon, int y, Runnable onClick) {
         SidebarButton btn = new SidebarButton(text);
+        btn.setIcon(icon);
         btn.setBounds(10, y, 190, 30);
-        btn.setFont(new Font("Arial", Font.PLAIN, 12));
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btn.addActionListener(e -> {
             setActiveButton(btn);
             if (onClick != null) onClick.run();
@@ -124,16 +104,10 @@ public class Sidebar extends JPanel {
         return btn;
     }
     
-    /**
-     * Register a component that should shift when submenu opens
-     */
     public void registerShiftableComponent(JComponent comp) {
         shiftableComponents.add(comp);
     }
     
-    /**
-     * Toggle submenu and shift buttons below it
-     */
     public void toggleSubMenu(List<JComponent> componentsToShift, int shiftAmount) {
         isSubMenuOpen = !isSubMenuOpen;
         subMenuPanel.setVisible(isSubMenuOpen);
@@ -144,7 +118,6 @@ public class Sidebar extends JPanel {
             comp.setLocation(comp.getX(), comp.getY() + shift);
         }
         
-        // Also shift registered components
         for (JComponent comp : shiftableComponents) {
             comp.setLocation(comp.getX(), comp.getY() + shift);
         }
@@ -152,23 +125,14 @@ public class Sidebar extends JPanel {
         repaint();
     }
     
-    /**
-     * Get the submenu panel
-     */
     public JPanel getSubMenuPanel() {
         return subMenuPanel;
     }
     
-    /**
-     * Check if submenu is open
-     */
     public boolean isSubMenuOpen() {
         return isSubMenuOpen;
     }
     
-    /**
-     * Set the active button (clears previous active state)
-     */
     public void setActiveButton(SidebarButton button) {
         if (currentActiveButton != null) {
             currentActiveButton.setActive(false);
@@ -180,9 +144,6 @@ public class Sidebar extends JPanel {
         repaint();
     }
     
-    /**
-     * Clear active button (for logo click)
-     */
     public void clearActiveButton() {
         if (currentActiveButton != null) {
             currentActiveButton.setActive(false);
@@ -191,9 +152,6 @@ public class Sidebar extends JPanel {
         repaint();
     }
     
-    /**
-     * Get button by text (for notification badge updates)
-     */
     public SidebarButton getButtonByText(String text) {
         for (SidebarButton btn : allButtons) {
             if (btn.getText().equals(text)) {
@@ -203,9 +161,6 @@ public class Sidebar extends JPanel {
         return null;
     }
     
-    /**
-     * Add a special button (like Logout with red color)
-     */
     public void addSpecialButton(String text, int y, Color bgColor, Runnable onClick) {
         JButton btn = new JButton(text);
         btn.setBounds(20, y, 210, 40);
@@ -213,7 +168,7 @@ public class Sidebar extends JPanel {
         btn.setForeground(Color.WHITE);
         btn.setFocusPainted(false);
         btn.setBorderPainted(false);
-        btn.setFont(new Font("Arial", Font.PLAIN, 13));
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btn.addActionListener(e -> {
             if (onClick != null) onClick.run();
@@ -222,16 +177,10 @@ public class Sidebar extends JPanel {
         allComponents.add(btn);
     }
     
-    /**
-     * Get the current Y position (for adding buttons)
-     */
     public int getCurrentY() {
         return nextY;
     }
     
-    /**
-     * Set the current Y position
-     */
     public void setCurrentY(int y) {
         this.nextY = y;
     }
