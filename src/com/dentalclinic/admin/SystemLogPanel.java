@@ -4,8 +4,13 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.sql.Timestamp;
+import java.text.SimpleDateFormat;
 import java.util.List;
 import com.dentalclinic.service.LogService;
+import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.PrintWriter;
@@ -26,6 +31,9 @@ public class SystemLogPanel extends JPanel {
     private final Color COLUMN_SHADE = new Color(242, 245, 249);
     private final Color TEXT_DARK = new Color(44, 62, 80);
     private final Color BG_LIGHT = new Color(245, 247, 250);
+
+    // Date formatter for timestamps
+    private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
     public SystemLogPanel(int userId, boolean isSuperAdmin) {
         this.loggedUserId = userId;
@@ -56,7 +64,7 @@ public class SystemLogPanel extends JPanel {
         buttonPanel.setOpaque(false);
         
         JButton exportButton = new JButton("Backup to CSV");
-        styleButton(exportButton, new Color(52, 152, 219)); // A nice light blue
+        styleButton(exportButton, new Color(52, 152, 219));
         exportButton.addActionListener(e -> exportToCSV());
         
         JButton refreshButton = new JButton("Refresh Logs");
@@ -98,6 +106,9 @@ public class SystemLogPanel extends JPanel {
         logTable.setShowVerticalLines(false);
         logTable.setSelectionBackground(new Color(232, 241, 249));
 
+        // Enable tooltips
+        logTable.setToolTipText("Double-click any row to view full message");
+
         // Header Style
         JTableHeader header = logTable.getTableHeader();
         header.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -106,6 +117,9 @@ public class SystemLogPanel extends JPanel {
 
         // Column Renderers
         setupRenderers();
+        
+        // Add mouse listener for double-click
+        addTableClickListener();
 
         JScrollPane scrollPane = new JScrollPane(logTable);
         scrollPane.setBorder(new LineBorder(new Color(220, 220, 220)));
@@ -113,6 +127,198 @@ public class SystemLogPanel extends JPanel {
         
         return scrollPane;
     }
+    
+    /**
+     * Helper method to safely get string value from any object type
+     */
+    private String getStringValue(Object obj) {
+        if (obj == null) return "";
+        if (obj instanceof Timestamp) {
+            return dateFormat.format((Timestamp) obj);
+        }
+        return obj.toString();
+    }
+    
+    /**
+     * Add mouse click listener to show full message when any row is double-clicked
+     */
+    private void addTableClickListener() {
+        logTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                // Only trigger on double-click
+                if (e.getClickCount() == 2) {
+                    int row = logTable.getSelectedRow();
+                    
+                    if (row != -1) {
+                        try {
+                            String logId = getStringValue(tableModel.getValueAt(row, 0));
+                            String logLevel = getStringValue(tableModel.getValueAt(row, 1));
+                            String sourceClass = getStringValue(tableModel.getValueAt(row, 2));
+                            String fullMessage = getStringValue(tableModel.getValueAt(row, 3));
+                            String timestamp = getStringValue(tableModel.getValueAt(row, 4));
+                            
+                            showFullMessageDialog(fullMessage, logLevel, sourceClass, timestamp, logId);
+                        } catch (Exception ex) {
+                            System.err.println("Error showing dialog: " + ex.getMessage());
+                            ex.printStackTrace();
+                            JOptionPane.showMessageDialog(SystemLogPanel.this, 
+                                "Error displaying log details: " + ex.getMessage(),
+                                "Error", JOptionPane.ERROR_MESSAGE);
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    /**
+    * Show dialog with full message details (compact version)
+    */
+   private void showFullMessageDialog(String message, String logLevel, String sourceClass, String timestamp, String logId) {
+       // Calculate optimal dialog size based on message length
+       int messageLines = message.length() / 80 + 3; // Approximate lines needed
+       int dialogHeight = Math.min(500, Math.max(350, 250 + (messageLines * 15)));
+       int dialogWidth = Math.min(700, Math.max(500, Math.min(700, message.length() / 2 + 300)));
+
+       JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Log Details - ID: " + logId, true);
+       dialog.setLayout(new BorderLayout(10, 10));
+
+       // Main panel with padding
+       JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
+       mainPanel.setBorder(new EmptyBorder(15, 15, 15, 15));
+       mainPanel.setBackground(Color.WHITE);
+
+       // Info panel - using GridBagLayout for compact display
+       JPanel infoPanel = new JPanel(new GridBagLayout());
+       infoPanel.setBackground(Color.WHITE);
+       infoPanel.setBorder(BorderFactory.createCompoundBorder(
+           BorderFactory.createLineBorder(new Color(220, 220, 220)),
+           new EmptyBorder(10, 10, 10, 10)
+       ));
+
+       GridBagConstraints gbc = new GridBagConstraints();
+       gbc.insets = new Insets(4, 8, 4, 8);
+       gbc.fill = GridBagConstraints.HORIZONTAL;
+
+       // Row 0: Log ID
+       gbc.gridx = 0;
+       gbc.gridy = 0;
+       gbc.weightx = 0;
+       JLabel idLabel = new JLabel("Log ID:");
+       idLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+       infoPanel.add(idLabel, gbc);
+
+       gbc.gridx = 1;
+       gbc.weightx = 1;
+       JLabel idValue = new JLabel(logId);
+       idValue.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+       infoPanel.add(idValue, gbc);
+
+       // Row 1: Level
+       gbc.gridx = 0;
+       gbc.gridy = 1;
+       gbc.weightx = 0;
+       JLabel levelLabel = new JLabel("Level:");
+       levelLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+       infoPanel.add(levelLabel, gbc);
+
+       gbc.gridx = 1;
+       gbc.weightx = 1;
+       JLabel levelValue = new JLabel(logLevel);
+       levelValue.setFont(new Font("Segoe UI", Font.BOLD, 12));
+       // Color code the level
+       if ("ERROR".equals(logLevel)) {
+           levelValue.setForeground(DANGER_RED);
+       } else if ("WARNING".equals(logLevel)) {
+           levelValue.setForeground(new Color(230, 126, 34));
+       } else {
+           levelValue.setForeground(new Color(46, 204, 113));
+       }
+       infoPanel.add(levelValue, gbc);
+
+       // Row 2: Source
+       gbc.gridx = 0;
+       gbc.gridy = 2;
+       gbc.weightx = 0;
+       JLabel sourceLabel = new JLabel("Source:");
+       sourceLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+       infoPanel.add(sourceLabel, gbc);
+
+       gbc.gridx = 1;
+       gbc.weightx = 1;
+       JLabel sourceValue = new JLabel(sourceClass);
+       sourceValue.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+       infoPanel.add(sourceValue, gbc);
+
+       // Row 3: Timestamp
+       gbc.gridx = 0;
+       gbc.gridy = 3;
+       gbc.weightx = 0;
+       JLabel timeLabel = new JLabel("Timestamp:");
+       timeLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+       infoPanel.add(timeLabel, gbc);
+
+       gbc.gridx = 1;
+       gbc.weightx = 1;
+       JLabel timeValue = new JLabel(timestamp);
+       timeValue.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+       infoPanel.add(timeValue, gbc);
+
+       mainPanel.add(infoPanel, BorderLayout.NORTH);
+
+       // Message area - with better sizing
+       JTextArea messageArea = new JTextArea(message);
+       messageArea.setEditable(false);
+       messageArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+       messageArea.setLineWrap(true);
+       messageArea.setWrapStyleWord(true);
+       messageArea.setBackground(new Color(250, 251, 252));
+       messageArea.setBorder(BorderFactory.createCompoundBorder(
+           BorderFactory.createTitledBorder(BorderFactory.createLineBorder(new Color(220, 220, 220)), "Full Message"),
+           new EmptyBorder(10, 10, 10, 10)
+       ));
+
+       // Calculate optimal rows for text area (max 15, min 5)
+       int rows = Math.min(15, Math.max(5, message.length() / 80 + 2));
+       messageArea.setRows(rows);
+
+       JScrollPane scrollPane = new JScrollPane(messageArea);
+       scrollPane.setBorder(null);
+       scrollPane.getViewport().setBackground(new Color(250, 251, 252));
+
+       mainPanel.add(scrollPane, BorderLayout.CENTER);
+
+       // Button panel - compact
+       JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
+       buttonPanel.setBackground(Color.WHITE);
+       buttonPanel.setBorder(new EmptyBorder(0, 0, 5, 0));
+
+       JButton copyButton = new JButton("Copy to Clipboard");
+       styleButton(copyButton, new Color(52, 152, 219));
+       copyButton.setPreferredSize(new Dimension(140, 35));
+       copyButton.addActionListener(e -> {
+           StringSelection stringSelection = new StringSelection(message);
+           Toolkit.getDefaultToolkit().getSystemClipboard().setContents(stringSelection, null);
+           JOptionPane.showMessageDialog(dialog, "Message copied to clipboard!");
+       });
+
+       JButton closeButton = new JButton("Close");
+       styleButton(closeButton, PRIMARY_BLUE);
+       closeButton.setPreferredSize(new Dimension(100, 35));
+       closeButton.addActionListener(e -> dialog.dispose());
+
+       buttonPanel.add(copyButton);
+       buttonPanel.add(closeButton);
+
+       mainPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+       dialog.add(mainPanel);
+       dialog.setSize(dialogWidth, dialogHeight);
+       dialog.setMinimumSize(new Dimension(450, 300));
+       dialog.setLocationRelativeTo(this);
+       dialog.setVisible(true);
+   }
 
     private void setupRenderers() {
         // Shaded ID Column
@@ -133,20 +339,36 @@ public class SystemLogPanel extends JPanel {
         // Log Level Color Renderer
         logTable.getColumnModel().getColumn(1).setCellRenderer(new LogLevelRenderer());
         
-        // General Centering for Timestamp
-        logTable.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
-                JLabel c = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, col);
-                c.setHorizontalAlignment(SwingConstants.CENTER);
-                return c;
-            }
-        });
-
+        // Message column with tooltip (shows full message on hover)
+        logTable.getColumnModel().getColumn(3).setCellRenderer(new MessageTooltipRenderer());
+        
+        // Timestamp column renderer (handles Timestamp objects)
+        logTable.getColumnModel().getColumn(4).setCellRenderer(new TimestampRenderer());
+        
         // Widths
         logTable.getColumnModel().getColumn(0).setPreferredWidth(60);
         logTable.getColumnModel().getColumn(1).setPreferredWidth(100);
-        logTable.getColumnModel().getColumn(3).setPreferredWidth(400);
+        logTable.getColumnModel().getColumn(2).setPreferredWidth(180);
+        logTable.getColumnModel().getColumn(3).setPreferredWidth(350);
+        logTable.getColumnModel().getColumn(4).setPreferredWidth(150);
+    }
+    
+    /**
+     * Custom renderer for Timestamp column
+     */
+    private class TimestampRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            String formattedDate = "";
+            if (value instanceof Timestamp) {
+                formattedDate = dateFormat.format((Timestamp) value);
+            } else if (value != null) {
+                formattedDate = value.toString();
+            }
+            JLabel c = (JLabel) super.getTableCellRendererComponent(table, formattedDate, isSelected, hasFocus, row, column);
+            c.setHorizontalAlignment(SwingConstants.CENTER);
+            return c;
+        }
     }
 
     private void handleClearLogs() {
@@ -175,7 +397,7 @@ public class SystemLogPanel extends JPanel {
 
                 // 2. FORCE BACKUP BEFORE CLEARING
                 JOptionPane.showMessageDialog(this, "A backup is required before clearing. Please choose a save location.");
-                boolean backupSuccessful = exportToCSV(); // We will modify exportToCSV to return true/false
+                boolean backupSuccessful = exportToCSV();
 
                 if (backupSuccessful) {
                     // 3. ONLY CLEAR IF BACKUP WAS SAVED
@@ -209,7 +431,16 @@ public class SystemLogPanel extends JPanel {
                     add(createHeader(), BorderLayout.NORTH);
                     add(createTableArea(), BorderLayout.CENTER);
                 }
-                for (Object[] row : logs) tableModel.addRow(row);
+                for (Object[] row : logs) {
+                    // row[4] is Timestamp, keep as is (renderer will format)
+                    tableModel.addRow(new Object[]{
+                        row[0], // ID
+                        row[1], // Level
+                        row[2], // Source Class
+                        row[3], // Message
+                        row[4]  // Timestamp (as Timestamp object)
+                    });
+                }
                 revalidate();
                 repaint();
             } 
@@ -229,6 +460,9 @@ public class SystemLogPanel extends JPanel {
         repaint();
     }
 
+    /**
+     * Custom renderer for Log Level column with colors
+     */
     private class LogLevelRenderer extends DefaultTableCellRenderer {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -242,6 +476,41 @@ public class SystemLogPanel extends JPanel {
             else c.setForeground(new Color(46, 204, 113));
             
             return c;
+        }
+    }
+    
+    /**
+     * Custom renderer for Message column with tooltip (shows full message on hover)
+     */
+    private class MessageTooltipRenderer extends DefaultTableCellRenderer {
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            String message = (value != null) ? value.toString() : "";
+            JLabel c = (JLabel) super.getTableCellRendererComponent(table, message, isSelected, hasFocus, row, column);
+            
+            // Truncate long messages for display
+            if (message.length() > 100) {
+                c.setText(message.substring(0, 97) + "...");
+                c.setToolTipText("<html><div style='width: 400px; padding: 10px;'>" + 
+                                 escapeHtml(message) + "</div></html>");
+            } else {
+                c.setText(message);
+                c.setToolTipText("<html><div style='width: 400px; padding: 10px;'>" + 
+                                 escapeHtml(message) + "</div></html>");
+            }
+            
+            c.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            return c;
+        }
+        
+        private String escapeHtml(String text) {
+            if (text == null) return "";
+            return text.replace("&", "&amp;")
+                      .replace("<", "&lt;")
+                      .replace(">", "&gt;")
+                      .replace("\"", "&quot;")
+                      .replace("'", "&#39;")
+                      .replace("\n", "<br>");
         }
     }
     
@@ -270,7 +539,13 @@ public class SystemLogPanel extends JPanel {
                 for (int row = 0; row < tableModel.getRowCount(); row++) {
                     for (int col = 0; col < tableModel.getColumnCount(); col++) {
                         Object val = tableModel.getValueAt(row, col);
-                        writer.print("\"" + (val == null ? "" : val.toString()) + "\"" 
+                        String strVal = "";
+                        if (val instanceof Timestamp) {
+                            strVal = dateFormat.format((Timestamp) val);
+                        } else if (val != null) {
+                            strVal = val.toString();
+                        }
+                        writer.print("\"" + strVal.replace("\"", "\"\"") + "\"" 
                                      + (col == tableModel.getColumnCount() - 1 ? "" : ","));
                     }
                     writer.println();
@@ -287,7 +562,8 @@ public class SystemLogPanel extends JPanel {
         }
         return false; // User clicked cancel
     }
+    
     public void cleanup() {
-    System.out.println("Cleaning up SystemLogPanel...");
-}
+        System.out.println("Cleaning up SystemLogPanel...");
+    }
 }

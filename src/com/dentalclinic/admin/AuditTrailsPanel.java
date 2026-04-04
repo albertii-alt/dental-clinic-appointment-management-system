@@ -203,36 +203,117 @@ public class AuditTrailsPanel extends JPanel {
         }
 
         JDialog detailDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Activity Details", true);
-        JPanel contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setBorder(new EmptyBorder(25, 40, 25, 40));
-        contentPanel.setBackground(Color.WHITE);
+        detailDialog.setLayout(new BorderLayout());
+
+        // Main panel with BoxLayout (vertical) to ensure all content is visible
+        JPanel mainPanel = new JPanel();
+        mainPanel.setLayout(new BoxLayout(mainPanel, BoxLayout.Y_AXIS));
+        mainPanel.setBorder(new EmptyBorder(20, 25, 20, 25));
+        mainPanel.setBackground(Color.WHITE);
+
+        // Header section
+        JPanel headerPanel = new JPanel(new BorderLayout());
+        headerPanel.setBackground(Color.WHITE);
+        headerPanel.setBorder(new EmptyBorder(0, 0, 15, 0));
+
+        JLabel head = new JLabel("LOG ENTRY #" + logId);
+        head.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        head.setForeground(PRIMARY_BLUE);
+        headerPanel.add(head, BorderLayout.WEST);
+        mainPanel.add(headerPanel);
+        mainPanel.add(Box.createVerticalStrut(10));
+
+        // Info panel - using GridBagLayout for proper alignment
+        JPanel infoPanel = new JPanel(new GridBagLayout());
+        infoPanel.setBackground(Color.WHITE);
+        infoPanel.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(230, 230, 230)),
+            new EmptyBorder(15, 15, 15, 15)
+        ));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 10, 5, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
         Font labelFont = new Font("Segoe UI", Font.BOLD, 12);
         Font valueFont = new Font("Segoe UI", Font.PLAIN, 14);
+        Color labelColor = new Color(127, 140, 141);
 
-        JLabel head = new JLabel("LOG ENTRY #" + logId);
-        head.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        head.setForeground(PRIMARY_BLUE);
-        head.setAlignmentX(Component.CENTER_ALIGNMENT);
-        contentPanel.add(head);
-        contentPanel.add(Box.createVerticalStrut(20));
+        // Row 0: Performed By
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.weightx = 0;
+        JLabel performedLabel = new JLabel("PERFORMED BY:");
+        performedLabel.setFont(labelFont);
+        performedLabel.setForeground(labelColor);
+        infoPanel.add(performedLabel, gbc);
 
-        contentPanel.add(createCenteredLabel("PERFORMED BY", userName + " (" + role + ")", labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(10));
-        contentPanel.add(createCenteredLabel("SERVICE CATEGORY", serviceDisplay, labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(10));
-        contentPanel.add(createCenteredLabel("ACTION TAKEN", action.toUpperCase(), labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(10));
-        contentPanel.add(createCenteredLabel("TIMESTAMP", timestamp, labelFont, valueFont));
-        contentPanel.add(Box.createVerticalStrut(25));
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        JLabel performedValue = new JLabel(userName + " (" + role + ")");
+        performedValue.setFont(valueFont);
+        performedValue.setForeground(TEXT_DARK);
+        infoPanel.add(performedValue, gbc);
+
+        // Row 1: Service Category
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0;
+        JLabel serviceLabel = new JLabel("SERVICE CATEGORY:");
+        serviceLabel.setFont(labelFont);
+        serviceLabel.setForeground(labelColor);
+        infoPanel.add(serviceLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        JLabel serviceValue = new JLabel(serviceDisplay);
+        serviceValue.setFont(valueFont);
+        serviceValue.setForeground(TEXT_DARK);
+        infoPanel.add(serviceValue, gbc);
+
+        // Row 2: Action Taken
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0;
+        JLabel actionLabel = new JLabel("ACTION TAKEN:");
+        actionLabel.setFont(labelFont);
+        actionLabel.setForeground(labelColor);
+        infoPanel.add(actionLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        JLabel actionValue = new JLabel(action.toUpperCase());
+        actionValue.setFont(valueFont);
+        actionValue.setForeground(PRIMARY_BLUE);
+        infoPanel.add(actionValue, gbc);
+
+        // Row 3: Timestamp
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.weightx = 0;
+        JLabel timeLabel = new JLabel("TIMESTAMP:");
+        timeLabel.setFont(labelFont);
+        timeLabel.setForeground(labelColor);
+        infoPanel.add(timeLabel, gbc);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1;
+        JLabel timeValue = new JLabel(timestamp);
+        timeValue.setFont(valueFont);
+        timeValue.setForeground(TEXT_DARK);
+        infoPanel.add(timeValue, gbc);
+
+        mainPanel.add(infoPanel);
+        mainPanel.add(Box.createVerticalStrut(15));
+
+        // Details section - left-aligned for easy reading
+        JPanel detailsPanel = new JPanel(new BorderLayout());
+        detailsPanel.setBackground(Color.WHITE);
 
         JLabel detLabel = new JLabel("DETAILED LOG DESCRIPTION");
-        detLabel.setFont(labelFont);
-        detLabel.setForeground(new Color(127, 140, 141));
-        detLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-        contentPanel.add(detLabel);
-        contentPanel.add(Box.createVerticalStrut(8));
+        detLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        detLabel.setForeground(labelColor);
+        detailsPanel.add(detLabel, BorderLayout.NORTH);
 
         JTextArea detailsArea = new JTextArea(cleanDetails);
         detailsArea.setFont(new Font("Segoe UI", Font.PLAIN, 13));
@@ -240,22 +321,48 @@ public class AuditTrailsPanel extends JPanel {
         detailsArea.setWrapStyleWord(true);
         detailsArea.setEditable(false);
         detailsArea.setBackground(new Color(248, 249, 250));
-        detailsArea.setBorder(new EmptyBorder(10, 10, 10, 10));
+        detailsArea.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(230, 230, 230)),
+            new EmptyBorder(12, 12, 12, 12)
+        ));
+
+        // Set reasonable size for text area
+        detailsArea.setRows(5);
+        detailsArea.setColumns(50);
 
         JScrollPane detailScroll = new JScrollPane(detailsArea);
-        detailScroll.setPreferredSize(new Dimension(350, 100));
-        detailScroll.setBorder(new LineBorder(new Color(230, 230, 230)));
-        detailScroll.setAlignmentX(Component.CENTER_ALIGNMENT);
-        contentPanel.add(detailScroll);
+        detailScroll.setBorder(null);
+        detailScroll.getViewport().setBackground(new Color(248, 249, 250));
+        detailScroll.setPreferredSize(new Dimension(500, 120));
+        detailsPanel.add(detailScroll, BorderLayout.CENTER);
 
-        contentPanel.add(Box.createVerticalStrut(25));
-        JButton closeBtn = new JButton("Dismiss");
-        closeBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        mainPanel.add(detailsPanel);
+        mainPanel.add(Box.createVerticalStrut(15));
+
+        // Button panel
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 0));
+        buttonPanel.setBackground(Color.WHITE);
+
+        JButton closeBtn = new JButton("Close");
+        closeBtn.setBackground(PRIMARY_BLUE);
+        closeBtn.setForeground(Color.WHITE);
+        closeBtn.setFocusPainted(false);
+        closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        closeBtn.setPreferredSize(new Dimension(100, 35));
         closeBtn.addActionListener(e -> detailDialog.dispose());
-        contentPanel.add(closeBtn);
 
-        detailDialog.add(contentPanel);
-        detailDialog.pack();
+        buttonPanel.add(closeBtn);
+        mainPanel.add(buttonPanel);
+
+        // Wrap mainPanel in a JScrollPane to handle very long content
+        JScrollPane mainScrollPane = new JScrollPane(mainPanel);
+        mainScrollPane.setBorder(null);
+        mainScrollPane.getVerticalScrollBar().setUnitIncrement(16);
+
+        detailDialog.add(mainScrollPane);
+        detailDialog.setSize(600, 550);
+        detailDialog.setMinimumSize(new Dimension(550, 450));
         detailDialog.setLocationRelativeTo(this);
         detailDialog.setVisible(true);
     }

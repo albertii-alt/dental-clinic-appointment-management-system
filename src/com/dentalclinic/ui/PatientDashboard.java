@@ -1,25 +1,25 @@
 package com.dentalclinic.ui;
 
 import com.dental.clinic.ui.components.LogoutDialog;
+import com.dentalclinic.ui.components.Sidebar;
+import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
 import javax.swing.*;
 import java.awt.*;
 
 public class PatientDashboard extends JFrame {
 
-    private JPanel sidebar;
-    private JButton logoutBtn;
-    private JButton bookBtn, todayBtn, requestBtn, historyBtn, cancelledBtn, notificationBtn, profileBtn;
     private JPanel contentArea;
+    private Sidebar sidebar;
+    private Timer sessionCheckTimer;
+    private SidebarButton notificationBtn;
+    
     private int pID;
     private String pfName, pmName, plName, pdob, pAge, pAddress, pContact, pUsername;
     private int notificationCount = 0;
-    private Timer sessionCheckTimer; // Store timer reference to stop on logout
-    private final int LOGOUT_Y = 600;
 
     public PatientDashboard(int pID, String fName, String mName, String lName, String dob, String age, String addr, String phone, String user) {
         
-        // Check session validity before proceeding
         if (!UserSession.isSessionValid()) {
             new LoginPage();
             dispose();
@@ -40,127 +40,82 @@ public class PatientDashboard extends JFrame {
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
 
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        add(mainPanel);
-
-        // --- SIDEBAR PANEL ---
-        sidebar = new JPanel();
-        sidebar.setBackground(new Color(44, 62, 80)); 
-        sidebar.setPreferredSize(new Dimension(250, 700));
-        sidebar.setLayout(null);
-
-        JLabel logoLabel = new JLabel("Patient Portal");
-        logoLabel.setForeground(Color.WHITE);
-        logoLabel.setFont(new Font("Arial", Font.BOLD, 22));
-        logoLabel.setBounds(50, 30, 150, 30);
-        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseClicked(java.awt.event.MouseEvent e) {
-                renderDashboardHome();
-                UserSession.updateActivity(); // Track activity
-            }
+        // Create sidebar
+        sidebar = new Sidebar();
+        sidebar.addLogo("Patient Portal", () -> {
+            renderDashboardHome();
+            sidebar.clearActiveButton();
+            UserSession.updateActivity();
         });
-        sidebar.add(logoLabel);
         
-        // --- SIDEBAR BUTTONS ---
-        bookBtn = createSidebarButton("Book Appointment", 100);
-        todayBtn = createSidebarButton("Today's Schedule", 150);
-        JButton upcomingBtn = createSidebarButton("Upcoming Visits", 200);
-        requestBtn = createSidebarButton("My Appointment Requests", 250);
-        historyBtn = createSidebarButton("Medical History", 300);
-        cancelledBtn = createSidebarButton("Cancelled List", 350);
-        notificationBtn = createSidebarButton("Notifications", 400); 
-        profileBtn = createSidebarButton("Profile", 450);
-
-        sidebar.add(bookBtn);
-        sidebar.add(todayBtn);
-        sidebar.add(upcomingBtn);
-        sidebar.add(requestBtn);
-        sidebar.add(historyBtn);
-        sidebar.add(cancelledBtn);
-        sidebar.add(notificationBtn);
-        sidebar.add(profileBtn);
-
-        // --- LOGOUT BUTTON ---
-        logoutBtn = createSidebarButton("Logout", LOGOUT_Y);
-        logoutBtn.setBackground(new Color(192, 57, 43));
-        sidebar.add(logoutBtn);
-
-        mainPanel.add(sidebar, BorderLayout.WEST);
-
-        // --- CONTENT AREA ---
-        contentArea = new JPanel(new GridBagLayout());
-        contentArea.setBackground(new Color(236, 240, 241));
-        mainPanel.add(contentArea, BorderLayout.CENTER);
-
-        // --- ACTION LISTENERS ---
-        bookBtn.addActionListener(e -> {
+        // Add buttons
+        sidebar.addButton("Book Appointment", () -> {
             showPanel(new com.dentalclinic.patient.BookAppointmentPanel(
                 pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
             ));
             UserSession.updateActivity();
         });
-
-        todayBtn.addActionListener(e -> {
+        
+        sidebar.addButton("Today's Schedule", () -> {
             showPanel(new com.dentalclinic.patient.PatientTodayPanel(pID));
             UserSession.updateActivity();
         });
-
-        requestBtn.addActionListener(e -> {
+        
+        sidebar.addButton("Upcoming Visits", () -> {
+            showPanel(new com.dentalclinic.patient.PatientUpcomingPanel(pID));
+            UserSession.updateActivity();
+        });
+        
+        sidebar.addButton("My Appointment Requests", () -> {
             showPanel(new com.dentalclinic.patient.ViewAppointmentsPanel(pID));
             UserSession.updateActivity();
         });
         
-        upcomingBtn.addActionListener(e -> {
-            showPanel(new com.dentalclinic.patient.PatientUpcomingPanel(pID));
-            UserSession.updateActivity();
-        });
-
-        historyBtn.addActionListener(e -> {
+        sidebar.addButton("Medical History", () -> {
             showPanel(new com.dentalclinic.patient.PatientHistoryPanel(pID));
             UserSession.updateActivity();
         });
-
-        cancelledBtn.addActionListener(e -> {
+        
+        sidebar.addButton("Cancelled List", () -> {
             showPanel(new com.dentalclinic.patient.PatientCancelledPanel(pID));
             UserSession.updateActivity();
         });
-
-        notificationBtn.addActionListener(e -> {
+        
+        notificationBtn = sidebar.addButton("Notifications", () -> {
             showPanel(new com.dentalclinic.patient.PatientNotificationPanel(pID, this));
             UserSession.updateActivity();
         });
-
-        profileBtn.addActionListener(e -> {
+        
+        sidebar.addButton("Profile", () -> {
             showPanel(new com.dentalclinic.patient.PatientProfilePanel(pID));
             UserSession.updateActivity();
         });
-
-        // --- LOGOUT ACTION ---
-        logoutBtn.addActionListener(e -> {
+        
+        // Logout
+        sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
-                // Stop the session timer
-                if (sessionCheckTimer != null) {
-                    sessionCheckTimer.stop();
-                }
-                // Clear session
+                if (sessionCheckTimer != null) sessionCheckTimer.stop();
                 UserSession.logout();
-                // Return to login
                 new LoginPage();
                 dispose();
             }
         });
-
-        // Start session monitor (check every 10 seconds)
-        startSessionMonitor();
         
-        // Render dashboard
+        // Content area
+        contentArea = new JPanel(new GridBagLayout());
+        contentArea.setBackground(new Color(236, 240, 241));
+        
+        add(sidebar, BorderLayout.WEST);
+        add(contentArea, BorderLayout.CENTER);
+        
+        startSessionMonitor();
         renderDashboardHome();
         refreshNotificationBadge();
         
-        // Auto-send reminders for tomorrow's appointments (runs in background)
+        // Auto-send reminders
         new Thread(() -> {
             try {
                 com.dentalclinic.service.AppointmentService appService = new com.dentalclinic.service.AppointmentService();
@@ -174,21 +129,15 @@ public class PatientDashboard extends JFrame {
         }).start();
         
         setVisible(true);
-        
     }
     
     private void startSessionMonitor() {
         sessionCheckTimer = new Timer(10000, e -> {
             if (!UserSession.isSessionValid()) {
-                // Session expired
                 sessionCheckTimer.stop();
-                
-                // Show message using your custom dialog
                 com.dental.clinic.ui.components.ErrorDialog.show(this, 
                     "Session Expired", 
                     "Your session has expired due to inactivity.\nPlease login again.");
-                
-                // Clear session and redirect
                 UserSession.logout();
                 new LoginPage();
                 dispose();
@@ -203,45 +152,6 @@ public class PatientDashboard extends JFrame {
         contentArea.add(panel, BorderLayout.CENTER);
         contentArea.revalidate();
         contentArea.repaint();
-    }
-
-    private JButton createSidebarButton(String text, int yPos) {
-        JButton button = new JButton(text) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                if (getText().equals("Notifications") && notificationCount > 0) {
-                    Graphics2D g2 = (Graphics2D) g;
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(Color.RED);
-                    g2.fillOval(getWidth() - 30, 10, 20, 20);
-                    g2.setColor(Color.WHITE);
-                    g2.setFont(new Font("Arial", Font.BOLD, 12));
-                    String countStr = String.valueOf(notificationCount);
-                    FontMetrics fm = g2.getFontMetrics();
-                    int x = (getWidth() - 30) + (20 - fm.stringWidth(countStr)) / 2;
-                    int y = 10 + ((20 - fm.getHeight()) / 2) + fm.getAscent();
-                    g2.drawString(countStr, x, y);
-                }
-            }
-        };
-
-        button.setBounds(20, yPos, 210, 40);
-        button.setFocusPainted(false);
-        button.setBackground(new Color(52, 152, 219));
-        button.setForeground(Color.WHITE);
-        button.setBorderPainted(false);
-        button.setFont(new Font("Arial", Font.PLAIN, 13));
-        button.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        
-        // Track activity on button hover
-        button.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent e) {
-                UserSession.updateActivity();
-            }
-        });
-        
-        return button;
     }
     
     private void renderDashboardHome() {
@@ -341,6 +251,7 @@ public class PatientDashboard extends JFrame {
         try {
             com.dentalclinic.dao.AppointmentDAO dao = new com.dentalclinic.dao.AppointmentDAO();
             this.notificationCount = dao.getUnreadNotificationCount(pID);
+            notificationBtn.setNotificationCount(notificationCount);
             notificationBtn.repaint();
         } catch (Exception e) {
             e.printStackTrace();
