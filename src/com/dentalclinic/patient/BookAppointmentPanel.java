@@ -13,6 +13,7 @@ import java.sql.SQLException;
 
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.model.Appointment;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.LineBorder;
 
@@ -36,12 +37,14 @@ public class BookAppointmentPanel extends JPanel {
         setBackground(new Color(245, 247, 250));
         setLayout(null);
 
-        // SECURITY: Sanitize inputs before display
-        String sanitizedFName = sanitizeInput(fName);
-        String sanitizedMName = sanitizeInput(mName);
-        String sanitizedLName = sanitizeInput(lName);
-        String sanitizedAddress = sanitizeInput(address);
-        String sanitizedContact = sanitizeInput(contact);
+        // ==========================================================
+        // FIXED: Replaced sanitizeInput() with Sanitizer utility
+        // ==========================================================
+        String sanitizedFName = Sanitizer.sanitizeName(fName);
+        String sanitizedMName = Sanitizer.sanitizeName(mName);
+        String sanitizedLName = Sanitizer.sanitizeName(lName);
+        String sanitizedAddress = Sanitizer.sanitizeTextField(address);
+        String sanitizedContact = Sanitizer.sanitizePhone(contact);
 
         int startX = 225; 
 
@@ -152,12 +155,14 @@ public class BookAppointmentPanel extends JPanel {
         add(confirmBtn);
     }
 
-    // SECURITY: Sanitize when focus is lost
+    // ==========================================================
+    // FIXED: Updated to use Sanitizer utility
+    // ==========================================================
     private void addSanitizeOnFocusLost(JTextField field) {
         field.addFocusListener(new java.awt.event.FocusAdapter() {
             public void focusLost(java.awt.event.FocusEvent e) {
                 String text = field.getText();
-                String sanitized = sanitizeInput(text);
+                String sanitized = Sanitizer.sanitizeTextField(text);
                 if (!text.equals(sanitized)) {
                     field.setText(sanitized);
                 }
@@ -165,25 +170,11 @@ public class BookAppointmentPanel extends JPanel {
         });
     }
     
-    // SECURITY: Sanitize input - remove dangerous characters
-    private String sanitizeInput(String input) {
-        if (input == null) return "";
-        // Remove dangerous characters
-        String sanitized = input.replace("<", "")
-                                 .replace(">", "")
-                                 .replace("\"", "")
-                                 .replace("'", "")
-                                 .replace("&", "");
-        return sanitized;
-    }
+    // REMOVED: Old sanitizeInput() method - replaced with Sanitizer utility
+    // private String sanitizeInput(String input) { ... }  // DELETED
     
-    // SECURITY: Validate input for dangerous characters
-    private boolean hasDangerousCharacters(String input) {
-        if (input == null) return false;
-        return input.contains("<") || input.contains(">") || 
-               input.contains("\"") || input.contains("'") || 
-               input.contains("&");
-    }
+    // REMOVED: Old hasDangerousCharacters() method - Sanitizer handles this
+    // private boolean hasDangerousCharacters(String input) { ... }  // DELETED
     
     // SECURITY: Limit text field length
     private void limitTextFieldLength(JTextField field, int maxLength) {
@@ -226,16 +217,25 @@ public class BookAppointmentPanel extends JPanel {
             return;
         }
         
-        // SECURITY: Get and sanitize all inputs
-        String fName = sanitizeInput(fNameField.getText().trim());
-        String mName = sanitizeInput(mNameField.getText().trim());
-        String lName = sanitizeInput(lNameField.getText().trim());
-        String address = sanitizeInput(addressField.getText().trim());
-        String contact = contactField.getText().trim();
+        // ==========================================================
+        // FIXED: Get raw inputs and apply Sanitizer
+        // ==========================================================
+        String rawFName = fNameField.getText().trim();
+        String rawMName = mNameField.getText().trim();
+        String rawLName = lNameField.getText().trim();
+        String rawAddress = addressField.getText().trim();
+        String rawContact = contactField.getText().trim();
         
-        // SECURITY: Validate contact number
-        if (!contact.matches("\\d{7,11}")) {
-            JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
+        // APPLY SANITIZER to all text fields
+        String fName = Sanitizer.sanitizeName(rawFName);
+        String mName = Sanitizer.sanitizeName(rawMName);
+        String lName = Sanitizer.sanitizeName(rawLName);
+        String address = Sanitizer.sanitizeTextField(rawAddress);
+        String contact = Sanitizer.sanitizePhone(rawContact);
+        
+        // SECURITY: Validate contact number using Sanitizer
+        if (!Sanitizer.isValidPhone(contact)) {
+            JOptionPane.showMessageDialog(this, "Please enter a valid contact number (8-20 digits, may include + - space).");
             return;
         }
         
@@ -263,7 +263,7 @@ public class BookAppointmentPanel extends JPanel {
                 new java.sql.Date(appointmentDatePicker.getDate().getTime()),
                 selectedTime,
                 Integer.parseInt(ageField.getText()),
-                contact,
+                contact,  // Already sanitized
                 "Pending"
             );
 
@@ -344,8 +344,10 @@ public class BookAppointmentPanel extends JPanel {
         ));
         mainP.setBackground(Color.WHITE);
 
-        // SECURITY: Escape any HTML in the summary
-        String escapedService = sanitizeInput(app.getServiceType());
+        // ==========================================================
+        // FIXED: Escape service name for HTML display using Sanitizer
+        // ==========================================================
+        String escapedService = Sanitizer.escapeForHTML(app.getServiceType());
 
         String receiptText = "<html><body style='width: 250px; font-family: Segoe UI; text-align: center;'>" +
             "<h1 style='color: #2ecc71; margin: 0;'>Booking Sent!</h1>" +
@@ -354,16 +356,16 @@ public class BookAppointmentPanel extends JPanel {
             "<div style='background-color: #fcfcfc; border: 1px solid #f0f0f0; padding: 20px; border-radius: 12px;'>" +
                 "<div style='font-size: 16px; margin-bottom: 15px;'><b>Ref ID: <span style='color: #2c3e50;'>#" + refID + "</span></b></div>" +
                 "<table style='width: 100%; font-size: 13px;'>" +
-                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Service: </td>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Service:</td>" +
                         "<td style='text-align: right; color: #2c3e50;'><b>" + escapedService + "</b></td>" +
                     "</tr>" +
-                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Date: </td>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Date:</td>" +
                         "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentDate() + "</b></td>" +
                     "</tr>" +
-                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Time: </td>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Time:</td>" +
                         "<td style='text-align: right; color: #2c3e50;'><b>" + app.getAppointmentTime() + "</b></td>" +
                     "</tr>" +
-                    "|<td style='color: #95a5a6; padding: 5px; text-align: left;'>Status: </td>" +
+                    "<tr><td style='color: #95a5a6; padding: 5px; text-align: left;'>Status:</td>" +
                         "<td style='text-align: right; color: #e67e22;'><b>PENDING</b></td>" +
                     "</tr>" +
                 "</table>" +

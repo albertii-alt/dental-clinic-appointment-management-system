@@ -5,6 +5,7 @@ import javax.swing.border.*;
 import java.awt.*;
 import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.PasswordValidator;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
 
 public class AccountSettingsPanel extends JPanel {
@@ -99,17 +100,10 @@ public class AccountSettingsPanel extends JPanel {
         add(container);
     }
 
-    // SECURITY: Sanitize input
-    private String sanitizeInput(String input) {
-        if (input == null) return "";
-        return input.replace("<", "")
-                    .replace(">", "")
-                    .replace("\"", "")
-                    .replace("'", "")
-                    .replace("&", "");
-    }
+    // REMOVED: Old sanitizeInput() method - replaced with Sanitizer utility
+    // private String sanitizeInput(String input) { ... }  // DELETED
     
-    // SECURITY: Validate email
+    // SECURITY: Validate email (kept as-is, but will also use Sanitizer)
     private boolean isValidEmail(String email) {
         return email != null && email.matches("^[A-Za-z0-9+_.-]+@(.+)$");
     }
@@ -151,13 +145,20 @@ public class AccountSettingsPanel extends JPanel {
     // --- LOGIC ---
 
     private void handleUpdate() {
-        // SECURITY: Sanitize inputs
-        String name = sanitizeInput(nameField.getText().trim());
-        String user = sanitizeInput(userField.getText().trim());
-        String email = emailField.getText().trim();
+        // ==========================================================
+        // FIXED: Get raw inputs and apply Sanitizer
+        // ==========================================================
+        String rawName = nameField.getText().trim();
+        String rawUser = userField.getText().trim();
+        String rawEmail = emailField.getText().trim();
         String newPw = new String(newPassField.getPassword()).trim();
         String confPw = new String(confirmPassField.getPassword()).trim();
         String currPw = new String(currentPassField.getPassword()).trim();
+
+        // APPLY SANITIZER to all text fields
+        String name = Sanitizer.sanitizeName(rawName);
+        String user = Sanitizer.sanitizeUsername(rawUser);
+        String email = Sanitizer.sanitizeEmail(rawEmail);
 
         // Validate required fields
         if (name.isEmpty() || user.isEmpty()) {
@@ -165,9 +166,15 @@ public class AccountSettingsPanel extends JPanel {
             return;
         }
         
-        // Validate email
-        if (!email.isEmpty() && !isValidEmail(email)) {
+        // Validate email (using Sanitizer - returns empty if invalid)
+        if (!rawEmail.isEmpty() && email.isEmpty()) {
             JOptionPane.showMessageDialog(this, "Please enter a valid email address.");
+            return;
+        }
+        
+        // Validate username format
+        if (!Sanitizer.isValidUsername(user)) {
+            JOptionPane.showMessageDialog(this, "Username must be 3-50 characters (letters, numbers, _, ., -).");
             return;
         }
         

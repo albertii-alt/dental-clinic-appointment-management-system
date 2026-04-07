@@ -10,6 +10,7 @@ import java.util.List;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class StaffBookAppointmentPanel extends JPanel {
     private AppointmentService appService = new AppointmentService();
@@ -181,17 +182,14 @@ public class StaffBookAppointmentPanel extends JPanel {
         });
     }
     
-    // SECURITY: Sanitize input
-    private String sanitizeInput(String input) {
-        if (input == null) return "";
-        return input.replace("<", "")
-                    .replace(">", "")
-                    .replace("\"", "")
-                    .replace("'", "")
-                    .replace("&", "");
-    }
+    // REMOVED: Old sanitizeInput() method - replaced with Sanitizer utility
+    // private String sanitizeInput(String input) { ... }  // DELETED
     
-    // SECURITY: Validate age
+    // ==========================================================
+    // FIXED: Updated validation to use Sanitizer where appropriate
+    // ==========================================================
+    
+    // SECURITY: Validate age (kept as-is since it's numeric validation)
     private boolean isValidAge(String ageStr) {
         if (ageStr == null || ageStr.isEmpty()) return true;
         try {
@@ -202,7 +200,7 @@ public class StaffBookAppointmentPanel extends JPanel {
         }
     }
     
-    // SECURITY: Validate contact
+    // SECURITY: Validate contact (kept as-is, but will also sanitize)
     private boolean isValidContact(String contact) {
         return contact != null && contact.matches("\\d{7,11}");
     }
@@ -291,11 +289,13 @@ public class StaffBookAppointmentPanel extends JPanel {
         if (idx >= 0 && currentSearchResults != null && idx < currentSearchResults.size()) {
             Object[] p = currentSearchResults.get(idx);
             selectedPatientID = (int) p[0];
-            // SECURITY: Sanitize patient name
+            // ==========================================================
+            // FIXED: Use Sanitizer for patient name and contact
+            // ==========================================================
             String patientName = (String) p[1];
-            fNameField.setText(sanitizeInput(patientName));
+            fNameField.setText(Sanitizer.sanitizeName(patientName));
             String contact = (String) p[4];
-            contactField.setText(sanitizeInput(contact));
+            contactField.setText(Sanitizer.sanitizePhone(contact));
 
             java.sql.Date dob = (java.sql.Date) p[2];
             if (dob != null) {
@@ -314,8 +314,10 @@ public class StaffBookAppointmentPanel extends JPanel {
             }
             DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
             for (Object[] p : currentSearchResults) {
-                // SECURITY: Sanitize display name
-                String displayName = sanitizeInput((String) p[1]) + " (ID: " + p[0] + ")";
+                // ==========================================================
+                // FIXED: Use Sanitizer for display name
+                // ==========================================================
+                String displayName = Sanitizer.sanitizeName((String) p[1]) + " (ID: " + p[0] + ")";
                 model.addElement(displayName);
             }
             patientResultsCombo.setModel(model);
@@ -359,15 +361,17 @@ public class StaffBookAppointmentPanel extends JPanel {
                 ageValue = Integer.parseInt(ageText);
             }
             
-            // SECURITY: Validate contact
-            String contact = contactField.getText().trim();
-            if (!isValidContact(contact)) {
+            // ==========================================================
+            // FIXED: Get raw contact and sanitize with Sanitizer
+            // ==========================================================
+            String rawContact = contactField.getText().trim();
+            if (!isValidContact(rawContact)) {
                 JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
                 return;
             }
             
-            // SECURITY: Sanitize contact
-            contact = sanitizeInput(contact);
+            // APPLY SANITIZER to contact
+            String contact = Sanitizer.sanitizePhone(rawContact);
 
             Appointment app = new Appointment(
                 selectedPatientID,
@@ -375,7 +379,7 @@ public class StaffBookAppointmentPanel extends JPanel {
                 new java.sql.Date(appointmentDatePicker.getDate().getTime()),
                 (String) timeSlotCombo.getSelectedItem(),
                 ageValue,
-                contact,
+                contact,  // Already sanitized
                 "Approved"
             );
 

@@ -7,6 +7,7 @@ import com.toedter.calendar.JDateChooser;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.util.PasswordValidator;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
 
 public class PatientProfilePanel extends JPanel {
@@ -185,11 +186,8 @@ public class PatientProfilePanel extends JPanel {
         });
     }
     
-    // SECURITY: Sanitize input
-    private String sanitizeInput(String input) {
-        if (input == null) return "";
-        return input.replaceAll("[<>\"'&]", "");
-    }
+    // REMOVED: Old sanitizeInput() method - replaced with Sanitizer utility
+    // private String sanitizeInput(String input) { ... }  // DELETED
 
     private int calculateAge(java.util.Date birthDate) {
         java.time.LocalDate birth = new java.sql.Date(birthDate.getTime()).toLocalDate();
@@ -201,14 +199,27 @@ public class PatientProfilePanel extends JPanel {
         String newPass = new String(txtNewPass.getPassword());
         String confirmPass = new String(txtConfirmPass.getPassword());
         
-        // SECURITY: Sanitize inputs
-        String fName = sanitizeInput(txtFName.getText().trim());
-        String mName = sanitizeInput(txtMName.getText().trim());
-        String lName = sanitizeInput(txtLName.getText().trim());
-        String address = sanitizeInput(txtAddr.getText().trim());
-        String phone = txtPhone.getText().trim();
-        String email = txtEmail.getText().trim();
-        String username = sanitizeInput(txtUser.getText().trim());
+        // ==========================================================
+        // FIXED: Replaced sanitizeInput() with Sanitizer utility
+        // ==========================================================
+        
+        // Get raw inputs
+        String rawFName = txtFName.getText().trim();
+        String rawMName = txtMName.getText().trim();
+        String rawLName = txtLName.getText().trim();
+        String rawAddress = txtAddr.getText().trim();
+        String rawPhone = txtPhone.getText().trim();
+        String rawEmail = txtEmail.getText().trim();
+        String rawUsername = txtUser.getText().trim();
+
+        // APPLY SANITIZER to all text fields
+        String fName = Sanitizer.sanitizeName(rawFName);
+        String mName = Sanitizer.sanitizeName(rawMName);
+        String lName = Sanitizer.sanitizeName(rawLName);
+        String address = Sanitizer.sanitizeTextField(rawAddress);
+        String phone = Sanitizer.sanitizePhone(rawPhone);
+        String email = Sanitizer.sanitizeEmail(rawEmail);
+        String username = Sanitizer.sanitizeUsername(rawUsername);
 
         try {
             // Validate required fields
@@ -217,21 +228,26 @@ public class PatientProfilePanel extends JPanel {
                 return;
             }
             
-            // SECURITY: Validate phone number
-            if (!phone.matches("\\d{7,11}")) {
-                JOptionPane.showMessageDialog(this, "Please enter a valid contact number (7-11 digits).");
+            // SECURITY: Validate phone number (using Sanitizer's validation)
+            if (!Sanitizer.isValidPhone(phone)) {
+                JOptionPane.showMessageDialog(this, "Please enter a valid contact number (8-20 digits, may include + - space).");
                 return;
             }
             
-            // SECURITY: Validate email
-            if (!email.matches("^[A-Za-z0-9+_.-]+@(.+)$")) {
+            // SECURITY: Validate email (using Sanitizer's validation)
+            if (!rawEmail.isEmpty() && !Sanitizer.isValidEmail(email)) {
                 JOptionPane.showMessageDialog(this, "Please enter a valid email address.");
                 return;
             }
             
-            // SECURITY: Validate username
+            // SECURITY: Validate username (using Sanitizer's validation)
             if (username.isEmpty()) {
                 JOptionPane.showMessageDialog(this, "Username is required.");
+                return;
+            }
+            
+            if (!Sanitizer.isValidUsername(username)) {
+                JOptionPane.showMessageDialog(this, "Username must be 3-50 characters (letters, numbers, _, ., -).");
                 return;
             }
             

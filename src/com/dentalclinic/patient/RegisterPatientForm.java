@@ -3,6 +3,7 @@ package com.dentalclinic.patient;
 import com.dentalclinic.ui.LoginPage;
 import com.dentalclinic.ui.components.SuccessDialog;
 import com.dentalclinic.ui.components.ErrorDialog;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
@@ -84,7 +85,7 @@ public class RegisterPatientForm extends JFrame {
         gLeft.weighty = 1.0; 
         visualSidebar.add(Box.createVerticalGlue(), gLeft);
         
-                // --- Enhanced Sidebar Footer ---
+        // --- Enhanced Sidebar Footer ---
         JPanel footerContainer = new JPanel(new BorderLayout(15, 0));
         footerContainer.setOpaque(false);
 
@@ -306,19 +307,43 @@ public class RegisterPatientForm extends JFrame {
     }
 
     private void handleRegistration() {
-        String fName = firstNameField.getText();
-        String mName = middleNameField.getText();
-        String lName = lastNameField.getText();
-        String address = addressField.getText();
-        String contact = contactField.getText(); 
-        String email = emailField.getText();
-        String user = usernameField.getText();
-        String pass = new String(passwordField.getPassword());
-        String confirm = new String(confirmPasswordField.getPassword());
+        // ==========================================================
+        // FIXED: Added Sanitizer for ALL user inputs
+        // ==========================================================
+        
+        // Get raw inputs
+        String rawFirstName = firstNameField.getText().trim();
+        String rawMiddleName = middleNameField.getText().trim();
+        String rawLastName = lastNameField.getText().trim();
+        String rawAddress = addressField.getText().trim();
+        String rawContact = contactField.getText().trim();
+        String rawEmail = emailField.getText().trim();
+        String rawUsername = usernameField.getText().trim();
+        String rawPassword = new String(passwordField.getPassword());
+        String rawConfirmPassword = new String(confirmPasswordField.getPassword());
 
-        // Basic validation
+        // APPLY SANITIZER to all text fields
+        String fName = Sanitizer.sanitizeName(rawFirstName);
+        String mName = Sanitizer.sanitizeName(rawMiddleName);
+        String lName = Sanitizer.sanitizeName(rawLastName);
+        String address = Sanitizer.sanitizeTextField(rawAddress);
+        String contact = Sanitizer.sanitizePhone(rawContact);
+        String email = Sanitizer.sanitizeEmail(rawEmail);
+        String user = Sanitizer.sanitizeUsername(rawUsername);
+        
+        // Password is NOT sanitized (it gets hashed), but we keep original for validation
+        String pass = rawPassword;
+        String confirm = rawConfirmPassword;
+
+        // Basic validation (using sanitized values)
         if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
             com.dentalclinic.ui.components.ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
+            return;
+        }
+
+        // Check if email is valid (Sanitizer returns empty string if invalid)
+        if (!rawEmail.isEmpty() && email.isEmpty()) {
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Email", "Please enter a valid email address.");
             return;
         }
 
@@ -344,6 +369,7 @@ public class RegisterPatientForm extends JFrame {
             java.sql.Date sqlDate = new java.sql.Date(birthDatePicker.getDate().getTime());
             int ageValue = Integer.parseInt(ageField.getText());
 
+            // Use SANITIZED values for registration
             boolean success = authService.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
 
             if (success) {

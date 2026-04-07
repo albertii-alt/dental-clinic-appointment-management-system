@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import com.dentalclinic.service.AppointmentService;
 import com.dentalclinic.dao.ClinicConfigDAO;
 import com.dentalclinic.util.DBConnection;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class ClinicSettingsPanel extends JPanel {
     private JSpinner leadTimeSpinner;
@@ -253,23 +254,26 @@ public class ClinicSettingsPanel extends JPanel {
 
         addServiceBtn.addActionListener(e -> {
             try {
-                String name = serviceNameField.getText().trim();
-                String desc = serviceDescField.getText().trim();
+                // ==========================================================
+                // FIXED: Get raw inputs and apply Sanitizer
+                // ==========================================================
+                String rawName = serviceNameField.getText().trim();
+                String rawDesc = serviceDescField.getText().trim();
                 String priceStr = servicePriceField.getText().trim();
 
-                // SECURITY: Sanitize inputs
-                name = sanitizeInput(name);
-                desc = sanitizeInput(desc);
+                // APPLY SANITIZER to text fields
+                String name = Sanitizer.sanitizeTextField(rawName);
+                String desc = Sanitizer.sanitizeTextField(rawDesc);
 
                 // Validate name
                 if (name.isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Service Name required.");
+                    JOptionPane.showMessageDialog(ClinicSettingsPanel.this, "Service Name required.");
                     return;
                 }
 
                 // Validate price
                 if (!isValidPrice(priceStr)) {
-                    JOptionPane.showMessageDialog(this, "Please enter a valid price (0-999999.99).");
+                    JOptionPane.showMessageDialog(ClinicSettingsPanel.this, "Please enter a valid price (0-999999.99).");
                     return;
                 }
 
@@ -282,7 +286,7 @@ public class ClinicSettingsPanel extends JPanel {
                     buildServiceList();
                 }
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Check price format: " + ex.getMessage());
+                JOptionPane.showMessageDialog(ClinicSettingsPanel.this, "Check price format: " + ex.getMessage());
             }
         });
 
@@ -441,7 +445,10 @@ public class ClinicSettingsPanel extends JPanel {
                 row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
                 row.setBorder(new MatteBorder(0, 0, 1, 0, new Color(245, 245, 245)));
 
-                JLabel nameLabel = new JLabel(name);
+                // ==========================================================
+                // FIXED: Escape service name for display
+                // ==========================================================
+                JLabel nameLabel = new JLabel(Sanitizer.escapeForHTML(name));
                 nameLabel.setFont(new Font("Segoe UI", isActive ? Font.BOLD : Font.PLAIN, 14));
                 nameLabel.setForeground(isActive ? TEXT : TEXT_MUTED);
                 nameLabel.setBorder(new EmptyBorder(0, 15, 0, 0));
@@ -564,9 +571,15 @@ public class ClinicSettingsPanel extends JPanel {
         styleButton(cancelBtn, TEXT_MUTED);
         
         saveBtn.addActionListener(e -> {
-            String newName = nameField.getText().trim();
-            String newDesc = descArea.getText().trim();
+            // ==========================================================
+            // FIXED: Apply Sanitizer to edit dialog inputs
+            // ==========================================================
+            String rawNewName = nameField.getText().trim();
+            String rawNewDesc = descArea.getText().trim();
             String priceStr = priceField.getText().trim();
+            
+            String newName = Sanitizer.sanitizeTextField(rawNewName);
+            String newDesc = Sanitizer.sanitizeTextField(rawNewDesc);
             
             if (newName.isEmpty()) {
                 JOptionPane.showMessageDialog(editDialog, "Service name cannot be empty.");
@@ -614,17 +627,10 @@ public class ClinicSettingsPanel extends JPanel {
         }
     }
     
-    // SECURITY: Sanitize input
-    private String sanitizeInput(String input) {
-        if (input == null) return "";
-        return input.replace("<", "")
-                    .replace(">", "")
-                    .replace("\"", "")
-                    .replace("'", "")
-                    .replace("&", "");
-    }
+    // REMOVED: Old sanitizeInput() method - replaced with Sanitizer utility
+    // private String sanitizeInput(String input) { ... }  // DELETED
 
-    // SECURITY: Validate service price
+    // SECURITY: Validate service price (kept as-is)
     private boolean isValidPrice(String priceStr) {
         if (priceStr == null || priceStr.isEmpty()) return true;
         try {
