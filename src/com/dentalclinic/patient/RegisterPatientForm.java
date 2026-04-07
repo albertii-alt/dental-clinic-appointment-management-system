@@ -3,10 +3,14 @@ package com.dentalclinic.patient;
 import com.dentalclinic.ui.LoginPage;
 import com.dentalclinic.ui.components.SuccessDialog;
 import com.dentalclinic.ui.components.ErrorDialog;
-import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
+import com.dentalclinic.util.Sanitizer;
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.DocumentFilter;
+import javax.swing.text.AttributeSet;
+import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
@@ -23,14 +27,45 @@ public class RegisterPatientForm extends JFrame {
     private JDateChooser birthDatePicker;
     private JButton submitBtn, cancelBtn;
 
+    // ADDED: Field length limits
+    private static final int MAX_NAME_LENGTH = 50;
+    private static final int MAX_ADDRESS_LENGTH = 200;
+    private static final int MAX_EMAIL_LENGTH = 100;
+    private static final int MAX_USERNAME_LENGTH = 50;
+    private static final int MAX_CONTACT_LENGTH = 11;
+
     // --- UI Theme Constants ---
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
     private final Color SECONDARY_BLUE = new Color(52, 152, 219);
-    private final Color FOCUS_COLOR = new Color(52, 152, 219, 100);
-    private final Color SIDEBAR_BG = new Color(242, 245, 248);
+    private final Color SIDEBAR_START = new Color(44, 62, 80);
+    private final Color SIDEBAR_END = new Color(24, 34, 45);
     private final Color TEXT_DARK = new Color(44, 62, 80);
     private final Color TEXT_GRAY = new Color(127, 140, 141);
     private final Color BORDER_COLOR = new Color(218, 226, 234);
+
+    // --- OPTIMIZED GRADIENT PANEL (Static inner class for reusability) ---
+    private static class GradientPanel extends JPanel {
+        private final Color startColor;
+        private final Color endColor;
+        
+        public GradientPanel(Color start, Color end) {
+            this.startColor = start;
+            this.endColor = end;
+            setOpaque(false);
+        }
+        
+        @Override
+        protected void paintComponent(Graphics g) {
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            GradientPaint gp = new GradientPaint(0, 0, startColor, 0, getHeight(), endColor);
+            g2d.setPaint(gp);
+            g2d.fillRect(0, 0, getWidth(), getHeight());
+            g2d.dispose();
+            super.paintComponent(g);
+        }
+    }
 
     public RegisterPatientForm() {
         setTitle("Dental Clinic - Patient Registration");
@@ -44,10 +79,10 @@ public class RegisterPatientForm extends JFrame {
         add(masterPanel);
 
         // =========================================
-        // SECTION 1: VISUAL SIDEBAR (LEFT)
+        // SECTION 1: VISUAL SIDEBAR (LEFT) - GRADIENT
         // =========================================
-        JPanel visualSidebar = new JPanel(new GridBagLayout());
-        visualSidebar.setBackground(SIDEBAR_BG);
+        JPanel visualSidebar = new GradientPanel(SIDEBAR_START, SIDEBAR_END);
+        visualSidebar.setLayout(new GridBagLayout());
         visualSidebar.setBorder(new EmptyBorder(60, 50, 60, 50));
 
         GridBagConstraints gLeft = new GridBagConstraints();
@@ -57,13 +92,13 @@ public class RegisterPatientForm extends JFrame {
 
         JLabel clinicName = new JLabel("Join Our Clinic");
         clinicName.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        clinicName.setForeground(PRIMARY_BLUE);
+        clinicName.setForeground(Color.WHITE);
         gLeft.gridy = 0;
         visualSidebar.add(clinicName, gLeft);
 
         JLabel appTitle = new JLabel("Registration Portal");
         appTitle.setFont(new Font("Segoe UI Semilight", Font.PLAIN, 20));
-        appTitle.setForeground(TEXT_DARK);
+        appTitle.setForeground(new Color(189, 195, 199));
         gLeft.gridy = 1;
         gLeft.insets = new Insets(5, 0, 0, 0);
         visualSidebar.add(appTitle, gLeft);
@@ -73,7 +108,7 @@ public class RegisterPatientForm extends JFrame {
         visualSidebar.add(Box.createVerticalGlue(), gLeft);
 
         // Logo
-        JLabel logoLabel = loadLogo("/com/dentalclinic/resources/VantageLogo.png", 350, -1);
+        JLabel logoLabel = loadLogo("/com/dentalclinic/resources/VantageLogoInForms.png", 350, -1);
         if (logoLabel != null) {
             gLeft.gridy = 3; 
             gLeft.weighty = 0; 
@@ -89,19 +124,14 @@ public class RegisterPatientForm extends JFrame {
         JPanel footerContainer = new JPanel(new BorderLayout(15, 0));
         footerContainer.setOpaque(false);
 
-        // Modern Accent Bar
         JPanel accentBar = new JPanel();
         accentBar.setPreferredSize(new Dimension(4, 0));
         accentBar.setBackground(PRIMARY_BLUE);
         footerContainer.add(accentBar, BorderLayout.WEST);
 
-        // Text Content with HEX color formatting for stability
-        String darkHex = String.format("#%02x%02x%02x", TEXT_DARK.getRed(), TEXT_DARK.getGreen(), TEXT_DARK.getBlue());
-        String grayHex = String.format("#%02x%02x%02x", TEXT_GRAY.getRed(), TEXT_GRAY.getGreen(), TEXT_GRAY.getBlue());
-
         JLabel footerText = new JLabel("<html><div style='font-family: Segoe UI;'>" +
-                "<b style='font-size: 15px; color: " + darkHex + ";'>Start Your Journey to a Brighter Smile</b><br>" +
-                "<span style='font-size: 11px; color: " + grayHex + "; line-height: 1.4;'>" +
+                "<b style='font-size: 15px; color: #FFFFFF;'>Start Your Journey to a Brighter Smile</b><br>" +
+                "<span style='font-size: 11px; color: #BDC3C7; line-height: 1.4;'>" +
                 "Creating an account allows you to book appointments, view your<br>" +
                 "dental history, and communicate with specialists directly.</span></div></html>");
 
@@ -109,7 +139,7 @@ public class RegisterPatientForm extends JFrame {
 
         gLeft.gridy = 5; 
         gLeft.weighty = 0;
-        gLeft.insets = new Insets(20, 0, 0, 0); // Spacing from logo
+        gLeft.insets = new Insets(20, 0, 0, 0); 
         gLeft.anchor = GridBagConstraints.SOUTHWEST;
         visualSidebar.add(footerContainer, gLeft);
 
@@ -272,13 +302,61 @@ public class RegisterPatientForm extends JFrame {
         btn.setFocusPainted(false);
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
-        // Simple Hover logic
         btn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { 
                 if(bg != Color.WHITE) btn.setBackground(bg.darker());
                 else btn.setBackground(new Color(250, 250, 250));
             }
             public void mouseExited(MouseEvent e) { btn.setBackground(bg); }
+        });
+    }
+
+    // ADDED: Field length limiter using DocumentFilter
+    private void limitTextFieldLength(JTextField field, int maxLength) {
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                if (fb.getDocument().getLength() + string.length() <= maxLength) {
+                    super.insertString(fb, offset, string, attr);
+                }
+            }
+            
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                if (fb.getDocument().getLength() - length + text.length() <= maxLength) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+        });
+    }
+    
+    // ADDED: Enhanced contact validation with DocumentFilter
+    private void setupContactValidation(JTextField field) {
+        // Prevent pasting non-digits
+        ((AbstractDocument) field.getDocument()).setDocumentFilter(new DocumentFilter() {
+            @Override
+            public void insertString(FilterBypass fb, int offset, String string, AttributeSet attr) throws BadLocationException {
+                if (fb.getDocument().getLength() + string.length() <= MAX_CONTACT_LENGTH && string.matches("\\d*")) {
+                    super.insertString(fb, offset, string, attr);
+                }
+            }
+            
+            @Override
+            public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
+                if (fb.getDocument().getLength() - length + text.length() <= MAX_CONTACT_LENGTH && text.matches("\\d*")) {
+                    super.replace(fb, offset, length, text, attrs);
+                }
+            }
+        });
+        
+        // Also keep key listener for real-time feedback
+        field.addKeyListener(new java.awt.event.KeyAdapter() {
+            public void keyTyped(java.awt.event.KeyEvent evt) {
+                char c = evt.getKeyChar();
+                if (!Character.isDigit(c) || field.getText().length() >= MAX_CONTACT_LENGTH) {
+                    evt.consume(); 
+                }
+            }
         });
     }
 
@@ -289,13 +367,16 @@ public class RegisterPatientForm extends JFrame {
             }
         });
 
-        contactField.addKeyListener(new java.awt.event.KeyAdapter() {
-            public void keyTyped(java.awt.event.KeyEvent evt) {
-                if (!Character.isDigit(evt.getKeyChar()) || contactField.getText().length() >= 11) {
-                    evt.consume(); 
-                }
-            }
-        });
+        // FIXED: Enhanced contact validation
+        setupContactValidation(contactField);
+        
+        // FIXED: Add length limits to all text fields
+        limitTextFieldLength(firstNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(middleNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(lastNameField, MAX_NAME_LENGTH);
+        limitTextFieldLength(addressField, MAX_ADDRESS_LENGTH);
+        limitTextFieldLength(emailField, MAX_EMAIL_LENGTH);
+        limitTextFieldLength(usernameField, MAX_USERNAME_LENGTH);
 
         submitBtn.addActionListener(e -> handleRegistration());
         cancelBtn.addActionListener(e -> { new LoginPage(); dispose(); });
@@ -307,11 +388,6 @@ public class RegisterPatientForm extends JFrame {
     }
 
     private void handleRegistration() {
-        // ==========================================================
-        // FIXED: Added Sanitizer for ALL user inputs
-        // ==========================================================
-        
-        // Get raw inputs
         String rawFirstName = firstNameField.getText().trim();
         String rawMiddleName = middleNameField.getText().trim();
         String rawLastName = lastNameField.getText().trim();
@@ -322,7 +398,6 @@ public class RegisterPatientForm extends JFrame {
         String rawPassword = new String(passwordField.getPassword());
         String rawConfirmPassword = new String(confirmPasswordField.getPassword());
 
-        // APPLY SANITIZER to all text fields
         String fName = Sanitizer.sanitizeName(rawFirstName);
         String mName = Sanitizer.sanitizeName(rawMiddleName);
         String lName = Sanitizer.sanitizeName(rawLastName);
@@ -331,36 +406,31 @@ public class RegisterPatientForm extends JFrame {
         String email = Sanitizer.sanitizeEmail(rawEmail);
         String user = Sanitizer.sanitizeUsername(rawUsername);
         
-        // Password is NOT sanitized (it gets hashed), but we keep original for validation
         String pass = rawPassword;
         String confirm = rawConfirmPassword;
 
-        // Basic validation (using sanitized values)
         if (fName.isEmpty() || lName.isEmpty() || address.isEmpty() || contact.isEmpty() || user.isEmpty() || pass.isEmpty() || birthDatePicker.getDate() == null) {
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
+            ErrorDialog.show(this, "Incomplete Form", "All required fields must be filled!");
             return;
         }
 
-        // Check if email is valid (Sanitizer returns empty string if invalid)
         if (!rawEmail.isEmpty() && email.isEmpty()) {
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Email", "Please enter a valid email address.");
+            ErrorDialog.show(this, "Invalid Email", "Please enter a valid email address.");
             return;
         }
 
-        // Check if passwords match
         if (!pass.equals(confirm)) {
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Password Mismatch", "Passwords do not match!");
+            ErrorDialog.show(this, "Password Mismatch", "Passwords do not match!");
             return;
         }
 
-        // Validate password complexity BEFORE calling the service
-        List<String> passwordErrors = com.dentalclinic.util.PasswordValidator.validatePassword(pass);
+        List<String> passwordErrors = PasswordValidator.validatePassword(pass);
         if (!passwordErrors.isEmpty()) {
             StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
             for (String error : passwordErrors) {
                 errorMsg.append("• ").append(error).append("\n");
             }
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
+            ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
             return;
         }
 
@@ -369,30 +439,19 @@ public class RegisterPatientForm extends JFrame {
             java.sql.Date sqlDate = new java.sql.Date(birthDatePicker.getDate().getTime());
             int ageValue = Integer.parseInt(ageField.getText());
 
-            // Use SANITIZED values for registration
             boolean success = authService.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
 
             if (success) {
-                com.dentalclinic.ui.components.SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
+                SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
                 new LoginPage();
                 dispose();
             } else {
-                com.dentalclinic.ui.components.ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
+                ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
             }
         } catch (SQLException ex) {
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server. Please try again later.");
+            ErrorDialog.show(this, "Database Error", "Unable to connect to the server. Please try again later.");
         } catch (IllegalArgumentException ex) {
-            // Check if this is a username conflict error
-            String message = ex.getMessage();
-            if (message != null && (message.contains("Username already taken") || message.contains("Username already exists"))) {
-                com.dentalclinic.ui.components.ErrorDialog.show(this, "Username Unavailable", "This username is already taken. Please choose another username.");
-            } else if (message != null && message.contains("Password does not meet requirements")) {
-                // Password validation error from AuthService
-                com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", message);
-            } else {
-                // Any other validation error
-                com.dentalclinic.ui.components.ErrorDialog.show(this, "Registration Failed", message);
-            }
+            ErrorDialog.show(this, "Registration Failed", ex.getMessage());
         }
     }
 

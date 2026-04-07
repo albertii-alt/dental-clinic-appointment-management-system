@@ -9,8 +9,10 @@ import java.util.List;
 
 public class Sidebar extends JPanel {
     
-    private final Color SIDEBAR_BG = new Color(44, 62, 80);
-    private final Color SUBMENU_BG = new Color(34, 49, 63);
+    // Gradient Colors: Updated to match RegisterPatientForm/LoginPage
+    private final Color SIDEBAR_START = new Color(20, 30, 48); 
+    private final Color SIDEBAR_END = new Color(36, 59, 85);   
+    private final Color SUBMENU_BG = new Color(25, 35, 50); // Slightly lighter than start for contrast
     
     private List<SidebarButton> allButtons = new ArrayList<>();
     private List<JComponent> allComponents = new ArrayList<>();
@@ -22,8 +24,30 @@ public class Sidebar extends JPanel {
     
     public Sidebar() {
         setLayout(null);
-        setBackground(SIDEBAR_BG);
+        // setOpaque(false) tells Swing we will handle the background painting ourselves
+        setOpaque(false);
         setPreferredSize(new Dimension(250, 700));
+    }
+    
+    @Override
+    protected void paintComponent(Graphics g) {
+        Graphics2D g2d = (Graphics2D) g.create();
+        
+        // Quality rendering hints
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+        
+        int w = getWidth();
+        int h = getHeight();
+        
+        // Updated to a diagonal gradient (0,0 to w,h)
+        GradientPaint gp = new GradientPaint(0, 0, SIDEBAR_START, w, h, SIDEBAR_END);
+        
+        g2d.setPaint(gp);
+        g2d.fillRect(0, 0, w, h);
+        
+        g2d.dispose();
+        super.paintComponent(g);
     }
     
     public void addLogo(String title, Runnable onClick) {
@@ -72,7 +96,7 @@ public class Sidebar extends JPanel {
     
     public void addLabel(String text, int y) {
         JLabel label = new JLabel(text);
-        label.setForeground(new Color(171, 183, 183));
+        label.setForeground(new Color(189, 195, 199)); // Brighter silver (#BDC3C7)
         label.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         label.setBounds(25, y, 150, 20);
         add(label);

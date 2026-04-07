@@ -121,4 +121,23 @@ public class RolesPermissionDAO {
         } catch (SQLException e) { e.printStackTrace(); }
         return permissionNames;
     }
+    
+        public int getRoleIdByName(String roleName) throws SQLException {
+        String query = "SELECT role_id FROM roles WHERE UPPER(role_name) = UPPER(?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, roleName);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("role_id");
+                }
+            }
+        }
+        // Fallback hardcoded mapping if database query fails
+        if (roleName.equalsIgnoreCase("ADMIN")) return 1;
+        if (roleName.equalsIgnoreCase("DENTIST")) return 2;
+        if (roleName.equalsIgnoreCase("STAFF")) return 3;
+        if (roleName.equalsIgnoreCase("PATIENT")) return 4;
+        return -1; // Not found
+    }
 }

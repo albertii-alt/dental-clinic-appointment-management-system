@@ -2,6 +2,8 @@ package com.dentalclinic.ui;
 
 import javax.swing.*;
 import javax.swing.border.*;
+import javax.swing.text.AbstractDocument;
+import javax.swing.text.DocumentFilter;
 import java.awt.*;
 import java.awt.event.*;
 import java.sql.SQLException;
@@ -18,6 +20,7 @@ import com.dentalclinic.ui.components.SuccessDialog;
 import com.dentalclinic.ui.components.ErrorDialog;
 import com.dentalclinic.util.PasswordUtil;
 import com.dentalclinic.util.PasswordValidator;
+import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
 import javax.imageio.ImageIO;
 import java.io.InputStream;
@@ -29,20 +32,26 @@ public class LoginPage extends JFrame {
     private JComboBox<String> roleDropdown;
     private JButton loginButton, registerButton;
     
-    // DAO instances
     private PatientDAO patientDAO;
     private StaffDAO staffDAO;
+    
+    // ADDED: Rate limiting for forgot password
+    private long lastForgotPasswordRequest = 0;
+    private static final long FORGOT_PASSWORD_COOLDOWN_MS = 60000; // 1 minute
 
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
     private final Color SECONDARY_BLUE = new Color(52, 152, 219);
-    private final Color SIDEBAR_BG = new Color(242, 245, 248); 
-    private final Color TEXT_DARK = new Color(44, 62, 80);
+    
+    // Gradient Sidebar Colors
+    private final Color SIDEBAR_START = new Color(20, 30, 48); 
+    private final Color SIDEBAR_END = new Color(36, 59, 85);
+    
+    private final Color TEXT_DARK = new Color(52, 73, 94);
     private final Color TEXT_GRAY = new Color(127, 140, 141);
     private final Color BORDER_COLOR = new Color(218, 226, 234);
     private final Color SUCCESS_GREEN = new Color(46, 204, 113);
 
     public LoginPage() {
-        // Initialize DAOs
         patientDAO = new PatientDAO();
         staffDAO = new StaffDAO();
         
@@ -59,26 +68,42 @@ public class LoginPage extends JFrame {
         add(masterPanel);
 
         // --- Sidebar (Left) ---
-        JPanel sidebar = new JPanel(new GridBagLayout());
-        sidebar.setBackground(SIDEBAR_BG);
+        JPanel sidebar = new JPanel(new GridBagLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                
+                int w = getWidth();
+                int h = getHeight();
+                GradientPaint gp = new GradientPaint(0, 0, SIDEBAR_START, w, h, SIDEBAR_END);
+                
+                g2d.setPaint(gp);
+                g2d.fillRect(0, 0, w, h);
+                g2d.dispose();
+                super.paintComponent(g);
+            }
+        };
+        sidebar.setOpaque(false);
         sidebar.setBorder(new EmptyBorder(50, 50, 50, 50));
         GridBagConstraints gbcL = new GridBagConstraints();
         gbcL.gridx = 0; gbcL.fill = GridBagConstraints.HORIZONTAL; gbcL.anchor = GridBagConstraints.NORTHWEST;
 
         JLabel name = new JLabel("Vantage Dental");
         name.setFont(new Font("Segoe UI", Font.BOLD, 36));
-        name.setForeground(PRIMARY_BLUE);
+        name.setForeground(Color.WHITE);
         gbcL.gridy = 0; sidebar.add(name, gbcL);
 
         JLabel sub = new JLabel("Appointment Portal");
         sub.setFont(new Font("Segoe UI Semilight", Font.PLAIN, 20));
-        sub.setForeground(TEXT_DARK);
+        sub.setForeground(new Color(236, 240, 241));
         gbcL.gridy = 1; gbcL.insets = new Insets(5, 0, 0, 0);
         sidebar.add(sub, gbcL);
 
         gbcL.gridy = 2; gbcL.weighty = 1.0; sidebar.add(Box.createVerticalGlue(), gbcL);
 
-        JLabel logo = loadLogo("/com/dentalclinic/resources/VantageLogo.png", 350, -1);
+        JLabel logo = loadLogo("/com/dentalclinic/resources/VantageLogoInForms.png", 350, -1);
         if (logo != null) {
             gbcL.gridy = 3; gbcL.weighty = 0; gbcL.anchor = GridBagConstraints.CENTER;
             sidebar.add(logo, gbcL);
@@ -91,12 +116,12 @@ public class LoginPage extends JFrame {
 
         JPanel accentBar = new JPanel();
         accentBar.setPreferredSize(new Dimension(4, 0));
-        accentBar.setBackground(PRIMARY_BLUE);
+        accentBar.setBackground(SECONDARY_BLUE);
         footerContainer.add(accentBar, BorderLayout.WEST);
 
         JLabel footerText = new JLabel("<html><div style='font-family: Segoe UI;'>" +
-                "<b style='font-size: 14px; color: " + String.format("#%02x%02x%02x", TEXT_DARK.getRed(), TEXT_DARK.getGreen(), TEXT_DARK.getBlue()) + ";'>Manage Your Oral Health</b><br>" +
-                "<span style='font-size: 11px; color: " + String.format("#%02x%02x%02x", TEXT_GRAY.getRed(), TEXT_GRAY.getGreen(), TEXT_GRAY.getBlue()) + ";'>Log in to view clinic schedules, treatment<br>history, and digital prescriptions.</span></div></html>");
+                "<b style='font-size: 14px; color: #FFFFFF;'>Manage Your Oral Health</b><br>" +
+                "<span style='font-size: 11px; color: #BDC3C7;'>Log in to view clinic schedules, treatment<br>history, and digital prescriptions.</span></div></html>");
 
         footerContainer.add(footerText, BorderLayout.CENTER);
 
@@ -137,7 +162,6 @@ public class LoginPage extends JFrame {
         gbcR.gridy = 7; gbcR.insets = new Insets(0, 0, 35, 0);
         formArea.add(roleDropdown, gbcR);
 
-        // --- Form (Right) Buttons Row ---
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         btns.setOpaque(false);
         
@@ -154,12 +178,10 @@ public class LoginPage extends JFrame {
         btns.add(Box.createHorizontalStrut(15)); 
         btns.add(registerButton);
 
-        // Add the buttons at row 8
         gbcR.gridy = 8;
-        gbcR.insets = new Insets(0, 0, 10, 0); // 10px spacing before the link
+        gbcR.insets = new Insets(0, 0, 10, 0);
         formArea.add(btns, gbcR);
 
-        // --- Forgot Password Link Row ---
         JButton forgotPasswordBtn = new JButton("Forgot Password?");
         forgotPasswordBtn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         forgotPasswordBtn.setForeground(SECONDARY_BLUE);
@@ -168,19 +190,17 @@ public class LoginPage extends JFrame {
         forgotPasswordBtn.setFocusPainted(false);
         forgotPasswordBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
-        // Modern hover effect
         forgotPasswordBtn.addMouseListener(new MouseAdapter() {
             public void mouseEntered(MouseEvent e) { forgotPasswordBtn.setText("<html><u>Forgot Password?</u></html>"); }
             public void mouseExited(MouseEvent e) { forgotPasswordBtn.setText("Forgot Password?"); }
         });
         forgotPasswordBtn.addActionListener(e -> showForgotPasswordDialog());
 
-        // Create new constraints for centering the link
         GridBagConstraints gbcCenter = new GridBagConstraints();
         gbcCenter.gridx = 0;
         gbcCenter.gridy = 9;
         gbcCenter.gridwidth = 1;
-        gbcCenter.anchor = GridBagConstraints.CENTER; // This centers it horizontally
+        gbcCenter.anchor = GridBagConstraints.CENTER;
         gbcCenter.insets = new Insets(5, 0, 0, 0);
         
         formArea.add(forgotPasswordBtn, gbcCenter);
@@ -188,7 +208,6 @@ public class LoginPage extends JFrame {
         masterPanel.add(formArea);
         initActionListeners();
         setVisible(true);
-
     }
 
     private void addInputSection(JPanel p, String label, JTextField field, GridBagConstraints c, int row) {
@@ -230,7 +249,8 @@ public class LoginPage extends JFrame {
 
     private void initActionListeners() {
         loginButton.addActionListener(e -> {
-            String user = usernameField.getText();
+            // FIXED: Sanitize username input
+            String user = Sanitizer.sanitizeUsername(usernameField.getText());
             String pass = new String(passwordField.getPassword());
             String role = (String) roleDropdown.getSelectedItem();
 
@@ -246,6 +266,8 @@ public class LoginPage extends JFrame {
                     String message = "Your account has been locked due to multiple failed login attempts.\n" +
                                     "Please try again in " + remainingMinutes + " minute(s).";
                     ErrorDialog.show(this, "Account Locked", message);
+                    // FIXED: Clear password field on failed login
+                    passwordField.setText("");
                     return;
                 }
 
@@ -264,7 +286,8 @@ public class LoginPage extends JFrame {
                     String name = (String) data[3];
                     String email = (data.length > 4) ? (String) data[4] : "No Email";
 
-                    int rId = rStr.equalsIgnoreCase("ADMIN") ? 1 : (rStr.equalsIgnoreCase("DENTIST") ? 2 : 3);
+                    // FIXED: Query role ID from database instead of hardcoding
+                    int rId = rpDao.getRoleIdByName(rStr);
                     UserSession.initialize(id, name, isS ? "Super Admin" : rStr, rpDao.getPermissionNamesForRole(rId));
 
                     SuccessDialog.show(this, "Access Granted", "Welcome back, " + name + "!");
@@ -283,9 +306,12 @@ public class LoginPage extends JFrame {
                 } 
                 else {
                     ErrorDialog.show(this, "Login Failed", "The username or password you entered is incorrect for the selected role.");
+                    // FIXED: Clear password field on failed login
+                    passwordField.setText("");
                 }
             } catch (SQLException ex) {
                 ErrorDialog.show(this, "Database Error", "Unable to connect to the clinic server: " + ex.getMessage());
+                passwordField.setText("");
             }
         });
 
@@ -408,7 +434,6 @@ public class LoginPage extends JFrame {
         dialog.setVisible(true);
     }
 
-    // Helper methods for password update
     private boolean updatePatientPassword(int patientId, String hashedPassword) throws SQLException {
         String query = "UPDATE patients SET password = ?, force_password_reset = 0 WHERE patient_id = ?";
         try (Connection conn = DBConnection.getConnection();
@@ -429,10 +454,15 @@ public class LoginPage extends JFrame {
         }
     }
     
-    /**
-     * Show Forgot Password dialog - Now uses USERNAME instead of email
-     */
     private void showForgotPasswordDialog() {
+        // FIXED: Rate limiting check
+        long now = System.currentTimeMillis();
+        if (now - lastForgotPasswordRequest < FORGOT_PASSWORD_COOLDOWN_MS) {
+            long remaining = (FORGOT_PASSWORD_COOLDOWN_MS - (now - lastForgotPasswordRequest)) / 1000;
+            ErrorDialog.show(this, "Please Wait", "Please wait " + remaining + " seconds before requesting another code.");
+            return;
+        }
+        
         JDialog forgotDialog = new JDialog(this, "Forgot Password", true);
         forgotDialog.setSize(450, 300);
         forgotDialog.setLocationRelativeTo(this);
@@ -459,11 +489,15 @@ public class LoginPage extends JFrame {
         forgotDialog.add(sendButton, gbc);
 
         sendButton.addActionListener(evt -> {
-            String username = usernameField.getText().trim();
+            // FIXED: Sanitize username input
+            String username = Sanitizer.sanitizeUsername(usernameField.getText().trim());
             if (username.isEmpty()) {
                 ErrorDialog.show(LoginPage.this, "Error", "Please enter your username.");
                 return;
             }
+
+            // FIXED: Update rate limiting timestamp
+            lastForgotPasswordRequest = System.currentTimeMillis();
 
             sendButton.setEnabled(false);
             sendButton.setText("Sending...");
@@ -484,7 +518,6 @@ public class LoginPage extends JFrame {
                                 "The code will expire in 15 minutes.");
                             showVerifyCodeDialog(username);
                         } else {
-                            // Don't reveal if username exists or not (security)
                             SuccessDialog.show(LoginPage.this, "Code Sent", 
                                 "If an account exists with that username, a reset code has been sent.");
                         }
@@ -502,9 +535,6 @@ public class LoginPage extends JFrame {
         forgotDialog.setVisible(true);
     }
 
-    /**
-     * Show Verify Code dialog
-     */
     private void showVerifyCodeDialog(String username) {
         JDialog verifyDialog = new JDialog(this, "Verify Reset Code", true);
         verifyDialog.setSize(450, 300);
@@ -573,9 +603,6 @@ public class LoginPage extends JFrame {
         verifyDialog.setVisible(true);
     }
 
-    /**
-     * Show Reset Password dialog
-     */
     private void showResetPasswordDialog(String username, String resetCode) {
         JDialog resetDialog = new JDialog(this, "Reset Password", true);
         resetDialog.setSize(450, 400);
