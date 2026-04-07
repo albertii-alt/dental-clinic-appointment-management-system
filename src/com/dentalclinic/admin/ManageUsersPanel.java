@@ -7,6 +7,7 @@ import java.awt.*;
 import java.util.List;
 import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.PasswordValidator;
+import com.dentalclinic.dao.PatientDAO;
 
 public class ManageUsersPanel extends JPanel {
     private JTextField nameField, userField, emailField;
@@ -19,6 +20,7 @@ public class ManageUsersPanel extends JPanel {
     private int currentAdminId;
     private boolean iAmSuperAdmin;
     private StaffDAO staffDAO = new StaffDAO();
+    private PatientDAO patientDAO = new PatientDAO(); 
 
     // UI Style Constants
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
@@ -223,7 +225,7 @@ public class ManageUsersPanel extends JPanel {
         }
     }
 
-    private void handleSaveAction() {
+        private void handleSaveAction() {
         String adminRoleStr = iAmSuperAdmin ? "Super Admin" : "Admin";
         String name = nameField.getText().trim();
         String user = userField.getText().trim();
@@ -243,6 +245,27 @@ public class ManageUsersPanel extends JPanel {
         }
 
         try {
+            // ==========================================================
+            // SECURITY FIX: Cross-table username uniqueness check
+            // ==========================================================
+            
+            // Check if username already exists in patients table (for ALL staff creation/update)
+            // For UPDATE: Only check if username is being changed
+            boolean checkUsername = true;
+            if (selectedUserId != -1) {
+                // For update, get current username from table to see if it changed
+                String currentUsername = (String) tableModel.getValueAt(userTable.getSelectedRow(), 2);
+                if (currentUsername != null && currentUsername.equals(user)) {
+                    checkUsername = false; // Username unchanged, skip check
+                }
+            }
+            
+            if (checkUsername && patientDAO.isUsernameTakenInPatients(user)) {
+                JOptionPane.showMessageDialog(this, "Username already exists as a PATIENT account. Please choose another username.", 
+                        "Username Conflict", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+            
             if (selectedUserId == -1) {
                 // NEW USER - Validate password complexity
                 if (pass.isEmpty()) {
@@ -287,8 +310,13 @@ public class ManageUsersPanel extends JPanel {
             }
             resetForm();
             refreshTable();
+        } catch (IllegalArgumentException ex) {
+            // Username already exists in patients table
+            JOptionPane.showMessageDialog(this, "This username is already taken by a patient account. Please choose another username.", 
+                    "Username Unavailable", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "An unexpected error occurred. Please try again.", 
+                    "Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 

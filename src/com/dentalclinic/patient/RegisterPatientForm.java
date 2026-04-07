@@ -380,10 +380,19 @@ public class RegisterPatientForm extends JFrame {
                 com.dentalclinic.ui.components.ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
             }
         } catch (SQLException ex) {
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server: " + ex.getMessage());
+            com.dentalclinic.ui.components.ErrorDialog.show(this, "Database Error", "Unable to connect to the server. Please try again later.");
         } catch (IllegalArgumentException ex) {
-            // Fallback for any validation errors from the service
-            com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", ex.getMessage());
+            // Check if this is a username conflict error
+            String message = ex.getMessage();
+            if (message != null && (message.contains("Username already taken") || message.contains("Username already exists"))) {
+                com.dentalclinic.ui.components.ErrorDialog.show(this, "Username Unavailable", "This username is already taken. Please choose another username.");
+            } else if (message != null && message.contains("Password does not meet requirements")) {
+                // Password validation error from AuthService
+                com.dentalclinic.ui.components.ErrorDialog.show(this, "Invalid Password", message);
+            } else {
+                // Any other validation error
+                com.dentalclinic.ui.components.ErrorDialog.show(this, "Registration Failed", message);
+            }
         }
     }
 

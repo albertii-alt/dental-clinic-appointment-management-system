@@ -87,7 +87,21 @@ public class AuthService {
         }
     }
 
-    public boolean registerNewPatient(String fName, String mName, String lName, java.sql.Date dob, int age, String addr, String phone, String email, String user, String pass) throws java.sql.SQLException {
+        public boolean registerNewPatient(String fName, String mName, String lName, java.sql.Date dob, int age, String addr, String phone, String email, String user, String pass) throws java.sql.SQLException {
+        // ==========================================================
+        // SECURITY FIX: Cross-table username uniqueness check
+        // ==========================================================
+        
+        // Check if username already exists in patients table
+        if (patientDAO.isUsernameTakenInPatients(user)) {
+            throw new IllegalArgumentException("Username already taken by another patient. Please choose another username.");
+        }
+        
+        // Check if username already exists in staff table
+        if (staffDAO.isUsernameTakenInStaff(user)) {
+            throw new IllegalArgumentException("Username already exists as a staff account. Please choose another username.");
+        }
+        
         List<String> passwordErrors = PasswordValidator.validatePassword(pass);
         if (!passwordErrors.isEmpty()) {
             throw new IllegalArgumentException("Password does not meet requirements: " + String.join(", ", passwordErrors));
@@ -96,9 +110,15 @@ public class AuthService {
         boolean success = patientDAO.registerPatient(fName, mName, lName, dob, age, addr, phone, email, user, pass);
 
         if (success) {
-            LogService.logSystemEvent("INFO", "AuthService", "New patient registered");
+            LogService.logSystemEvent("INFO", "AuthService", "New patient registered: " + maskUsername(user));
             String fullName = fName + " " + lName;
-            EmailUtil.sendWelcomeEmailAsync(fullName, email, user, pass);
+
+            // SECURITY FIX: Password is no longer passed to the email method.
+            // Sending plaintext passwords via email is a security risk — emails can be
+            // intercepted, stored in mail server logs, or forwarded unintentionally.
+            // The patient already knows their password (they just typed it).
+            // The welcome email now only confirms their username for reference.
+            EmailUtil.sendWelcomeEmailAsync(fullName, email, user);
         }
 
         return success;

@@ -296,8 +296,18 @@ public class RegisterPatientPanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, "Registration failed. Username may already exist.");
             }
+        } catch (IllegalArgumentException ex) {
+            // Username already exists in patients OR staff table
+            String message = ex.getMessage();
+            if (message.contains("Username already taken") || message.contains("Username already exists")) {
+                JOptionPane.showMessageDialog(this, "This username is already taken. Please choose another username.", 
+                        "Username Unavailable", JOptionPane.ERROR_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, message, "Registration Failed", JOptionPane.ERROR_MESSAGE);
+            }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+            JOptionPane.showMessageDialog(this, "An unexpected error occurred. Please try again.", 
+                    "Registration Error", JOptionPane.ERROR_MESSAGE);
         }
     }
 

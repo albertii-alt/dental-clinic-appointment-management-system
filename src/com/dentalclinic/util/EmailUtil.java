@@ -230,9 +230,14 @@ public class EmailUtil {
     
     /**
      * Send welcome email after patient registration (Async) - System generated
+     *
+     * SECURITY FIX: Password is no longer accepted or included in the email body.
+     * The patient just typed their password during registration — they already know it.
+     * Sending passwords via email exposes them to interception, mail server logging,
+     * and forwarding risks. Only the username is included for reference.
      */
-    public static void sendWelcomeEmailAsync(String patientName, String email, String username, String password) {
-        String subject = "Welcome to Vantage Dental Clinic! 🦷";
+    public static void sendWelcomeEmailAsync(String patientName, String email, String username) {
+        String subject = "Welcome to Vantage Dental Clinic!";
         String body = "Dear " + patientName + ",\n\n" +
                       "Thank you for registering with Vantage Dental Clinic!\n\n" +
                       "Your account has been created successfully.\n\n" +
@@ -240,16 +245,20 @@ public class EmailUtil {
                       "YOUR ACCOUNT INFORMATION\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
                       "Username: " + username + "\n\n" +
-                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "For security, your password is never included in emails.\n" +
+                      "If you ever forget your password, use the 'Forgot Password'\n" +
+                      "option on the login screen to reset it.\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
                       "You can now:\n" +
-                      "✓ Book appointments online\n" +
-                      "✓ View your medical history\n" +
-                      "✓ Receive appointment reminders\n\n" +
+                      "  - Book appointments online\n" +
+                      "  - View your medical history\n" +
+                      "  - Receive appointment reminders\n\n" +
+                      "To login, open the Dental Clinic application.\n\n" +
                       "Best regards,\n" +
                       "Vantage Dental Clinic Team";
 
         sendEmailAsync(email, subject, body);
-        addToAuditTrail(0, "System", "Email Sent", "Welcome email to new patient: " + patientName);
+        addToAuditTrail(0, "System", "Email Sent", "Welcome email sent to new patient: " + patientName);
     }
     
     /**
@@ -422,22 +431,28 @@ public class EmailUtil {
     
     /**
      * Send welcome email after patient registration (Sync)
+     *
+     * SECURITY FIX: Password parameter removed. Passwords must never be sent
+     * via email. Only the username is included so the patient has their login
+     * reference without exposing their credentials.
      */
-    public static void sendWelcomeEmail(String patientName, String email, String username, String password) {
-        String subject = "Welcome to Vantage Dental Clinic! 🦷";
+    public static void sendWelcomeEmail(String patientName, String email, String username) {
+        String subject = "Welcome to Vantage Dental Clinic!";
         String body = "Dear " + patientName + ",\n\n" +
                       "Thank you for registering with Vantage Dental Clinic!\n\n" +
                       "Your account has been created successfully.\n\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                      "LOGIN CREDENTIALS\n" +
+                      "YOUR ACCOUNT INFORMATION\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                      "Username: " + username + "\n" +
-                      "Password: " + password + "\n" +
+                      "Username: " + username + "\n\n" +
+                      "For security, your password is never included in emails.\n" +
+                      "If you ever forget your password, use the 'Forgot Password'\n" +
+                      "option on the login screen to reset it.\n" +
                       "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
                       "You can now:\n" +
-                      "✓ Book appointments online\n" +
-                      "✓ View your medical history\n" +
-                      "✓ Receive appointment reminders\n\n" +
+                      "  - Book appointments online\n" +
+                      "  - View your medical history\n" +
+                      "  - Receive appointment reminders\n\n" +
                       "To login, open the Dental Clinic application.\n\n" +
                       "Best regards,\n" +
                       "Vantage Dental Clinic Team";
@@ -500,50 +515,94 @@ public class EmailUtil {
     }
     
     /**
-    * Send appointment reminder with audit trail (Async)
-    * Automatically adjusts wording based on how far away the appointment is
-    */
-   public static void sendAppointmentReminderWithActor(int actorId, String actorRole,
-                                                        String patientName, String email, 
-                                                        String serviceType, String date, String time) {
+     * Send appointment reminder with audit trail (Async)
+     * Automatically adjusts wording based on how far away the appointment is
+     */
+    public static void sendAppointmentReminderWithActor(int actorId, String actorRole,
+                                                         String patientName, String email, 
+                                                         String serviceType, String date, String time) {
 
-       // Parse the appointment date
-       java.time.LocalDate appointmentDate = java.time.LocalDate.parse(date);
-       java.time.LocalDate today = java.time.LocalDate.now();
-       long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, appointmentDate);
+        java.time.LocalDate appointmentDate = java.time.LocalDate.parse(date);
+        java.time.LocalDate today = java.time.LocalDate.now();
+        long daysUntil = java.time.temporal.ChronoUnit.DAYS.between(today, appointmentDate);
 
-       String subject;
-       String reminderText;
+        String subject;
+        String reminderText;
 
-       if (daysUntil == 0) {
-           subject = "Appointment Reminder - Today at Vantage Dental Clinic";
-           reminderText = "This is a reminder about your appointment TODAY.";
-       } else if (daysUntil == 1) {
-           subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
-           reminderText = "This is a friendly reminder about your appointment TOMORROW.";
-       } else {
-           subject = "Appointment Reminder - Vantage Dental Clinic";
-           reminderText = "This is a reminder about your upcoming appointment on " + date + ".";
-       }
+        if (daysUntil == 0) {
+            subject = "Appointment Reminder - Today at Vantage Dental Clinic";
+            reminderText = "This is a reminder about your appointment TODAY.";
+        } else if (daysUntil == 1) {
+            subject = "Appointment Reminder - Tomorrow at Vantage Dental Clinic";
+            reminderText = "This is a friendly reminder about your appointment TOMORROW.";
+        } else {
+            subject = "Appointment Reminder - Vantage Dental Clinic";
+            reminderText = "This is a reminder about your upcoming appointment on " + date + ".";
+        }
 
-       String body = "Dear " + patientName + ",\n\n" +
-                     reminderText + "\n\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     "APPOINTMENT DETAILS\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     "Service: " + serviceType + "\n" +
-                     "Date: " + date + "\n" +
-                     "Time: " + time + "\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                     "Please arrive 10 minutes before your scheduled time.\n\n" +
-                     "To cancel or reschedule, please contact the clinic.\n\n" +
-                     "Thank you for choosing Vantage Dental Clinic!\n\n" +
-                     "Best regards,\n" +
-                     "Vantage Dental Clinic Team";
+        String body = "Dear " + patientName + ",\n\n" +
+                      reminderText + "\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "APPOINTMENT DETAILS\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "Service: " + serviceType + "\n" +
+                      "Date: " + date + "\n" +
+                      "Time: " + time + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "Please arrive 10 minutes before your scheduled time.\n\n" +
+                      "To cancel or reschedule, please contact the clinic.\n\n" +
+                      "Thank you for choosing Vantage Dental Clinic!\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
 
-       String actionDescription = "Appointment reminder sent to patient: " + patientName + " (" + daysUntil + " days away)";
-       sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
-   }
+        String actionDescription = "Appointment reminder sent to patient: " + patientName + " (" + daysUntil + " days away)";
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
+    }
+    
+    /**
+     * Send password reset code email
+     */
+    public static void sendPasswordResetCode(String email, String code) {
+        String subject = "Password Reset Code - Vantage Dental Clinic";
+        String body = "Dear User,\n\n" +
+                      "We received a request to reset your password for your Vantage Dental Clinic account.\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "YOUR RESET CODE\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      code + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "This code will expire in 15 minutes.\n\n" +
+                      "If you did not request this, please ignore this email.\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
+
+        sendEmailAsync(email, subject, body);
+    }
+    
+    /**
+     * Send day-of appointment reminder (TODAY)
+     */
+    public static void sendDayOfReminderWithActor(int actorId, String actorRole,
+                                                   String patientName, String email, 
+                                                   String serviceType, String date, String time) {
+        String subject = "Your Dental Appointment is TODAY!";
+        String body = "Dear " + patientName + ",\n\n" +
+                      "This is a reminder that your appointment is TODAY.\n\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "APPOINTMENT DETAILS\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
+                      "Service: " + serviceType + "\n" +
+                      "Date: TODAY, " + date + "\n" +
+                      "Time: " + time + "\n" +
+                      "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
+                      "Please arrive 10 minutes before your scheduled time.\n\n" +
+                      "To cancel or reschedule, please contact the clinic immediately.\n\n" +
+                      "Best regards,\n" +
+                      "Vantage Dental Clinic Team";
+
+        String actionDescription = "Day-of reminder sent to patient: " + patientName;
+        sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
+    }
     
     /**
      * Check if email is configured
@@ -575,49 +634,4 @@ public class EmailUtil {
         emailExecutor.shutdown();
         logEmailEvent("INFO", "Email executor shutdown");
     }
-    
-    /**
-    * Send password reset code email
-    */
-   public static void sendPasswordResetCode(String email, String code) {
-       String subject = "Password Reset Code - Vantage Dental Clinic";
-       String body = "Dear User,\n\n" +
-                     "We received a request to reset your password for your Vantage Dental Clinic account.\n\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     "YOUR RESET CODE\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     code + "\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                     "This code will expire in 15 minutes.\n\n" +
-                     "If you did not request this, please ignore this email.\n\n" +
-                     "Best regards,\n" +
-                     "Vantage Dental Clinic Team";
-
-       sendEmailAsync(email, subject, body);
-   }
-   
-   /**
-    * Send day-of appointment reminder (TODAY)
-    */
-   public static void sendDayOfReminderWithActor(int actorId, String actorRole,
-                                                  String patientName, String email, 
-                                                  String serviceType, String date, String time) {
-       String subject = "🔔 Your Dental Appointment is TODAY!";
-       String body = "Dear " + patientName + ",\n\n" +
-                     "This is a reminder that your appointment is TODAY.\n\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     "APPOINTMENT DETAILS\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n" +
-                     "Service: " + serviceType + "\n" +
-                     "Date: TODAY, " + date + "\n" +
-                     "Time: " + time + "\n" +
-                     "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n" +
-                     "Please arrive 10 minutes before your scheduled time.\n\n" +
-                     "To cancel or reschedule, please contact the clinic immediately.\n\n" +
-                     "Best regards,\n" +
-                     "Vantage Dental Clinic Team";
-
-       String actionDescription = "Day-of reminder sent to patient: " + patientName;
-       sendEmailAsync(email, subject, body, actorId, actorRole, actionDescription);
-   }
 }

@@ -321,4 +321,25 @@ public class PatientDAO {
         }
         return 0;
     }
+    
+     // ==========================================================
+    // CROSS-TABLE USERNAME CHECK (for staff creation)
+    // ==========================================================
+    
+    /**
+     * Check if username exists in patients table (for cross-table validation)
+     */
+    public boolean isUsernameTakenInPatients(String username) throws SQLException {
+        String query = "SELECT COUNT(*) FROM patients WHERE username = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, username);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        }
+        return false;
+    }
 }
