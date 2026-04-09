@@ -152,13 +152,21 @@ public class LoginPage extends JFrame {
         formArea.add(subtitle, gbcR);
 
         addInputSection(formArea, "USERNAME", usernameField = new JTextField(), gbcR, 2);
-        addInputSection(formArea, "PASSWORD", passwordField = new JPasswordField(), gbcR, 4);
+        addInputSection(formArea, "PASSWORD", passwordField = new JPasswordField(), gbcR, 4);   
+        
+        // --- ROLE DROPDOWN ENHANCEMENT ---
 
+        // 1. Define the items
+        String[] roles = {"Patient", "Staff", "Dentist", "Admin"};
+        roleDropdown = new JComboBox<>(roles);
+
+        // 2. Apply Custom Styling
+        styleRoleDropdown(roleDropdown);
+
+        // Add to formArea (using your existing gbcR constraints)
         gbcR.gridy = 6; gbcR.insets = new Insets(0, 0, 5, 0);
         formArea.add(createFieldLabel("SIGN IN AS"), gbcR);
-        roleDropdown = new JComboBox<>(new String[]{"Patient", "Staff", "Dentist", "Admin"});
-        roleDropdown.setPreferredSize(new Dimension(0, 45));
-        roleDropdown.setBackground(Color.WHITE);
+
         gbcR.gridy = 7; gbcR.insets = new Insets(0, 0, 35, 0);
         formArea.add(roleDropdown, gbcR);
 
@@ -700,5 +708,64 @@ public class LoginPage extends JFrame {
         });
 
         resetDialog.setVisible(true);
+    }
+    
+    private void styleRoleDropdown(JComboBox<String> combo) {
+        combo.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        combo.setPreferredSize(new Dimension(0, 45));
+        combo.setBackground(Color.WHITE);
+
+        // 1. Flatten the UI Look
+        combo.setUI(new javax.swing.plaf.basic.BasicComboBoxUI() {
+            @Override
+            protected JButton createArrowButton() {
+                // Create a custom, flat arrow button
+                JButton button = new JButton();
+                button.setBorder(BorderFactory.createEmptyBorder());
+                button.setContentAreaFilled(false);
+                button.setFocusPainted(false);
+                button.setBackground(Color.WHITE);
+                // Add a simple chevron/arrow icon or text
+                button.setText("▼ "); 
+                button.setForeground(TEXT_GRAY);
+                button.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                return button;
+            }
+        });
+
+        // 2. Consistent Borders (Same logic as your styleInputField)
+        Border n = BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_COLOR), 
+            BorderFactory.createEmptyBorder(5, 15, 5, 15)
+        );
+        Border a = BorderFactory.createCompoundBorder(
+            new LineBorder(SECONDARY_BLUE, 1), 
+            BorderFactory.createEmptyBorder(5, 15, 5, 15)
+        );
+
+        combo.setBorder(n);
+
+        // 3. Focus Listeners for Border Transition
+        combo.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) { combo.setBorder(a); }
+            public void focusLost(FocusEvent e) { combo.setBorder(n); }
+        });
+
+        // 4. Custom Renderer for the Popup List (keeps your previous enhancement)
+        combo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                JLabel label = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                label.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+                if (isSelected) {
+                    label.setBackground(SECONDARY_BLUE);
+                    label.setForeground(Color.WHITE);
+                } else {
+                    label.setBackground(Color.WHITE);
+                    label.setForeground(TEXT_DARK);
+                }
+                return label;
+            }
+        });
     }
 }
