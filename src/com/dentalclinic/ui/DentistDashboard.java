@@ -11,6 +11,7 @@ import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.Timer;
 import java.util.ArrayList;
 import java.util.List;
+import com.dentalclinic.ui.components.WelcomePanel;
 
 public class DentistDashboard extends JFrame {
 
@@ -62,11 +63,10 @@ public class DentistDashboard extends JFrame {
         
         sidebar = new Sidebar();
         sidebar.addLogo("Dentist Portal", () -> {
-            showWelcomeScreen();
+            switchPanel(new WelcomePanel(staffName, "See your Appointments for today, Doc!"));
             sidebar.clearActiveButton();
             UserSession.updateActivity();
         });
-        
         // View Appointments Dropdown
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
             viewAppBtn = new SidebarButton("View Appointments  ⌄");
@@ -134,7 +134,7 @@ public class DentistDashboard extends JFrame {
         add(mainPanel, BorderLayout.CENTER);
         
         startSessionMonitor();
-        showWelcomeScreen();
+        switchPanel(new WelcomePanel(staffName, "See your Appointments for today, Doc!"));
         
         new Thread(() -> {
             try {
@@ -179,16 +179,6 @@ public class DentistDashboard extends JFrame {
         mainPanel.revalidate();
         mainPanel.repaint();
         UserSession.updateActivity();
-    }
-
-    private void showWelcomeScreen() {
-        JPanel welcomePanel = new JPanel(new GridBagLayout());
-        welcomePanel.setBackground(new Color(236, 240, 241));
-        JLabel welcomeMsg = new JLabel("Welcome, Dr. " + staffName);
-        welcomeMsg.setFont(new Font("Arial", Font.BOLD, 28));
-        welcomeMsg.setForeground(new Color(44, 62, 80));
-        welcomePanel.add(welcomeMsg);
-        switchPanel(welcomePanel);
     }
     
     private void toggleAppMenu() {

@@ -9,6 +9,7 @@ import com.dentalclinic.ui.components.SidebarButton;
 import com.dentalclinic.util.UserSession;
 import org.kordamp.ikonli.fontawesome5.FontAwesomeSolid;
 import javax.swing.Timer;
+import com.dentalclinic.ui.components.WelcomePanel;
 
 public class StaffDashboard extends JFrame {
 
@@ -53,11 +54,10 @@ public class StaffDashboard extends JFrame {
         
         sidebar = new Sidebar();
         sidebar.addLogo("Staff Portal", () -> {
-            showWelcomeScreen();
+            switchPanel(new WelcomePanel(staffName, "Select an appointment category to manage the clinic flow"));
             sidebar.clearActiveButton();
             UserSession.updateActivity();
         });
-        
         // Appointment Management Section
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
             sidebar.addButton("Pending Appointments", FontAwesomeSolid.CLOCK, () -> {
@@ -144,7 +144,7 @@ public class StaffDashboard extends JFrame {
         add(mainPanel, BorderLayout.CENTER);
         
         startSessionMonitor();
-        showWelcomeScreen();
+        switchPanel(new WelcomePanel(staffName, "Select an appointment category to manage the clinic flow"));
         
         new Thread(() -> {
             try {
