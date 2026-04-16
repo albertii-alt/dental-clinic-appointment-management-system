@@ -35,11 +35,12 @@ public class DashboardDAO {
     public List<Object[]> getTodayAppointments() throws SQLException {
         List<Object[]> appts = new ArrayList<>();
         String query = "SELECT CONCAT(p.first_name, ' ', p.last_name) AS patient_name, " +
-                       "a.service_type, a.appointment_time, a.status " +
+                       "s.service_name AS service_type, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
                        "FROM appointments a " +
+                       "LEFT JOIN services s ON a.service_id = s.service_id " +
                        "JOIN patients p ON a.patient_id = p.patient_id " +
                        "WHERE a.appointment_date = CURDATE() " +
-                       "ORDER BY a.appointment_time ASC";
+                       "ORDER BY a.appointment_time_new ASC";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);
@@ -77,7 +78,10 @@ public class DashboardDAO {
 
     public Map<String, Integer> getServicePopularity() throws SQLException {
         Map<String, Integer> data = new HashMap<>();
-        String query = "SELECT service_type, COUNT(*) as count FROM appointments GROUP BY service_type LIMIT 5";
+        String query = "SELECT s.service_name AS service_type, COUNT(*) AS count " +
+                       "FROM appointments a " +
+                       "LEFT JOIN services s ON a.service_id = s.service_id " +
+                       "GROUP BY s.service_name ORDER BY count DESC LIMIT 5";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);
              ResultSet rs = pstmt.executeQuery()) {
@@ -90,7 +94,10 @@ public class DashboardDAO {
     
     public Map<String, Integer> getAppointmentTrends() throws SQLException {
         Map<String, Integer> trends = new java.util.LinkedHashMap<>();
-        String query = "SELECT service_type, COUNT(*) as total FROM appointments WHERE status != 'Cancelled' GROUP BY service_type";
+        String query = "SELECT s.service_name AS service_type, COUNT(*) AS total " +
+                       "FROM appointments a " +
+                       "LEFT JOIN services s ON a.service_id = s.service_id " +
+                       "WHERE a.status != 'Cancelled' GROUP BY s.service_name";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);

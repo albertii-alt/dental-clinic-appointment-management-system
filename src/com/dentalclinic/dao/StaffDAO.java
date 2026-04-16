@@ -17,7 +17,9 @@ public class StaffDAO {
     
     public Object[] login(String user, String pass, String role) throws SQLException {
         // SECURITY FIX: First get user by username and role only, then verify password hash
-        String query = "SELECT staff_id, role, is_super_admin, full_name, email, password, force_password_reset FROM staff WHERE username = ? AND role = ? AND is_active = 1";
+        String query = "SELECT s.staff_id, r.role_name AS role, s.is_super_admin, s.full_name, s.email, s.password, s.force_password_reset " +
+                       "FROM staff s JOIN roles r ON s.role_id = r.role_id " +
+                       "WHERE s.username = ? AND r.role_name = ? AND s.is_active = 1";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
@@ -79,7 +81,8 @@ public class StaffDAO {
     
     public List<Object[]> getAllStaff() throws SQLException {
         List<Object[]> staffList = new ArrayList<>();
-        String query = "SELECT staff_id, full_name, username, email, role, is_active, is_super_admin FROM staff ORDER BY staff_id DESC";
+        String query = "SELECT s.staff_id, s.full_name, s.username, s.email, r.role_name AS role, s.is_active, s.is_super_admin " +
+                       "FROM staff s JOIN roles r ON s.role_id = r.role_id ORDER BY s.staff_id DESC";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);
@@ -100,7 +103,8 @@ public class StaffDAO {
     }
     
     public boolean addStaff(String name, String user, String pass, String email, String role, int adminId, String adminRole) throws SQLException {
-        String query = "INSERT INTO staff (full_name, username, password, email, role, is_active, force_password_reset) VALUES (?, ?, ?, ?, ?, 1, 0)";
+        String query = "INSERT INTO staff (full_name, username, password, email, role_id, is_active, force_password_reset) " +
+                       "VALUES (?, ?, ?, ?, (SELECT role_id FROM roles WHERE role_name = ?), 1, 0)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, name);
@@ -121,7 +125,8 @@ public class StaffDAO {
     public boolean updateStaff(int targetId, String newName, String newUser, String newEmail, String newRole, String newPass, int adminId, String adminRole) throws SQLException {
         // FETCH OLD DATA FIRST
         String oldName = "", oldRole = "";
-        String checkSql = "SELECT full_name, role FROM staff WHERE staff_id = ?";
+        String checkSql = "SELECT s.full_name, r.role_name AS role " +
+                         "FROM staff s JOIN roles r ON s.role_id = r.role_id WHERE s.staff_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement checkPs = conn.prepareStatement(checkSql)) {
             checkPs.setInt(1, targetId);
@@ -134,8 +139,8 @@ public class StaffDAO {
         
         boolean updatePassword = (newPass != null && !newPass.trim().isEmpty());
         String query = updatePassword ? 
-            "UPDATE staff SET full_name = ?, username = ?, email = ?, role = ?, password = ? WHERE staff_id = ?" :
-            "UPDATE staff SET full_name = ?, username = ?, email = ?, role = ? WHERE staff_id = ?";
+            "UPDATE staff SET full_name = ?, username = ?, email = ?, role_id = (SELECT role_id FROM roles WHERE role_name = ?), password = ? WHERE staff_id = ?" :
+            "UPDATE staff SET full_name = ?, username = ?, email = ?, role_id = (SELECT role_id FROM roles WHERE role_name = ?) WHERE staff_id = ?";
         
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {

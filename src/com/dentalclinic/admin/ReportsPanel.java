@@ -335,9 +335,10 @@ public class ReportsPanel extends JPanel {
         currentDateRange = startDateObj != null && endDateObj != null ? 
             new SimpleDateFormat("MMM dd, yyyy").format(startDateObj) + " - " + new SimpleDateFormat("MMM dd, yyyy").format(endDateObj) : "All Time";
         
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, " +
-                       "a.appointment_date, a.appointment_time, a.status " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, s.service_name AS service_type, " +
+                   "a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+                   "LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.appointment_date BETWEEN ? AND ? ORDER BY a.appointment_date DESC";
         
         List<Object[]> data = new ArrayList<>();
@@ -379,9 +380,10 @@ public class ReportsPanel extends JPanel {
         currentDateRange = startDateObj != null && endDateObj != null ? 
             new SimpleDateFormat("MMM dd, yyyy").format(startDateObj) + " - " + new SimpleDateFormat("MMM dd, yyyy").format(endDateObj) : "All Time";
         
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, " +
-                       "a.appointment_date, a.appointment_time, a.request_date " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, s.service_name AS service_type, " +
+                   "a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.request_date " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+                   "LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.status = 'Pending' AND a.appointment_date BETWEEN ? AND ? ORDER BY a.request_date ASC";
         
         List<Object[]> data = new ArrayList<>();
@@ -423,9 +425,10 @@ public class ReportsPanel extends JPanel {
         currentDateRange = startDateObj != null && endDateObj != null ? 
             new SimpleDateFormat("MMM dd, yyyy").format(startDateObj) + " - " + new SimpleDateFormat("MMM dd, yyyy").format(endDateObj) : "All Time";
         
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, " +
-                       "a.appointment_date, a.appointment_time, a.clinical_notes " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, s.service_name AS service_type, " +
+                   "a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.clinical_notes " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+                   "LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.status = 'Completed' AND a.appointment_date BETWEEN ? AND ? ORDER BY a.appointment_date DESC";
         
         List<Object[]> data = new ArrayList<>();
@@ -467,9 +470,10 @@ public class ReportsPanel extends JPanel {
         currentDateRange = startDateObj != null && endDateObj != null ? 
             new SimpleDateFormat("MMM dd, yyyy").format(startDateObj) + " - " + new SimpleDateFormat("MMM dd, yyyy").format(endDateObj) : "All Time";
         
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, " +
-                       "a.appointment_date, a.appointment_time, a.status " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, s.service_name AS service_type, " +
+                   "a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+                   "LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.status IN ('Cancelled', 'Declined') AND a.appointment_date BETWEEN ? AND ? ORDER BY a.appointment_date DESC";
         
         List<Object[]> data = new ArrayList<>();
@@ -504,12 +508,13 @@ public class ReportsPanel extends JPanel {
     private void loadServiceReport() throws SQLException {
         currentDateRange = "All Time (No date filter for this report)";
         
-        String query = "SELECT service_type, COUNT(*) as total, " +
-                       "SUM(CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) as completed, " +
-                       "SUM(CASE WHEN status = 'Approved' THEN 1 ELSE 0 END) as approved, " +
-                       "SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending, " +
-                       "SUM(CASE WHEN status IN ('Cancelled', 'Declined') THEN 1 ELSE 0 END) as cancelled " +
-                       "FROM appointments GROUP BY service_type ORDER BY total DESC";
+        String query = "SELECT s.service_name AS service_type, COUNT(*) as total, " +
+                   "SUM(CASE WHEN a.status = 'Completed' THEN 1 ELSE 0 END) as completed, " +
+                   "SUM(CASE WHEN a.status = 'Approved' THEN 1 ELSE 0 END) as approved, " +
+                   "SUM(CASE WHEN a.status = 'Pending' THEN 1 ELSE 0 END) as pending, " +
+                   "SUM(CASE WHEN a.status IN ('Cancelled', 'Declined') THEN 1 ELSE 0 END) as cancelled " +
+                   "FROM appointments a LEFT JOIN services s ON a.service_id = s.service_id " +
+                   "GROUP BY s.service_name ORDER BY total DESC";
         
         List<Object[]> data = new ArrayList<>();
         try (Connection conn = DBConnection.getConnection();

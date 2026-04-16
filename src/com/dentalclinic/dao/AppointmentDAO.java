@@ -7,6 +7,25 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AppointmentDAO {
+    private static final String APPOINTMENT_SELECT =
+        "SELECT a.appointment_id, a.patient_id, COALESCE(s.service_name, 'Unknown') AS service_type, " +
+        "a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, " +
+        "a.age_at_visit, a.contact_at_visit, a.status, a.clinical_notes, a.is_read, a.is_archived ";
+
+    private static final String APPOINTMENT_FROM =
+        "FROM appointments a LEFT JOIN services s ON a.service_id = s.service_id ";
+
+    private Appointment mapAppointment(ResultSet rs) throws SQLException {
+        Appointment app = new Appointment(
+            rs.getInt("appointment_id"), rs.getInt("patient_id"),
+            rs.getString("service_type"), rs.getDate("appointment_date"),
+            rs.getString("appointment_time"), rs.getInt("age_at_visit"),
+            rs.getString("contact_at_visit"), rs.getString("status"),
+            rs.getString("clinical_notes"), rs.getBoolean("is_read")
+        );
+        app.setArchived(rs.getBoolean("is_archived"));
+        return app;
+    }
     
 
     public boolean registerPatient(String fName, String mName, String lName, java.sql.Date dob, int age, String addr, String phone, String email, String user, String pass) throws SQLException {
@@ -77,7 +96,8 @@ public class AppointmentDAO {
     }
 
     public int save(Appointment app) throws SQLException {
-        String query = "INSERT INTO appointments (patient_id, service_type, appointment_date, appointment_time, age_at_visit, contact_at_visit, status, is_read) VALUES (?, ?, ?, ?, ?, ?, 'Pending', FALSE)";
+        String query = "INSERT INTO appointments (patient_id, service_id, appointment_date, appointment_time_new, age_at_visit, contact_at_visit, status, is_read) " +
+                       "VALUES (?, (SELECT service_id FROM services WHERE service_name = ?), ?, STR_TO_DATE(?, '%h:%i %p'), ?, ?, 'Pending', FALSE)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, app.getPatientId());
@@ -97,21 +117,13 @@ public class AppointmentDAO {
     
     public List<Appointment> getAppointmentsByPatient(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ?"; 
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    Appointment app = new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    );
-                    app.setArchived(rs.getBoolean("is_archived")); 
-                    list.add(app);
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -130,19 +142,13 @@ public class AppointmentDAO {
 
     public List<Appointment> getAppointmentsByStatus(String status) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE status = ? ORDER BY appointment_date ASC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.status = ? ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, status);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    ));
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -151,18 +157,12 @@ public class AppointmentDAO {
 
     public List<Appointment> getAllAppointments() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments ORDER BY appointment_date DESC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "ORDER BY a.appointment_date DESC";
         try (Connection conn = DBConnection.getConnection();
              Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
-                list.add(new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                    rs.getString("service_type"), rs.getDate("appointment_date"),
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                    rs.getString("contact_at_visit"), rs.getString("status"),
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                ));
+                list.add(mapAppointment(rs));
             }
         }
         return list;
@@ -170,18 +170,12 @@ public class AppointmentDAO {
 
     public List<Appointment> getTodaysAppointments() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE appointment_date = CURDATE() AND status = 'Approved'";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date = CURDATE() AND a.status = 'Approved'";
         try (Connection conn = DBConnection.getConnection();
              Statement st = conn.createStatement();
              ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
-                list.add(new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                    rs.getString("service_type"), rs.getDate("appointment_date"),
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                    rs.getString("contact_at_visit"), rs.getString("status"),
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                ));
+                list.add(mapAppointment(rs));
             }
         }
         return list;
@@ -189,19 +183,13 @@ public class AppointmentDAO {
 
     public List<Appointment> getTodaysAppointmentsByPatient(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ? AND appointment_date = CURDATE() AND status = 'Approved'";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? AND a.appointment_date = CURDATE() AND a.status = 'Approved'";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    ));
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -210,19 +198,13 @@ public class AppointmentDAO {
 
     public List<Appointment> getFutureUpcoming(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ? AND appointment_date > CURDATE() AND status = 'Approved' ORDER BY appointment_date ASC LIMIT 3";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? AND a.appointment_date > CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC LIMIT 3";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    ));
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -231,23 +213,15 @@ public class AppointmentDAO {
     
     public List<Appointment> getUnreadNotifications(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ? " +
-                       "AND is_read = FALSE AND is_archived = FALSE " +
-                       "AND status IN ('Cancelled', 'Declined', 'Approved')";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? " +
+                   "AND a.is_read = FALSE AND a.is_archived = FALSE " +
+                   "AND a.status IN ('Cancelled', 'Declined', 'Approved')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    Appointment app = new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    );
-                    app.setArchived(rs.getBoolean("is_archived"));
-                    list.add(app);
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -256,19 +230,13 @@ public class AppointmentDAO {
 
     public List<Appointment> getUpcomingScheduleByPatient(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ? AND appointment_date >= CURDATE() AND status = 'Approved' ORDER BY appointment_date ASC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? AND a.appointment_date >= CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    list.add(new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    ));
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -304,7 +272,12 @@ public class AppointmentDAO {
     // Helper methods for Tables (Object arrays)
     public List<Object[]> getPendingAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.*, p.first_name, p.middle_name, p.last_name FROM appointments a JOIN patients p ON a.patient_id = p.patient_id WHERE a.status = 'Pending' ORDER BY a.appointment_date ASC";
+        String query = "SELECT a.appointment_id, a.patient_id, p.first_name, p.middle_name, p.last_name, " +
+                   "COALESCE(s.service_name, 'Unknown') AS service_type, a.appointment_date, " +
+                   "DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+                   "LEFT JOIN services s ON a.service_id = s.service_id " +
+                   "WHERE a.status = 'Pending' ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
                 String fullName = rs.getString("first_name") + " " + rs.getString("middle_name") + " " + rs.getString("last_name");
@@ -316,7 +289,7 @@ public class AppointmentDAO {
 
     public List<String> getOccupiedSlots(java.sql.Date date) throws SQLException {
         List<String> occupied = new ArrayList<>();
-        String query = "SELECT appointment_time FROM appointments WHERE appointment_date = ? AND status != 'Cancelled'";
+        String query = "SELECT DATE_FORMAT(appointment_time_new, '%h:%i %p') AS appointment_time FROM appointments WHERE appointment_date = ? AND status != 'Cancelled'";
         try (Connection conn = DBConnection.getConnection(); PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setDate(1, date);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -391,7 +364,7 @@ public class AppointmentDAO {
     }
 
     public boolean updateDateTime(int appId, java.sql.Date newDate, String newTime) throws SQLException {
-        String query = "UPDATE appointments SET appointment_date = ?, appointment_time = ? WHERE appointment_id = ?";
+        String query = "UPDATE appointments SET appointment_date = ?, appointment_time_new = STR_TO_DATE(?, '%h:%i %p') WHERE appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setDate(1, newDate);
@@ -403,8 +376,8 @@ public class AppointmentDAO {
 
     public List<Object[]> getCancelledAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_date, a.appointment_time, a.status " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, COALESCE(s.service_name, 'Unknown') AS service_type, a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.status IN ('Cancelled', 'Declined') ORDER BY a.appointment_date DESC";
         try (Connection conn = DBConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
@@ -416,8 +389,8 @@ public class AppointmentDAO {
 
     public List<Object[]> getTodaysAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_time, a.status " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, COALESCE(s.service_name, 'Unknown') AS service_type, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.status " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.appointment_date = CURDATE() AND a.status = 'Approved'";
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
@@ -437,8 +410,8 @@ public class AppointmentDAO {
 
     public List<Object[]> getCompletedAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, a.service_type, a.appointment_date, a.clinical_notes " +
-                       "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, COALESCE(s.service_name, 'Unknown') AS service_type, a.appointment_date, a.clinical_notes " +
+                   "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id LEFT JOIN services s ON a.service_id = s.service_id " +
                        "WHERE a.status = 'Completed' ORDER BY a.appointment_date DESC";
         try (Connection conn = DBConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
@@ -450,19 +423,13 @@ public class AppointmentDAO {
     
     public List<Appointment> getAppointmentsByDateRange(boolean onlyToday) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = onlyToday ? "SELECT * FROM appointments WHERE appointment_date = CURDATE() AND status = 'Approved'" 
-                                 : "SELECT * FROM appointments WHERE appointment_date >= CURDATE() AND status = 'Approved'";
+        String query = onlyToday ? APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date = CURDATE() AND a.status = 'Approved'"
+                     : APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date >= CURDATE() AND a.status = 'Approved'";
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
-                list.add(new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"), 
-                    rs.getString("service_type"), rs.getDate("appointment_date"), 
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"), 
-                    rs.getString("contact_at_visit"), rs.getString("status"), 
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                ));
+                list.add(mapAppointment(rs));
             }
         }
         return list;
@@ -546,25 +513,20 @@ public class AppointmentDAO {
     
     public List<Appointment> getApprovedUpcomingAppointments() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE appointment_date >= CURDATE() AND status = 'Approved' ORDER BY appointment_date ASC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date >= CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
-                list.add(new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                    rs.getString("service_type"), rs.getDate("appointment_date"),
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                    rs.getString("contact_at_visit"), rs.getString("status"),
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                ));
+                list.add(mapAppointment(rs));
             }
         }
         return list;
     }
     
     public String getServiceNameByAppId(int appId) throws SQLException {
-        String sql = "SELECT service_type FROM appointments WHERE appointment_id = ?";
+        String sql = "SELECT COALESCE(s.service_name, 'Unknown') AS service_type FROM appointments a " +
+                 "LEFT JOIN services s ON a.service_id = s.service_id WHERE a.appointment_id = ?";
         try (Connection conn = com.dentalclinic.util.DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, appId);
@@ -577,26 +539,18 @@ public class AppointmentDAO {
     
     public List<Appointment> getRecentCancelledByPatient(int pId, int daysLimit) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE patient_id = ? " +
-                       "AND status = 'Cancelled' " +
-                       "AND is_archived = FALSE " +
-                       "AND appointment_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) " +
-                       "ORDER BY appointment_date DESC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? " +
+                   "AND a.status = 'Cancelled' " +
+                   "AND a.is_archived = FALSE " +
+                   "AND a.appointment_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY) " +
+                   "ORDER BY a.appointment_date DESC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
             pstmt.setInt(2, daysLimit);
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    Appointment app = new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    );
-                    app.setArchived(rs.getBoolean("is_archived"));
-                    list.add(app);
+                    list.add(mapAppointment(rs));
                 }
             }
         }
@@ -604,24 +558,13 @@ public class AppointmentDAO {
     }
     
     public Appointment getAppointmentById(int appId) throws SQLException {
-        String query = "SELECT * FROM appointments WHERE appointment_id = ?";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, appId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return new Appointment(
-                        rs.getInt("appointment_id"),
-                        rs.getInt("patient_id"),
-                        rs.getString("service_type"),
-                        rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"),
-                        rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"),
-                        rs.getString("status"),
-                        rs.getString("clinical_notes"),
-                        rs.getBoolean("is_read")
-                    );
+                    return mapAppointment(rs);
                 }
             }
         }
@@ -634,20 +577,13 @@ public class AppointmentDAO {
 
     public List<Appointment> getAppointmentsForTomorrow() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE appointment_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
-                       "AND status = 'Approved' AND reminder_sent = 0";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date = DATE_ADD(CURDATE(), INTERVAL 1 DAY) " +
+                   "AND a.status = 'Approved' AND a.reminder_sent = 0";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
-                Appointment app = new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                    rs.getString("service_type"), rs.getDate("appointment_date"),
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                    rs.getString("contact_at_visit"), rs.getString("status"),
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                );
-                list.add(app);
+                list.add(mapAppointment(rs));
             }
         }
         return list;
@@ -663,19 +599,13 @@ public class AppointmentDAO {
     }
 
     public Appointment getAppointmentByIdForReminder(int appId) throws SQLException {
-        String query = "SELECT * FROM appointments WHERE appointment_id = ? AND status = 'Approved'";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_id = ? AND a.status = 'Approved'";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, appId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    return new Appointment(
-                        rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                        rs.getString("service_type"), rs.getDate("appointment_date"),
-                        rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                        rs.getString("contact_at_visit"), rs.getString("status"),
-                        rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                    );
+                    return mapAppointment(rs);
                 }
             }
         }
@@ -691,21 +621,14 @@ public class AppointmentDAO {
      */
     public List<Appointment> getAppointmentsForToday() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = "SELECT * FROM appointments WHERE appointment_date = CURDATE() " +
-                       "AND status = 'Approved' AND day_of_reminder_sent = 0";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date = CURDATE() " +
+                   "AND a.status = 'Approved' AND a.day_of_reminder_sent = 0";
 
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query);
              ResultSet rs = pstmt.executeQuery()) {
             while (rs.next()) {
-                Appointment app = new Appointment(
-                    rs.getInt("appointment_id"), rs.getInt("patient_id"),
-                    rs.getString("service_type"), rs.getDate("appointment_date"),
-                    rs.getString("appointment_time"), rs.getInt("age_at_visit"),
-                    rs.getString("contact_at_visit"), rs.getString("status"),
-                    rs.getString("clinical_notes"), rs.getBoolean("is_read")
-                );
-                list.add(app);
+                list.add(mapAppointment(rs));
             }
         }
         return list;
