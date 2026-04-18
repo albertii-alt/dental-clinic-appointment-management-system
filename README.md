@@ -101,6 +101,27 @@ The script will:
 java -jar dist/DentalClinicAppointment_ManagementSystem.jar
 ```
 
+### 4. Service Health Check & Auto-Repair
+
+Use the health-check script to verify both MySQL and Apache:
+
+```bash
+./scripts/mysql-health-check.sh
+```
+
+Run with auto-repair enabled to trigger repair tools only when needed:
+
+```bash
+./scripts/mysql-health-check.sh --repair
+```
+
+Direct repair tools:
+
+```bash
+./scripts/mysql-auto-repair.sh
+./scripts/apache-auto-repair.sh
+```
+
 ---
 
 ## 🖥️ Usage

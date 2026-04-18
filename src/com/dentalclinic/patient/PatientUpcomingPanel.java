@@ -1,5 +1,7 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
@@ -10,16 +12,14 @@ import java.util.List;
 import java.util.ArrayList;
 import javax.imageio.ImageIO;
 import com.dentalclinic.model.Appointment;
-import com.dentalclinic.dao.AppointmentDAO;
-import com.dentalclinic.dao.PatientDAO;
-import com.dentalclinic.service.AppointmentService;
 
 public class PatientUpcomingPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
     private List<Appointment> upcomingList;
     private List<Appointment> filteredList = new ArrayList<>();
-    private AppointmentService appService = new AppointmentService();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
 
     // UI Colors
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
@@ -106,8 +106,7 @@ public class PatientUpcomingPanel extends JPanel {
     private void loadData(int pID) {
         try {
             model.setRowCount(0);
-            AppointmentDAO dao = new AppointmentDAO();
-            upcomingList = dao.getUpcomingScheduleByPatient(pID);
+            upcomingList = appointmentController.getUpcomingScheduleByPatient(pID);
             filteredList = new ArrayList<>(upcomingList); 
 
             if (upcomingList.isEmpty()) {   
@@ -132,8 +131,7 @@ public class PatientUpcomingPanel extends JPanel {
     private void showApprovedAppointmentDetails(int rowIndex, int pID) {
         try {
             Appointment app = filteredList.get(rowIndex);
-            PatientDAO pDao = new PatientDAO();
-            com.dentalclinic.model.Patient p = pDao.getPatientById(pID);
+            com.dentalclinic.model.Patient p = patientController.getPatientById(pID);
 
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
@@ -259,7 +257,7 @@ public class PatientUpcomingPanel extends JPanel {
                 int actorId = com.dentalclinic.util.UserSession.getUserId();
                 String actorRole = com.dentalclinic.util.UserSession.getUserRole();
 
-                if (appService.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
                     loadData(pID);
                 }

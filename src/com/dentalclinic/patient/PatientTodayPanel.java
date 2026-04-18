@@ -1,5 +1,7 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
@@ -7,13 +9,12 @@ import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
 import com.dentalclinic.model.Appointment;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.PatientDAO;
 
 public class PatientTodayPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
     private List<Appointment> todayList = new ArrayList<>();
 
     // UI Constants
@@ -106,7 +107,7 @@ public class PatientTodayPanel extends JPanel {
     private void loadTodayData(int pID) {
         try {
             model.setRowCount(0);
-            todayList = appService.getTodaysAppointmentsByPatient(pID);
+            todayList = appointmentController.getTodaysAppointmentsByPatient(pID);
             
             if (todayList.isEmpty()) {   
                 showNoDataMessage();
@@ -128,8 +129,7 @@ public class PatientTodayPanel extends JPanel {
     private void showTodayDetails(int rowIndex, int pID) {
         try {
             Appointment app = todayList.get(rowIndex);
-            PatientDAO pDao = new PatientDAO();
-            com.dentalclinic.model.Patient p = pDao.getPatientById(pID);
+            com.dentalclinic.model.Patient p = patientController.getPatientById(pID);
 
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));

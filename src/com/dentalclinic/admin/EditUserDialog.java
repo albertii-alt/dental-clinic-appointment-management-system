@@ -1,16 +1,16 @@
 package com.dentalclinic.admin;
 
+import com.dentalclinic.controller.AdminController;
 import javax.swing.*;
 import java.awt.*;
 import java.util.List;
-import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.PasswordValidator;
 
 public class EditUserDialog extends JDialog {
     private JTextField nameField, userField, emailField;
     private JComboBox<String> roleCombo;
     private JButton updateBtn, cancelBtn;
-    private StaffDAO staffDAO = new StaffDAO();
+    private final AdminController adminController = new AdminController();
     private int userId;
     private boolean result = false;
     private JPasswordField passField;
@@ -202,7 +202,7 @@ public class EditUserDialog extends JDialog {
             }
             
             // Update the staff member
-            if (staffDAO.updateStaff(userId, name, user, email, role, passwordToUpdate, adminId, adminRole)) {
+            if (adminController.updateStaff(userId, name, user, email, role, passwordToUpdate, adminId, adminRole)) {
                 JOptionPane.showMessageDialog(this, 
                     "Staff member updated successfully!", 
                     "Success", 

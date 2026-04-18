@@ -1,13 +1,12 @@
 package com.dentalclinic.admin;
 
+import com.dentalclinic.controller.AdminController;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.util.List;
-import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.PasswordValidator;
-import com.dentalclinic.dao.PatientDAO;
 
 public class ManageUsersPanel extends JPanel {
     private JTextField nameField, userField, emailField;
@@ -19,8 +18,7 @@ public class ManageUsersPanel extends JPanel {
     private int selectedUserId = -1;
     private int currentAdminId;
     private boolean iAmSuperAdmin;
-    private StaffDAO staffDAO = new StaffDAO();
-    private PatientDAO patientDAO = new PatientDAO(); 
+    private final AdminController adminController = new AdminController();
 
     // UI Style Constants
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
@@ -260,7 +258,7 @@ public class ManageUsersPanel extends JPanel {
                 }
             }
             
-            if (checkUsername && patientDAO.isUsernameTakenInPatients(user)) {
+            if (checkUsername && adminController.isPatientUsernameTaken(user)) {
                 JOptionPane.showMessageDialog(this, "Username already exists as a PATIENT account. Please choose another username.", 
                         "Username Conflict", JOptionPane.ERROR_MESSAGE);
                 return;
@@ -284,7 +282,7 @@ public class ManageUsersPanel extends JPanel {
                     return;
                 }
                 
-                if (staffDAO.addStaff(name, user, pass, email, role, currentAdminId, adminRoleStr)) {
+                if (adminController.addStaff(name, user, pass, email, role, currentAdminId, adminRoleStr)) {
                     JOptionPane.showMessageDialog(this, "Staff added successfully!");
                 }
             } else {
@@ -304,7 +302,7 @@ public class ManageUsersPanel extends JPanel {
                     }
                 }
                 
-                if (staffDAO.updateStaff(selectedUserId, name, user, email, role, passwordToUpdate, currentAdminId, adminRoleStr)) {
+                if (adminController.updateStaff(selectedUserId, name, user, email, role, passwordToUpdate, currentAdminId, adminRoleStr)) {
                     JOptionPane.showMessageDialog(this, "Staff updated successfully!");
                 }
             }
@@ -357,7 +355,7 @@ public class ManageUsersPanel extends JPanel {
         }
         int confirm = JOptionPane.showConfirmDialog(this, "Permanently delete " + name + "?", "Warning", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            try { if (staffDAO.deleteStaff(id, name, currentAdminId, adminRole)) refreshTable(); }
+            try { if (adminController.deleteStaff(id, name, currentAdminId, adminRole)) refreshTable(); }
             catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
         }
     }
@@ -374,7 +372,7 @@ public class ManageUsersPanel extends JPanel {
         boolean isActive = currentStatus.equalsIgnoreCase("Active");
         int confirm = JOptionPane.showConfirmDialog(this, "Toggle status for " + name + "?", "Confirm", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            try { if (staffDAO.toggleStaffStatus(id, isActive, currentAdminId, adminRole)) refreshTable(); }
+            try { if (adminController.toggleStaffStatus(id, isActive, currentAdminId, adminRole)) refreshTable(); }
             catch (Exception ex) { JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage()); }
         }
     }
@@ -392,7 +390,7 @@ public class ManageUsersPanel extends JPanel {
     public void refreshTable() {
         try {
             tableModel.setRowCount(0);
-            List<Object[]> staffList = staffDAO.getAllStaff();
+            List<Object[]> staffList = adminController.getAllStaff();
             for (Object[] staff : staffList) tableModel.addRow(staff);
         } catch (Exception e) {
             JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());

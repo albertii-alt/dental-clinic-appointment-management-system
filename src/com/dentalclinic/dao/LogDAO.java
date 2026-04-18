@@ -72,4 +72,67 @@ public class LogDAO {
         }
         return logs;
     }
+
+    public void insertSystemLog(String level, String source, String message) throws SQLException {
+        String sql = "INSERT INTO system_logs (log_level, source_class, message) VALUES (?, ?, ?)";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, level);
+            pstmt.setString(2, source);
+            pstmt.setString(3, message);
+            pstmt.executeUpdate();
+        }
+    }
+
+    public List<Object[]> getSystemLogs() throws SQLException {
+        List<Object[]> logs = new ArrayList<>();
+        String query = "SELECT * FROM system_logs ORDER BY timestamp DESC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                logs.add(new Object[]{
+                        rs.getInt("sys_log_id"),
+                        rs.getString("log_level"),
+                        rs.getString("source_class"),
+                        rs.getString("message"),
+                        rs.getTimestamp("timestamp")
+                });
+            }
+        }
+        return logs;
+    }
+
+    public boolean clearAllSystemLogs() throws SQLException {
+        String sql = "DELETE FROM system_logs";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            return true;
+        }
+    }
+
+    public boolean verifySuperAdminPassword(int adminId, String password) throws SQLException {
+        String sql = "SELECT password FROM staff WHERE staff_id = ? AND is_super_admin = 1";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setInt(1, adminId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (!rs.next()) {
+                    return false;
+                }
+                String storedHash = rs.getString("password");
+                return com.dentalclinic.util.PasswordUtil.verifyPassword(password, storedHash);
+            }
+        }
+    }
+
+    public boolean archiveActivityLogs() throws SQLException {
+        String sql = "DELETE FROM activity_logs";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            return true;
+        }
+    }
 }

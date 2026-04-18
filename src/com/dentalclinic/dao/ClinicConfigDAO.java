@@ -194,4 +194,18 @@ public class ClinicConfigDAO {
             return success;
         }
     }
+
+    public Object[] getServiceDetailsByName(String serviceName) throws SQLException {
+        String query = "SELECT description, price FROM services WHERE service_name = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, serviceName);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return new Object[]{rs.getString("description"), rs.getDouble("price")};
+                }
+            }
+        }
+        return new Object[]{"", 0.0};
+    }
 }

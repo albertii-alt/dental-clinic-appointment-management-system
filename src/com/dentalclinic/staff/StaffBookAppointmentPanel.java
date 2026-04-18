@@ -5,16 +5,14 @@ import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.sql.SQLException;
 import java.util.List;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.model.Appointment;
-import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.dto.appointment.AppointmentRequest;
+import com.dentalclinic.dto.appointment.BookingResult;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class StaffBookAppointmentPanel extends JPanel {
-    private AppointmentService appService = new AppointmentService();
-    private PatientDAO patientDAO = new PatientDAO();
+    private AppointmentController appointmentController = new AppointmentController();
     private JLabel stepLabel;
     private JTextField searchField;
     private JComboBox<String> patientResultsCombo;
@@ -99,7 +97,7 @@ public class StaffBookAppointmentPanel extends JPanel {
         container.add(Box.createRigidArea(new Dimension(0, 8)));
 
         try {
-            String[] services = appService.getServiceList();
+            String[] services = appointmentController.getServiceList();
             if (services != null) serviceTypeCombo.setModel(new DefaultComboBoxModel<>(services));
         } catch (Exception e) {}
 
@@ -119,13 +117,13 @@ public class StaffBookAppointmentPanel extends JPanel {
 
         // Logic for Date restrictions
         try {
-            int leadTime = appService.getBookingLeadTime();
-            java.util.List<String> closedDays = appService.getClosedDays();
+            int leadTime = appointmentController.getBookingLeadTime();
+            java.util.List<String> closedDays = appointmentController.getClosedDays();
             java.util.Calendar cal = java.util.Calendar.getInstance();
             cal.add(java.util.Calendar.DAY_OF_MONTH, leadTime);
             appointmentDatePicker.setMinSelectableDate(cal.getTime());
             applyCalendarFilter(closedDays);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             appointmentDatePicker.setMinSelectableDate(new java.util.Date());
         }
 
@@ -308,9 +306,9 @@ public class StaffBookAppointmentPanel extends JPanel {
     private void refreshPatientDropdown(String query) {
         try {
             if (query.trim().isEmpty()) {
-                currentSearchResults = patientDAO.getAllPatients();
+                currentSearchResults = appointmentController.searchPatientsByName("");
             } else {
-                currentSearchResults = patientDAO.searchPatientsByName(query);
+                currentSearchResults = appointmentController.searchPatientsByName(query);
             }
             DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
             for (Object[] p : currentSearchResults) {
@@ -321,7 +319,7 @@ public class StaffBookAppointmentPanel extends JPanel {
                 model.addElement(displayName);
             }
             patientResultsCombo.setModel(model);
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
     }
@@ -329,7 +327,7 @@ public class StaffBookAppointmentPanel extends JPanel {
     private void refreshSlots() {
         if (appointmentDatePicker.getDate() == null) return;
         try {
-            java.util.List<String> available = appService.getAvailableSlotsForDate(appointmentDatePicker.getDate());
+            java.util.List<String> available = appointmentController.getAvailableSlotsForDate(appointmentDatePicker.getDate());
             timeSlotCombo.removeAllItems();
             if (available.isEmpty()) {
                 timeSlotCombo.addItem("Fully Booked");
@@ -373,19 +371,19 @@ public class StaffBookAppointmentPanel extends JPanel {
             // APPLY SANITIZER to contact
             String contact = Sanitizer.sanitizePhone(rawContact);
 
-            Appointment app = new Appointment(
+            AppointmentRequest request = new AppointmentRequest(
                 selectedPatientID,
                 (String) serviceTypeCombo.getSelectedItem(),
                 new java.sql.Date(appointmentDatePicker.getDate().getTime()),
                 (String) timeSlotCombo.getSelectedItem(),
                 ageValue,
-                contact,  // Already sanitized
-                "Approved"
+                contact
             );
-
-            int result = appService.createAppointment(app);
-            if (result != -1) {
-                JOptionPane.showMessageDialog(this, "Appointment Booked and Approved!");
+            BookingResult result = appointmentController.bookAndApproveByStaff(request);
+            if (result.isSuccess()) {
+                JOptionPane.showMessageDialog(this, result.getMessage());
+            } else {
+                JOptionPane.showMessageDialog(this, result.getMessage());
             }
         } catch (NumberFormatException ex) {
             JOptionPane.showMessageDialog(this, "Invalid age format.");

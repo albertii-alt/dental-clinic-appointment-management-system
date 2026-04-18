@@ -1,12 +1,12 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.AppointmentController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.awt.event.*;
-import com.dentalclinic.dao.AppointmentDAO;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.ui.PatientDashboard;
 
@@ -21,6 +21,7 @@ public class PatientNotificationPanel extends JPanel {
     private CardLayout cardLayout;
     private static final String TABLE_VIEW = "TABLE";
     private static final String EMPTY_VIEW = "EMPTY";
+    private final AppointmentController appointmentController = new AppointmentController();
 
     public PatientNotificationPanel(int patientID, PatientDashboard dashboard) {
         this.patientID = patientID;
@@ -110,7 +111,7 @@ public class PatientNotificationPanel extends JPanel {
     private void loadNotifications() {
         model.setRowCount(0); 
         try {
-            List<Appointment> list = new AppointmentDAO().getAppointmentsByPatient(patientID);
+            List<Appointment> list = appointmentController.getAppointmentsByPatient(patientID);
             int count = 0;
             for (Appointment a : list) {
                 if (!a.getStatus().equalsIgnoreCase("Pending") && !a.isArchived()) {
@@ -134,7 +135,7 @@ public class PatientNotificationPanel extends JPanel {
         JOptionPane.showMessageDialog(this, msg, "Notification Detail", JOptionPane.INFORMATION_MESSAGE);
 
         try {
-            if (new AppointmentDAO().markAsRead(appId)) {
+            if (appointmentController.markNotificationAsRead(appId)) {
                 model.setValueAt(true, row, 4);
                 if (dashboard != null) dashboard.refreshNotificationBadge();
                 table.repaint();
@@ -166,7 +167,7 @@ public class PatientNotificationPanel extends JPanel {
     private void clearAllNotifications() {
         if (JOptionPane.showConfirmDialog(this, "Dismiss all notifications?", "Confirm", JOptionPane.YES_NO_OPTION) == 0) {
             try {
-                new AppointmentDAO().archiveAllNotifications(patientID);
+                appointmentController.archiveAllNotifications(patientID);
                 loadNotifications();
                 if (dashboard != null) dashboard.refreshNotificationBadge();
             } catch (Exception ex) { ex.printStackTrace(); }
@@ -204,7 +205,7 @@ public class PatientNotificationPanel extends JPanel {
             btn.setForeground(Color.RED);
             btn.addActionListener(e -> {
                 try {
-                    new AppointmentDAO().archiveNotification(currentId);
+                    appointmentController.archiveNotification(currentId);
                     fireEditingStopped();
                     loadNotifications();
                     if (dashboard != null) dashboard.refreshNotificationBadge();

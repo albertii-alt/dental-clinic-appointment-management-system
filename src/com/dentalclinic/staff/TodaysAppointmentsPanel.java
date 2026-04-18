@@ -1,9 +1,9 @@
 package com.dentalclinic.staff;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.util.UserSession;
 import javax.swing.*;
 import javax.swing.table.*;
@@ -14,8 +14,8 @@ import java.util.List;
 public class TodaysAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
-    private PatientDAO pDao = new PatientDAO();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
 
     // THEME CONSTANTS
     private final Color BG = new Color(245, 247, 250);
@@ -107,7 +107,7 @@ public class TodaysAppointmentsPanel extends JPanel {
     public void loadData() {
         try {
             model.setRowCount(0);
-            List<Object[]> data = appService.getTodaysSchedule();
+            List<Object[]> data = appointmentController.getTodaysSchedule();
             if (data.isEmpty()) {
                 showEmptyState();
             } else {
@@ -135,11 +135,11 @@ public class TodaysAppointmentsPanel extends JPanel {
         String patientName = (String) model.getValueAt(row, 1);
 
         try {
-            List<Appointment> todayList = appService.getTodaysAppointments();
+            List<Appointment> todayList = appointmentController.getTodaysAppointments();
             Appointment app = todayList.stream().filter(a -> a.getAppointmentId() == appId).findFirst().orElse(null);
             if (app == null) return;
 
-            Patient p = pDao.getPatientById(app.getPatientId());
+            Patient p = patientController.getPatientById(app.getPatientId());
 
             // --- THE ARRIVAL SLIP UI ---
             JPanel detailPanel = new JPanel();
@@ -173,14 +173,14 @@ public class TodaysAppointmentsPanel extends JPanel {
             String actorRole = UserSession.getUserRole();
 
             if (selection == 0) { // Mark Completed
-                if (appService.updateAppointmentStatus(appId, "Completed", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(appId, "Completed", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Visit logged as Completed.");
                     loadData();
                 }
             } else if (selection == 1) { // No-Show
                 int confirm = JOptionPane.showConfirmDialog(this, "Confirm No-Show? (Patient record will reflect cancellation)", "Confirm", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
-                    appService.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole);
+                    appointmentController.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole);
                     loadData();
                 }
             }

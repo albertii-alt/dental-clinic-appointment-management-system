@@ -1,13 +1,13 @@
 package com.dentalclinic.admin;
 
-import com.dentalclinic.dao.RolesPermissionDAO;
+import com.dentalclinic.controller.RolesController;
+import com.dentalclinic.model.Permission;
+import com.dentalclinic.model.Role;
 import com.dentalclinic.service.LogService;
 import com.dentalclinic.util.UserSession;
-import com.dentalclinic.util.DBConnection;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.sql.*;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,11 +15,11 @@ import java.util.Map;
 
 public class ManageRolesPanel extends JPanel {
 
-    private RolesPermissionDAO dao;
+    private RolesController rolesController;
     private JList<String> roleList;
     private JPanel permissionsContainer;
     private Map<Integer, JCheckBox> checkBoxes; 
-    private List<RolesPermissionDAO.Permission> allPermissions;
+    private List<Permission> allPermissions;
     private Map<String, Integer> roleIdMap; // Dynamically loaded
     private int currentAdminId;
     private boolean isSuperAdmin;
@@ -36,8 +36,8 @@ public class ManageRolesPanel extends JPanel {
         this.currentAdminId = adminId;
         this.isSuperAdmin = isSuper;
         this.adminRole = isSuper ? "Super Admin" : "Admin";
-        // SECURITY FIX: Check if user has permission to manage roles
-        if (!UserSession.hasPermission("MANAGE_ROLES")) {
+        rolesController = new RolesController();
+        if (!rolesController.canCurrentUserManageRoles()) {
             JOptionPane.showMessageDialog(null, 
                 "Access Denied: You do not have permission to manage roles.", 
                 "Security Error", 
@@ -45,10 +45,7 @@ public class ManageRolesPanel extends JPanel {
             return;
         }
         
-        dao = new RolesPermissionDAO();
         checkBoxes = new HashMap<>();
-        
-        // SECURITY FIX: Load role IDs dynamically from database
         roleIdMap = loadRoleIdsFromDatabase();
         
         setLayout(new BorderLayout(25, 25));
@@ -86,15 +83,12 @@ public class ManageRolesPanel extends JPanel {
      */
     private Map<String, Integer> loadRoleIdsFromDatabase() {
         Map<String, Integer> roleMap = new HashMap<>();
-        String query = "SELECT role_id, role_name FROM roles";
-        
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query);
-             ResultSet rs = pstmt.executeQuery()) {
-            while (rs.next()) {
-                roleMap.put(rs.getString("role_name"), rs.getInt("role_id"));
+        try {
+            List<Role> roles = rolesController.getAllRoles();
+            for (Role role : roles) {
+                roleMap.put(role.getRoleName(), role.getRoleId());
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             // Fallback to hardcoded values if database query fails
             roleMap.put("Admin", 1);
@@ -172,8 +166,8 @@ public class ManageRolesPanel extends JPanel {
     }
 
     private void loadAllPermissionCheckboxes() {
-        allPermissions = dao.getAllPermissions();
-        for (RolesPermissionDAO.Permission p : allPermissions) {
+        allPermissions = rolesController.getAllPermissions();
+        for (Permission p : allPermissions) {
             JPanel itemPanel = new JPanel(new GridBagLayout());
             itemPanel.setBackground(Color.WHITE);
             itemPanel.setBorder(new EmptyBorder(8, 0, 12, 0));
@@ -186,7 +180,7 @@ public class ManageRolesPanel extends JPanel {
             gbc.anchor = GridBagConstraints.WEST;
 
             // 1. The Checkbox (Permission Name)
-            JCheckBox cb = new JCheckBox(p.name);
+            JCheckBox cb = new JCheckBox(p.getPermissionName());
             cb.setBackground(Color.WHITE);
             cb.setFont(new Font("Segoe UI", Font.BOLD, 14));
             cb.setForeground(TEXT_DARK);
@@ -198,12 +192,12 @@ public class ManageRolesPanel extends JPanel {
             gbc.insets = new Insets(2, 28, 0, 0);
 
             // Using HTML to allow the description to wrap
-            JLabel descLabel = new JLabel("<html><body style='width: 100%'>" + p.description + "</body></html>");
+            JLabel descLabel = new JLabel("<html><body style='width: 100%'>" + p.getDescription() + "</body></html>");
             descLabel.setFont(new Font("Segoe UI", Font.ITALIC, 12));
             descLabel.setForeground(TEXT_MUTED);
             itemPanel.add(descLabel, gbc);
 
-            checkBoxes.put(p.id, cb);
+            checkBoxes.put(p.getPermissionId(), cb);
             permissionsContainer.add(itemPanel);
 
             // Separator line between permissions
@@ -224,7 +218,7 @@ public class ManageRolesPanel extends JPanel {
         checkBoxes.values().forEach(cb -> cb.setSelected(false));
 
         // Get permissions from DB
-        List<Integer> activePerms = dao.getPermissionIdsForRole(roleId);
+        List<Integer> activePerms = rolesController.getPermissionIdsForRole(roleId);
         for (Integer permId : activePerms) {
             if (checkBoxes.containsKey(permId)) {
                 checkBoxes.get(permId).setSelected(true);
@@ -245,7 +239,7 @@ public class ManageRolesPanel extends JPanel {
             if (cb.isSelected()) selectedIds.add(id);
         });
 
-        if (dao.updateRolePermissions(roleId, selectedIds)) {
+        if (rolesController.saveRolePermissions(roleId, selectedIds)) {
             // SECURITY: Log the permission change
             LogService logService = new LogService();
             int adminId = UserSession.getUserId();

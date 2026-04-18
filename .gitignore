@@ -6,8 +6,25 @@ nbbuild/
 dist/
 nbdist/
 .nb-gradle/
+
+# Database - NEVER commit (contains real patient data)
 dental_clinic_db.sql
+
+# Credentials - NEVER commit (contains passwords)
+# db.properties lives at ~/.dental_clinic/db.properties (outside project)
+# but this protects against accidentally copying it here
+db.properties
+*.properties
+
+# Shell scripts with system-specific paths (not portable across machines)
 run.sh
+
+# scripts/ folder is intentionally tracked in version control
+# Passwords have been removed - credentials read from db.properties instead
+# !scripts/backup-dental.sh
+# !scripts/restore-latest.sh
+# !scripts/mysql-health-check.sh
+# !scripts/mysql-auto-repair.sh
 
 # Java compiled files
 *.class
@@ -18,3 +35,11 @@ run.sh
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Backup files - may contain real patient data
+*.sql.gz
+*.sql.bak
+
+# Log files
+*.log
+/backups/

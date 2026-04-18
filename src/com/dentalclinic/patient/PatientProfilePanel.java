@@ -1,11 +1,11 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
 import com.toedter.calendar.JDateChooser;
 import com.dentalclinic.model.Patient;
-import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.util.PasswordValidator;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
@@ -14,7 +14,7 @@ public class PatientProfilePanel extends JPanel {
     private JTextField txtFName, txtMName, txtLName, txtAge, txtAddr, txtPhone, txtEmail, txtUser;
     private JDateChooser birthDatePicker;
     private JPasswordField txtCurrentPass, txtNewPass, txtConfirmPass;
-    private PatientDAO patientDao = new PatientDAO();
+    private final PatientController patientController = new PatientController();
     private int patientID;
     
     // SECURITY: Input limits
@@ -60,7 +60,7 @@ public class PatientProfilePanel extends JPanel {
 
     private void setupUI(JPanel container) {
         try {
-            Patient p = patientDao.getPatientById(patientID);
+            Patient p = patientController.getPatientById(patientID);
             if (p == null) return;
 
             JPanel generalPnl = createSection("General Information");
@@ -252,7 +252,7 @@ public class PatientProfilePanel extends JPanel {
             }
             
             // Verify current password
-            if (!patientDao.verifyPassword(patientID, currentPass)) {
+            if (!patientController.verifyPassword(patientID, currentPass)) {
                 JOptionPane.showMessageDialog(this, "Verification Failed: Current password is incorrect.", "Security", JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -279,7 +279,7 @@ public class PatientProfilePanel extends JPanel {
 
             java.sql.Date sqlDob = new java.sql.Date(birthDatePicker.getDate().getTime());
 
-            boolean success = patientDao.updateFullProfile(
+            boolean success = patientController.updateFullProfile(
                 patientID, fName, mName, lName,
                 sqlDob, Integer.parseInt(txtAge.getText()), address, 
                 phone, email, username, passToSave

@@ -1,5 +1,7 @@
 package com.dentalclinic.staff;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
@@ -7,15 +9,13 @@ import java.awt.*;
 import java.util.List;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.util.UserSession;
 
 public class PendingRequestsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
-    private PatientDAO pDao = new PatientDAO();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -125,7 +125,7 @@ public class PendingRequestsPanel extends JPanel {
     private void loadPendingData() {
         try {
             model.setRowCount(0);
-            List<Object[]> data = appService.getPendingRequestsWithNames();
+            List<Object[]> data = appointmentController.getPendingRequestsWithNames();
             
             if (data.isEmpty()) {   
                 // If empty, the table just stays clear
@@ -139,8 +139,8 @@ public class PendingRequestsPanel extends JPanel {
 
     private void showDecisionModal(int appId, int pId) {
         try {
-            Patient p = pDao.getPatientById(pId);
-            List<Appointment> history = appService.getPatientAppointmentHistory(pId);
+            Patient p = patientController.getPatientById(pId);
+            List<Appointment> history = appointmentController.getPatientAppointmentHistory(pId);
             Appointment app = history.stream().filter(a -> a.getAppointmentId() == appId).findFirst().orElse(null);
 
             if (app == null) return;
@@ -185,12 +185,12 @@ public class PendingRequestsPanel extends JPanel {
             String actorRole = UserSession.getUserRole();
 
             if (choice == 0) { // Approve
-                if (appService.updateAppointmentStatus(appId, "Approved", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(appId, "Approved", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Request approved. Patient will be notified.");
                     loadPendingData();
                 }
             } else if (choice == 1) { // Decline
-                if (appService.updateAppointmentStatus(appId, "Declined", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(appId, "Declined", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Request declined.");
                     loadPendingData();
                 }

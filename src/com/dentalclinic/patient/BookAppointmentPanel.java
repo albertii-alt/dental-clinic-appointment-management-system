@@ -9,9 +9,10 @@ import java.util.Calendar;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.sql.SQLException;
 
-import com.dentalclinic.service.AppointmentService;
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.dto.appointment.AppointmentRequest;
+import com.dentalclinic.dto.appointment.BookingResult;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import javax.swing.border.CompoundBorder;
@@ -19,7 +20,7 @@ import javax.swing.border.LineBorder;
 
 public class BookAppointmentPanel extends JPanel {
     
-    private AppointmentService appService = new AppointmentService();
+    private AppointmentController appointmentController = new AppointmentController();
     private JComboBox<String> serviceTypeCombo;
     private JDateChooser appointmentDatePicker;
     private JComboBox<String> timeSlotCombo;
@@ -113,7 +114,7 @@ public class BookAppointmentPanel extends JPanel {
         // --- BOOKING DETAILS ---
         try {
             createLabel("1. Choose Service", startX, 315, 14);
-            serviceTypeCombo = new JComboBox<>(appService.getServiceList());
+            serviceTypeCombo = new JComboBox<>(appointmentController.getServiceList());
             serviceTypeCombo.setBounds(startX, 340, 400, 35);
             add(serviceTypeCombo);
 
@@ -124,10 +125,10 @@ public class BookAppointmentPanel extends JPanel {
             
             // Set min date based on lead time
             Calendar cal = Calendar.getInstance();
-            cal.add(Calendar.DAY_OF_MONTH, appService.getBookingLeadTime());
+            cal.add(Calendar.DAY_OF_MONTH, appointmentController.getBookingLeadTime());
             appointmentDatePicker.setMinSelectableDate(cal.getTime());
             
-            applyCalendarFilter(appService.getClosedDays());
+            applyCalendarFilter(appointmentController.getClosedDays());
             add(appointmentDatePicker);
 
             createLabel("3. Select Time Slot", startX, 455, 14);
@@ -140,7 +141,7 @@ public class BookAppointmentPanel extends JPanel {
                 if ("date".equals(evt.getPropertyName())) refreshTimeSlots();
             });
 
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
@@ -192,7 +193,7 @@ public class BookAppointmentPanel extends JPanel {
         if (selectedDate == null) return;
 
         try {
-            List<String> available = appService.getAvailableSlotsForDate(selectedDate);
+            List<String> available = appointmentController.getAvailableSlotsForDate(selectedDate);
             timeSlotCombo.removeAllItems();
 
             if (available.isEmpty()) {
@@ -202,7 +203,7 @@ public class BookAppointmentPanel extends JPanel {
                 for (String slot : available) timeSlotCombo.addItem(slot);
                 confirmBtn.setEnabled(true);
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void handleBooking() {
@@ -252,11 +253,6 @@ public class BookAppointmentPanel extends JPanel {
         }
 
         try {
-            if (!appService.canPatientBook(patientID)) {
-                JOptionPane.showMessageDialog(this, "You currently have a request pending approval.");
-                return;
-            }
-
             Appointment newApp = new Appointment(
                 patientID,
                 (String) serviceTypeCombo.getSelectedItem(),
@@ -267,11 +263,22 @@ public class BookAppointmentPanel extends JPanel {
                 "Pending"
             );
 
-            int generatedID = appService.createAppointment(newApp); 
-
-            if (generatedID != -1) {
+            BookingResult result = appointmentController.bookForPatient(
+                new AppointmentRequest(
+                    patientID,
+                    (String) serviceTypeCombo.getSelectedItem(),
+                    new java.sql.Date(appointmentDatePicker.getDate().getTime()),
+                    selectedTime,
+                    Integer.parseInt(ageField.getText()),
+                    contact
+                )
+            );
+            if (result.isSuccess()) {
+                int generatedID = result.getAppointmentId();
                 showBookingSummary(newApp, generatedID); 
                 confirmBtn.setEnabled(false);
+            } else {
+                JOptionPane.showMessageDialog(this, result.getMessage());
             }
 
         } catch (NumberFormatException ex) {

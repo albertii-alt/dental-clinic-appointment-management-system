@@ -1,9 +1,9 @@
 package com.dentalclinic.admin;
 
+import com.dentalclinic.controller.AdminController;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.PasswordValidator;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
@@ -14,7 +14,7 @@ public class AccountSettingsPanel extends JPanel {
     private JButton saveBtn;
     private int adminId;
     private String adminRole;
-    private StaffDAO staffDAO = new StaffDAO();
+    private final AdminController adminController = new AdminController();
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -204,8 +204,8 @@ public class AccountSettingsPanel extends JPanel {
         }
 
         try {
-            if (staffDAO.verifyPassword(adminId, currPw)) {
-                if (staffDAO.updateSelf(adminId, name, user, email, newPw, adminRole)) {
+            if (adminController.verifyStaffPassword(adminId, currPw)) {
+                if (adminController.updateOwnProfile(adminId, name, user, email, newPw, adminRole)) {
                     JOptionPane.showMessageDialog(this, "Profile Updated!");
                     currentPassField.setText("");
                     newPassField.setText("");

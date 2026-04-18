@@ -1,5 +1,7 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
@@ -8,8 +10,6 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.PatientDAO;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -17,7 +17,8 @@ import java.io.File;
 public class ViewAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
     private List<Appointment> filteredList = new ArrayList<>();
 
     // UI Style Constants
@@ -97,7 +98,7 @@ public class ViewAppointmentsPanel extends JPanel {
     private void loadData(int pID) {
         try {
             model.setRowCount(0);
-            List<Appointment> allAppointments = appService.getPatientAppointmentHistory(pID);
+            List<Appointment> allAppointments = appointmentController.getPatientAppointmentHistory(pID);
 
             filteredList = allAppointments.stream()
                 .filter(a -> a.getStatus().equalsIgnoreCase("Pending") || 
@@ -135,8 +136,7 @@ public class ViewAppointmentsPanel extends JPanel {
     private void showAppointmentDetails(int rowIndex, int pID) {
         try {
             Appointment app = filteredList.get(rowIndex);
-            PatientDAO pDao = new PatientDAO();
-            com.dentalclinic.model.Patient p = pDao.getPatientById(pID);
+            com.dentalclinic.model.Patient p = patientController.getPatientById(pID);
 
             JPanel detailPanel = new JPanel();
             detailPanel.setLayout(new BoxLayout(detailPanel, BoxLayout.Y_AXIS));
@@ -259,7 +259,7 @@ public class ViewAppointmentsPanel extends JPanel {
                 int actorId = com.dentalclinic.util.UserSession.getUserId();
                 String actorRole = com.dentalclinic.util.UserSession.getUserRole();
 
-                if (appService.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
                     loadData(pID);
                 }
@@ -278,7 +278,7 @@ public class ViewAppointmentsPanel extends JPanel {
             try {
                 // Assuming your appService has a delete method. 
                 // If not, you might need to add deleteAppointment(id) to AppointmentService
-                if (appService.deleteAppointment(app.getAppointmentId())) {
+                if (appointmentController.deleteAppointment(app.getAppointmentId())) {
                     JOptionPane.showMessageDialog(this, "Record removed.");
                     loadData(pID); // Refresh the table
                 } else {

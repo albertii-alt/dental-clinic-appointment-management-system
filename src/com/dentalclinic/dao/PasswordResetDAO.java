@@ -2,7 +2,6 @@ package com.dentalclinic.dao;
 
 import com.dentalclinic.util.DBConnection;
 import java.sql.*;
-import java.time.LocalDateTime;
 import java.util.Random;
 
 public class PasswordResetDAO {
@@ -93,17 +92,14 @@ public class PasswordResetDAO {
         // Delete any existing unused codes for this email
         deleteExistingCodes(email);
         
-        // Calculate expiry time (15 minutes from now)
-        Timestamp expiresAt = Timestamp.valueOf(LocalDateTime.now().plusMinutes(CODE_EXPIRY_MINUTES));
-        
-        String query = "INSERT INTO password_reset_codes (email, code, user_type, expires_at, username) VALUES (?, ?, ?, ?, ?)";
+        // Let DB default compute expires_at relative to created_at to avoid app/DB timezone drift.
+        String query = "INSERT INTO password_reset_codes (email, code, user_type, username) VALUES (?, ?, ?, ?)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, email);
             pstmt.setString(2, code);
             pstmt.setString(3, userType);
-            pstmt.setTimestamp(4, expiresAt);
-            pstmt.setString(5, username);
+            pstmt.setString(4, username);
             return pstmt.executeUpdate() > 0;
         }
     }
@@ -142,7 +138,8 @@ public class PasswordResetDAO {
      * @return user email if valid, null otherwise
      */
     public String verifyCode(String code) throws SQLException {
-        String query = "SELECT email, expires_at, used FROM password_reset_codes WHERE code = ?";
+        String query = "SELECT email, expires_at, used FROM password_reset_codes " +
+                       "WHERE code = ? ORDER BY created_at DESC LIMIT 1";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, code);
@@ -153,7 +150,7 @@ public class PasswordResetDAO {
                     }
                     
                     Timestamp expiresAt = rs.getTimestamp("expires_at");
-                    if (expiresAt.before(Timestamp.valueOf(LocalDateTime.now()))) {
+                    if (expiresAt.before(new Timestamp(System.currentTimeMillis()))) {
                         return null;
                     }
                     

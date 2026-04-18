@@ -1,15 +1,14 @@
 package com.dentalclinic.admin;
 
+import com.dentalclinic.controller.LogController;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.sql.Timestamp;
 import java.text.SimpleDateFormat;
 import java.util.List;
-import com.dentalclinic.service.LogService;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.FileWriter;
@@ -19,7 +18,7 @@ import java.io.IOException;
 public class SystemLogPanel extends JPanel {
     private JTable logTable;
     private DefaultTableModel tableModel;
-    private LogService logService = new LogService();
+    private final LogController logController = new LogController();
     
     // Session variables
     private int loggedUserId;
@@ -133,8 +132,8 @@ public class SystemLogPanel extends JPanel {
      */
     private String getStringValue(Object obj) {
         if (obj == null) return "";
-        if (obj instanceof Timestamp) {
-            return dateFormat.format((Timestamp) obj);
+        if (obj instanceof java.util.Date) {
+            return dateFormat.format((java.util.Date) obj);
         }
         return obj.toString();
     }
@@ -360,8 +359,8 @@ public class SystemLogPanel extends JPanel {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             String formattedDate = "";
-            if (value instanceof Timestamp) {
-                formattedDate = dateFormat.format((Timestamp) value);
+            if (value instanceof java.util.Date) {
+                formattedDate = dateFormat.format((java.util.Date) value);
             } else if (value != null) {
                 formattedDate = value.toString();
             }
@@ -393,7 +392,7 @@ public class SystemLogPanel extends JPanel {
             String password = new String(passwordField.getPassword());
 
             // 1. Verify Identity
-            if (logService.verifySuperAdminPassword(loggedUserId, password)) { 
+            if (logController.verifySuperAdminPassword(loggedUserId, password)) { 
 
                 // 2. FORCE BACKUP BEFORE CLEARING
                 JOptionPane.showMessageDialog(this, "A backup is required before clearing. Please choose a save location.");
@@ -402,7 +401,7 @@ public class SystemLogPanel extends JPanel {
                 if (backupSuccessful) {
                     // 3. ONLY CLEAR IF BACKUP WAS SAVED
                     String roleStr = isSuper ? "Super Admin" : "Admin"; 
-                    if (logService.clearAllSystemLogs(loggedUserId, roleStr)) {
+                    if (logController.clearAllSystemLogs(loggedUserId, roleStr)) {
                         JOptionPane.showMessageDialog(this, "Backup created and logs cleared successfully.");
                         loadSystemLogs();
                     }
@@ -419,7 +418,7 @@ public class SystemLogPanel extends JPanel {
     private void loadSystemLogs() {
         try {
             tableModel.setRowCount(0);
-            List<Object[]> logs = logService.getSystemLogs(); 
+            List<Object[]> logs = logController.getSystemLogs(); 
             
             if (logs.isEmpty()) {   
                 showNoDataScreen();
@@ -540,8 +539,8 @@ public class SystemLogPanel extends JPanel {
                     for (int col = 0; col < tableModel.getColumnCount(); col++) {
                         Object val = tableModel.getValueAt(row, col);
                         String strVal = "";
-                        if (val instanceof Timestamp) {
-                            strVal = dateFormat.format((Timestamp) val);
+                        if (val instanceof java.util.Date) {
+                            strVal = dateFormat.format((java.util.Date) val);
                         } else if (val != null) {
                             strVal = val.toString();
                         }
@@ -552,7 +551,7 @@ public class SystemLogPanel extends JPanel {
                 }
 
                 // Record the export in Audit Trail
-                logService.record(loggedUserId, isSuper ? "Super Admin" : "Admin", "Export Logs", "Manual backup created: " + file.getName());
+                logController.record(loggedUserId, isSuper ? "Super Admin" : "Admin", "Export Logs", "Manual backup created: " + file.getName());
                 return true;
 
             } catch (IOException e) {

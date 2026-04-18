@@ -1,5 +1,6 @@
 package com.dentalclinic.patient;
 
+import com.dentalclinic.controller.AuthController;
 import com.dentalclinic.ui.LoginPage;
 import com.dentalclinic.ui.components.SuccessDialog;
 import com.dentalclinic.ui.components.ErrorDialog;
@@ -13,7 +14,6 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.SQLException;
 import javax.imageio.ImageIO;
 import java.io.InputStream;
 import com.dentalclinic.util.PasswordValidator;
@@ -26,6 +26,7 @@ public class RegisterPatientForm extends JFrame {
     private JPasswordField passwordField, confirmPasswordField;
     private JDateChooser birthDatePicker;
     private JButton submitBtn, cancelBtn;
+    private final AuthController authController = new AuthController();
 
     // ADDED: Field length limits
     private static final int MAX_NAME_LENGTH = 50;
@@ -435,11 +436,10 @@ public class RegisterPatientForm extends JFrame {
         }
 
         try {
-            com.dentalclinic.service.AuthService authService = new com.dentalclinic.service.AuthService();
             java.sql.Date sqlDate = new java.sql.Date(birthDatePicker.getDate().getTime());
             int ageValue = Integer.parseInt(ageField.getText());
 
-            boolean success = authService.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
+            boolean success = authController.registerNewPatient(fName, mName, lName, sqlDate, ageValue, address, contact, email, user, pass);
 
             if (success) {
                 SuccessDialog.show(this, "Account Created!", "Your profile has been successfully registered. You can now log in to book your first appointment.");
@@ -448,10 +448,10 @@ public class RegisterPatientForm extends JFrame {
             } else {
                 ErrorDialog.show(this, "Registration Failed", "Username may already exist. Please try a different username.");
             }
-        } catch (SQLException ex) {
-            ErrorDialog.show(this, "Database Error", "Unable to connect to the server. Please try again later.");
         } catch (IllegalArgumentException ex) {
             ErrorDialog.show(this, "Registration Failed", ex.getMessage());
+        } catch (Exception ex) {
+            ErrorDialog.show(this, "Database Error", "Unable to connect to the server. Please try again later.");
         }
     }
 

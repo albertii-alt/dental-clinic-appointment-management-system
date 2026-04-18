@@ -74,6 +74,16 @@ public class StaffDAO {
             pstmt.executeUpdate();
         }
     }
+
+    public boolean updatePasswordAndClearReset(int staffId, String hashedPassword) throws SQLException {
+        String query = "UPDATE staff SET password = ?, force_password_reset = 0 WHERE staff_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setString(1, hashedPassword);
+            pstmt.setInt(2, staffId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
     
     // ==========================================================
     // STAFF CRUD OPERATIONS

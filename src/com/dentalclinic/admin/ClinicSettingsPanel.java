@@ -1,19 +1,11 @@
 package com.dentalclinic.admin;
 
+import com.dentalclinic.controller.ClinicSettingsController;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.ArrayList;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.ClinicConfigDAO;
-import com.dentalclinic.util.DBConnection;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class ClinicSettingsPanel extends JPanel {
@@ -32,8 +24,7 @@ public class ClinicSettingsPanel extends JPanel {
 
     private String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
-    private AppointmentService appService = new AppointmentService();
-    private ClinicConfigDAO configDAO = new ClinicConfigDAO();
+    private final ClinicSettingsController clinicSettingsController = new ClinicSettingsController();
 
     // THEME COLORS
     private final Color PRIMARY = new Color(41, 128, 185);
@@ -201,11 +192,11 @@ public class ClinicSettingsPanel extends JPanel {
                 return;
             }
             try {
-                if (configDAO.addTimeSlot(timeInput, currentAdminId, currentRole)) {
+                if (clinicSettingsController.addTimeSlot(timeInput, currentAdminId, currentRole)) {
                     newTimeField.setText("");
                     refreshTimeSlotsUI();
                 }
-            } catch (java.sql.SQLException ex) {
+            } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, ex.getMessage());
             }
         });
@@ -279,7 +270,7 @@ public class ClinicSettingsPanel extends JPanel {
 
                 double price = priceStr.isEmpty() ? 0.0 : Double.parseDouble(priceStr);
 
-                if (configDAO.addService(name, desc, price, currentAdminId, currentRole)) {
+                if (clinicSettingsController.addService(name, desc, price, currentAdminId, currentRole)) {
                     serviceNameField.setText("");
                     serviceDescField.setText("");
                     servicePriceField.setText("");
@@ -330,8 +321,8 @@ public class ClinicSettingsPanel extends JPanel {
         settingsLoaded = true;
 
         try {
-            leadTimeSpinner.setValue(appService.getBookingLeadTime());
-            List<String> closedDays = appService.getClosedDays();
+            leadTimeSpinner.setValue(clinicSettingsController.getBookingLeadTime());
+            List<String> closedDays = clinicSettingsController.getClosedDays();
             for (int i = 0; i < days.length; i++) {
                 dayChecks[i].setSelected(!closedDays.contains(days[i]));
             }
@@ -343,12 +334,12 @@ public class ClinicSettingsPanel extends JPanel {
 
     private void saveSettings() {
         try {
-            configDAO.updateLeadTime((Integer) leadTimeSpinner.getValue(), currentAdminId, currentRole);
+            clinicSettingsController.updateLeadTime((Integer) leadTimeSpinner.getValue(), currentAdminId, currentRole);
             for (int i = 0; i < days.length; i++) {
-                configDAO.updateDayStatus(days[i], dayChecks[i].isSelected(), currentAdminId, currentRole);
+                clinicSettingsController.updateDayStatus(days[i], dayChecks[i].isSelected(), currentAdminId, currentRole);
             }
             for (JCheckBox cb : timeChecks) {
-                configDAO.updateTimeSlotStatus(cb.getText(), cb.isSelected(), currentAdminId, currentRole);
+                clinicSettingsController.updateTimeSlotStatus(cb.getText(), cb.isSelected(), currentAdminId, currentRole);
             }
             JOptionPane.showMessageDialog(this, "Clinic settings updated successfully!");
         } catch (Exception e) {
@@ -368,8 +359,8 @@ public class ClinicSettingsPanel extends JPanel {
         JPanel pmList = createTimeSubPanel("AFTERNOON (PM)");
 
         try {
-            List<String> allSlots = appService.getAllTimeSlots();
-            String[] activeSlots = appService.getTimeSlots();
+            List<String> allSlots = clinicSettingsController.getAllTimeSlots();
+            String[] activeSlots = clinicSettingsController.getActiveTimeSlots();
             java.util.Set<String> activeSet = new java.util.HashSet<>(java.util.Arrays.asList(activeSlots));
 
             for (String slot : allSlots) {
@@ -419,7 +410,7 @@ public class ClinicSettingsPanel extends JPanel {
             int confirm = JOptionPane.showConfirmDialog(this, "Permanently delete slot " + slot + "?", "Confirm Delete", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    if (configDAO.deleteTimeSlot(slot, currentAdminId, currentRole)) {
+                    if (clinicSettingsController.deleteTimeSlot(slot, currentAdminId, currentRole)) {
                         refreshTimeSlotsUI();
                     }
                 } catch (Exception ex) {
@@ -435,7 +426,7 @@ public class ClinicSettingsPanel extends JPanel {
     private void buildServiceList() {
         servicePanel.removeAll();
         try {
-            List<Object[]> services = appService.getFullServiceList();
+            List<Object[]> services = clinicSettingsController.getServiceList();
             for (Object[] serviceData : services) {
                 String name = (String) serviceData[0];
                 boolean isActive = serviceData[1] != null && serviceData[1].toString().equals("1");
@@ -471,7 +462,7 @@ public class ClinicSettingsPanel extends JPanel {
 
                 toggleBtn.addActionListener(e -> {
                     try {
-                        if (configDAO.updateServiceStatus(name, !isActive, currentAdminId, currentRole)) {
+                        if (clinicSettingsController.updateServiceStatus(name, !isActive, currentAdminId, currentRole)) {
                             buildServiceList();
                         }
                     } catch (Exception ex) { ex.printStackTrace(); }
@@ -483,7 +474,7 @@ public class ClinicSettingsPanel extends JPanel {
                 delBtn.addActionListener(e -> {
                     if (JOptionPane.showConfirmDialog(this, "Delete " + name + "?") == JOptionPane.YES_OPTION) {
                         try {
-                            if (configDAO.deleteService(name, currentAdminId, currentRole)) buildServiceList();
+                            if (clinicSettingsController.deleteService(name, currentAdminId, currentRole)) buildServiceList();
                         } catch (Exception ex) { ex.printStackTrace(); }
                     }
                 });
@@ -509,17 +500,10 @@ public class ClinicSettingsPanel extends JPanel {
         double currentPrice = 0.0;
         
         try {
-            String query = "SELECT description, price FROM services WHERE service_name = ?";
-            try (Connection conn = DBConnection.getConnection();
-                 PreparedStatement pstmt = conn.prepareStatement(query)) {
-                pstmt.setString(1, serviceName);
-                ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    currentDesc = rs.getString("description");
-                    currentPrice = rs.getDouble("price");
-                }
-            }
-        } catch (SQLException e) {
+            Object[] serviceDetails = clinicSettingsController.getServiceDetailsByName(serviceName);
+            currentDesc = serviceDetails[0] != null ? serviceDetails[0].toString() : "";
+            currentPrice = serviceDetails[1] instanceof Number ? ((Number) serviceDetails[1]).doubleValue() : 0.0;
+        } catch (Exception e) {
             e.printStackTrace();
         }
         
@@ -594,14 +578,14 @@ public class ClinicSettingsPanel extends JPanel {
             double newPrice = Double.parseDouble(priceStr);
             
             try {
-                if (configDAO.updateService(serviceName, newName, newDesc, newPrice, currentAdminId, currentRole)) {
+                if (clinicSettingsController.updateService(serviceName, newName, newDesc, newPrice, currentAdminId, currentRole)) {
                     JOptionPane.showMessageDialog(editDialog, "Service updated successfully!");
                     editDialog.dispose();
                     buildServiceList();
                 } else {
                     JOptionPane.showMessageDialog(editDialog, "Failed to update service.");
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 JOptionPane.showMessageDialog(editDialog, "Error: " + ex.getMessage());
             }
         });

@@ -1,5 +1,7 @@
 package com.dentalclinic.staff;
 
+import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.controller.PatientController;
 import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
@@ -9,8 +11,6 @@ import java.awt.event.ActionListener;
 import java.util.List;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.util.EmailUtil;
 import com.dentalclinic.util.UserSession;
 import com.toedter.calendar.JDateChooser;
@@ -18,8 +18,8 @@ import com.toedter.calendar.JDateChooser;
 public class UpcomingAppointmentsPanel extends JPanel {
     private JTable table;
     private DefaultTableModel model;
-    private AppointmentService appService = new AppointmentService();
-    private PatientDAO pDao = new PatientDAO();
+    private final AppointmentController appointmentController = new AppointmentController();
+    private final PatientController patientController = new PatientController();
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -146,12 +146,12 @@ public class UpcomingAppointmentsPanel extends JPanel {
     private void loadUpcomingData() {
         try {
             model.setRowCount(0);
-            List<Appointment> upcoming = appService.getUpcomingAppointments();
+            List<Appointment> upcoming = appointmentController.getUpcomingAppointments();
             if (upcoming.isEmpty()) {   
                 // If empty, the table just shows no rows.
             } else {
                 for (Appointment a : upcoming) {
-                    Patient p = pDao.getPatientById(a.getPatientId());
+                    Patient p = patientController.getPatientById(a.getPatientId());
                     String fullName = p.getFirstName() + " " + p.getLastName();
                     model.addRow(new Object[]{
                         a.getAppointmentId(), a.getPatientId(), fullName, 
@@ -165,8 +165,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
     private void showUpcomingDetailModal(int appId, int pId) {
         try {
-            Patient p = pDao.getPatientById(pId);
-            List<Appointment> history = appService.getPatientAppointmentHistory(pId);
+            Patient p = patientController.getPatientById(pId);
+            List<Appointment> history = appointmentController.getPatientAppointmentHistory(pId);
             Appointment app = history.stream().filter(a -> a.getAppointmentId() == appId).findFirst().orElse(null);
 
             if (app == null) return;
@@ -438,7 +438,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
             java.util.Date selected = dateChooser.getDate();
             if (selected != null) {
                 try {
-                    List<String> available = appService.getAvailableSlotsForDate(selected);
+                    List<String> available = appointmentController.getAvailableSlotsForDate(selected);
                     timeModel.removeAllElements();
                     if (available.isEmpty()) {
                         timeModel.addElement("No slots available");
@@ -463,7 +463,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
             String actorRole = UserSession.getUserRole();
 
             try {
-                if (appService.rescheduleAppointment(appId, sqlDate, selectedTime, actorId, actorRole)) {
+                if (appointmentController.rescheduleAppointment(appId, sqlDate, selectedTime, actorId, actorRole)) {
                     JOptionPane.showMessageDialog(rescheduleDialog, "Appointment Rescheduled.");
                     rescheduleDialog.dispose();
                     loadUpcomingData();
@@ -500,7 +500,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
             try {
                 int actorId = UserSession.getUserId();
                 String actorRole = UserSession.getUserRole();
-                if (appService.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole)) {
+                if (appointmentController.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled.");
                     loadUpcomingData(); 
                 }
@@ -569,8 +569,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
                     int appId = (int) model.getValueAt(currentRow, 0);
                     int pId = (int) model.getValueAt(currentRow, 1);
                     
-                    Patient patient = pDao.getPatientById(pId);
-                    List<Appointment> history = appService.getPatientAppointmentHistory(pId);
+                    Patient patient = patientController.getPatientById(pId);
+                    List<Appointment> history = appointmentController.getPatientAppointmentHistory(pId);
                     Appointment appointment = history.stream()
                         .filter(a -> a.getAppointmentId() == appId)
                         .findFirst().orElse(null);

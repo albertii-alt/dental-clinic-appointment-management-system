@@ -4,16 +4,21 @@ import com.dentalclinic.dao.PatientDAO;
 import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.dao.PasswordResetDAO;
 import com.dentalclinic.model.Patient;
+import com.dentalclinic.util.DBConnection;
 import com.dentalclinic.util.EmailUtil;
+import com.dentalclinic.util.PasswordUtil;
 import java.sql.SQLException;
 import com.dentalclinic.util.PasswordValidator;
 import java.util.List;
-import java.sql.Timestamp;
 
 public class AuthService {
     private PatientDAO patientDAO = new PatientDAO();
     private StaffDAO staffDAO = new StaffDAO();
     private PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
+
+    public boolean isDatabaseAvailable() {
+        return DBConnection.testConnection();
+    }
 
     public Object login(String username, String password, String selectedRole) throws SQLException {
         Object authenticatedUser = null;
@@ -210,6 +215,22 @@ public class AuthService {
         }
         
         return success;
+    }
+
+    public boolean resetForcedPasswordForPatient(int patientId, String newPassword) throws SQLException {
+        List<String> passwordErrors = PasswordValidator.validatePassword(newPassword);
+        if (!passwordErrors.isEmpty()) {
+            throw new IllegalArgumentException("Password does not meet requirements: " + String.join(", ", passwordErrors));
+        }
+        return patientDAO.updatePasswordAndClearReset(patientId, PasswordUtil.hashPassword(newPassword));
+    }
+
+    public boolean resetForcedPasswordForStaff(int staffId, String newPassword) throws SQLException {
+        List<String> passwordErrors = PasswordValidator.validatePassword(newPassword);
+        if (!passwordErrors.isEmpty()) {
+            throw new IllegalArgumentException("Password does not meet requirements: " + String.join(", ", passwordErrors));
+        }
+        return staffDAO.updatePasswordAndClearReset(staffId, PasswordUtil.hashPassword(newPassword));
     }
 
     /**

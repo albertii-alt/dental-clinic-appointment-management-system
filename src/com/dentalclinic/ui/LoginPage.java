@@ -1,24 +1,18 @@
 package com.dentalclinic.ui;
 
+import com.dentalclinic.controller.AuthController;
+import com.dentalclinic.dto.auth.LoginRequest;
+import com.dentalclinic.dto.auth.LoginResult;
 import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.DocumentFilter;
 import java.awt.*;
 import java.awt.event.*;
-import java.sql.SQLException;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import com.dentalclinic.model.Patient;
-import com.dentalclinic.service.AuthService;
-import com.dentalclinic.dao.RolesPermissionDAO;
-import com.dentalclinic.dao.PatientDAO;
-import com.dentalclinic.dao.StaffDAO;
 import com.dentalclinic.util.UserSession;
-import com.dentalclinic.util.DBConnection;
 import com.dentalclinic.ui.components.SuccessDialog;
 import com.dentalclinic.ui.components.ErrorDialog;
-import com.dentalclinic.util.PasswordUtil;
 import com.dentalclinic.util.PasswordValidator;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 import java.util.List;
@@ -31,9 +25,7 @@ public class LoginPage extends JFrame {
     private JPasswordField passwordField;
     private JComboBox<String> roleDropdown;
     private JButton loginButton, registerButton;
-    
-    private PatientDAO patientDAO;
-    private StaffDAO staffDAO;
+    private final AuthController authController;
     
     // ADDED: Rate limiting for forgot password
     private long lastForgotPasswordRequest = 0;
@@ -52,11 +44,10 @@ public class LoginPage extends JFrame {
     private final Color SUCCESS_GREEN = new Color(46, 204, 113);
 
     public LoginPage() {
-        patientDAO = new PatientDAO();
-        staffDAO = new StaffDAO();
+        authController = new AuthController();
         
         setTitle("Vantage Dental - Login");
-        if (!com.dentalclinic.util.DBConnection.testConnection()) {
+        if (!authController.isDatabaseAvailable()) {
             com.dentalclinic.util.DatabaseSetupWizard.showSetupWizard(this);
             return;
         }
@@ -262,41 +253,30 @@ public class LoginPage extends JFrame {
             String pass = new String(passwordField.getPassword());
             String role = (String) roleDropdown.getSelectedItem();
 
-            AuthService authService = new AuthService();
-            RolesPermissionDAO rpDao = new RolesPermissionDAO();
-
             try {
-                Object result = authService.login(user, pass, role);
+                LoginResult result = authController.login(new LoginRequest(user, pass, role));
 
-                if (result instanceof Object[] && ((Object[]) result)[0].equals("ACCOUNT_LOCKED")) {
-                    Object[] lockData = (Object[]) result;
-                    int remainingMinutes = (int) lockData[1];
+                if (result.getStatus() == LoginResult.Status.ACCOUNT_LOCKED) {
                     String message = "Your account has been locked due to multiple failed login attempts.\n" +
-                                    "Please try again in " + remainingMinutes + " minute(s).";
+                                    "Please try again in " + result.getRemainingMinutes() + " minute(s).";
                     ErrorDialog.show(this, "Account Locked", message);
-                    // FIXED: Clear password field on failed login
                     passwordField.setText("");
                     return;
                 }
 
-                if (result instanceof Object[] && ((Object[]) result)[0].equals("RESET_REQUIRED")) {
-                    Object[] resetData = (Object[]) result;
-                    Object userData = resetData[1];
-                    showPasswordResetDialog(userData, role);
+                if (result.getStatus() == LoginResult.Status.RESET_REQUIRED) {
+                    showPasswordResetDialog(result);
                     return;
                 }
 
-                if (result instanceof Object[]) {
-                    Object[] data = (Object[]) result;
-                    int id = (int) data[0]; 
-                    String rStr = (String) data[1];
-                    boolean isS = (boolean) data[2]; 
-                    String name = (String) data[3];
-                    String email = (data.length > 4) ? (String) data[4] : "No Email";
+                if (result.getStatus() == LoginResult.Status.SUCCESS_STAFF) {
+                    int id = result.getUserId();
+                    String rStr = result.getRoleName();
+                    boolean isS = result.isSuperAdmin();
+                    String name = result.getFullName();
+                    String email = result.getEmail() != null ? result.getEmail() : "No Email";
 
-                    // FIXED: Query role ID from database instead of hardcoding
-                    int rId = rpDao.getRoleIdByName(rStr);
-                    UserSession.initialize(id, name, isS ? "Super Admin" : rStr, rpDao.getPermissionNamesForRole(rId));
+                    UserSession.initialize(id, name, isS ? "Super Admin" : rStr, result.getPermissions());
 
                     SuccessDialog.show(this, "Access Granted", "Welcome back, " + name + "!");
 
@@ -304,20 +284,17 @@ public class LoginPage extends JFrame {
                     else if (rStr.equalsIgnoreCase("DENTIST")) new DentistDashboard(id, name, user, email);
                     else if (rStr.equalsIgnoreCase("STAFF")) new StaffDashboard(id, name, user, email);
                     dispose();
-                } 
-                else if (result instanceof Patient) {
-                    Patient p = (Patient) result;
+                } else if (result.getStatus() == LoginResult.Status.SUCCESS_PATIENT) {
+                    Patient p = result.getPatient();
                     UserSession.initialize(p.getPatientId(), p.getFirstName() + " " + p.getLastName(), "PATIENT", null);
                     SuccessDialog.show(this, "Welcome Back!", "Logging you in, " + p.getFirstName());
                     new PatientDashboard(p.getPatientId(), p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getBirthDate().toString(), String.valueOf(p.getAge()), p.getAddress(), p.getContactNumber(), p.getUsername());
                     dispose();
-                } 
-                else {
+                } else {
                     ErrorDialog.show(this, "Login Failed", "The username or password you entered is incorrect for the selected role.");
-                    // FIXED: Clear password field on failed login
                     passwordField.setText("");
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 ErrorDialog.show(this, "Database Error", "Unable to connect to the clinic server: " + ex.getMessage());
                 passwordField.setText("");
             }
@@ -337,7 +314,7 @@ public class LoginPage extends JFrame {
         } catch (Exception e) { return null; }
     }
     
-    private void showPasswordResetDialog(Object userData, String role) {
+    private void showPasswordResetDialog(LoginResult loginResult) {
         JDialog dialog = new JDialog(this, "Password Reset Required", true);
         dialog.setSize(450, 400);
         dialog.setLocationRelativeTo(this);
@@ -398,24 +375,7 @@ public class LoginPage extends JFrame {
             }
 
             try {
-                boolean success = false;
-
-                if (role.equalsIgnoreCase("Patient")) {
-                    Patient patient = (Patient) userData;
-                    String hashedPass = PasswordUtil.hashPassword(newPass);
-                    success = updatePatientPassword(patient.getPatientId(), hashedPass);
-                    if (success) {
-                        patientDAO.clearPasswordResetFlag(patient.getPatientId());
-                    }
-                } else {
-                    Object[] staffData = (Object[]) userData;
-                    int staffId = (int) staffData[0];
-                    String hashedPass = PasswordUtil.hashPassword(newPass);
-                    success = updateStaffPassword(staffId, hashedPass);
-                    if (success) {
-                        staffDAO.clearPasswordResetFlag(staffId);
-                    }
-                }
+                boolean success = authController.resetForcedPassword(loginResult.getUserId(), loginResult.getRoleName(), newPass);
 
                 if (success) {
                     SuccessDialog.show(LoginPage.this, "Success", "Password updated successfully! Please login again.");
@@ -423,7 +383,7 @@ public class LoginPage extends JFrame {
                 } else {
                     ErrorDialog.show(LoginPage.this, "Error", "Failed to update password. Please try again.");
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 ErrorDialog.show(LoginPage.this, "Database Error", ex.getMessage());
             }
         });
@@ -442,26 +402,6 @@ public class LoginPage extends JFrame {
         dialog.setVisible(true);
     }
 
-    private boolean updatePatientPassword(int patientId, String hashedPassword) throws SQLException {
-        String query = "UPDATE patients SET password = ?, force_password_reset = 0 WHERE patient_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, hashedPassword);
-            pstmt.setInt(2, patientId);
-            return pstmt.executeUpdate() > 0;
-        }
-    }
-
-    private boolean updateStaffPassword(int staffId, String hashedPassword) throws SQLException {
-        String query = "UPDATE staff SET password = ?, force_password_reset = 0 WHERE staff_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, hashedPassword);
-            pstmt.setInt(2, staffId);
-            return pstmt.executeUpdate() > 0;
-        }
-    }
-    
     private void showForgotPasswordDialog() {
         // FIXED: Rate limiting check
         long now = System.currentTimeMillis();
@@ -512,8 +452,7 @@ public class LoginPage extends JFrame {
 
             new Thread(() -> {
                 try {
-                    AuthService authService = new AuthService();
-                    String maskedEmail = authService.requestPasswordResetByUsername(username);
+                    String maskedEmail = authController.requestPasswordResetByUsername(username);
 
                     SwingUtilities.invokeLater(() -> {
                         sendButton.setEnabled(true);
@@ -530,7 +469,7 @@ public class LoginPage extends JFrame {
                                 "If an account exists with that username, a reset code has been sent.");
                         }
                     });
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     SwingUtilities.invokeLater(() -> {
                         sendButton.setEnabled(true);
                         sendButton.setText("Send Reset Code");
@@ -583,8 +522,7 @@ public class LoginPage extends JFrame {
 
             new Thread(() -> {
                 try {
-                    AuthService authService = new AuthService();
-                    boolean valid = authService.verifyResetCode(code);
+                    boolean valid = authController.verifyResetCode(code);
 
                     SwingUtilities.invokeLater(() -> {
                         verifyButton.setEnabled(true);
@@ -598,7 +536,7 @@ public class LoginPage extends JFrame {
                                 "The code is invalid or has expired. Please request a new code.");
                         }
                     });
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     SwingUtilities.invokeLater(() -> {
                         verifyButton.setEnabled(true);
                         verifyButton.setText("Verify Code");
@@ -676,8 +614,7 @@ public class LoginPage extends JFrame {
 
             new Thread(() -> {
                 try {
-                    AuthService authService = new AuthService();
-                    boolean success = authService.resetPasswordByUsername(username, resetCode, newPass);
+                    boolean success = authController.resetPasswordByUsername(username, resetCode, newPass);
 
                     SwingUtilities.invokeLater(() -> {
                         if (success) {
@@ -697,7 +634,7 @@ public class LoginPage extends JFrame {
                         resetButton.setEnabled(true);
                         resetButton.setText("Reset Password");
                     });
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     SwingUtilities.invokeLater(() -> {
                         ErrorDialog.show(LoginPage.this, "Error", "Database error: " + ex.getMessage());
                         resetButton.setEnabled(true);

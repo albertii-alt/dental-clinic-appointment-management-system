@@ -1,19 +1,16 @@
 package com.dentalclinic.staff;
 
+import com.dentalclinic.controller.AppointmentController;
 import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
-import com.dentalclinic.service.AppointmentService;
-import com.dentalclinic.dao.AppointmentDAO;
 
 public class StaffManageSchedulePanel extends JPanel {
-    private AppointmentService appService = new AppointmentService();
-    private AppointmentDAO appDAO = new AppointmentDAO();
+    private final AppointmentController appointmentController = new AppointmentController();
     private String currentStaffName;
     private int currentStaffId;
     private String currentRole;
@@ -102,10 +99,10 @@ public class StaffManageSchedulePanel extends JPanel {
             int confirm = JOptionPane.showConfirmDialog(this, "Block all available slots for this day?", "Confirm Block", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    String[] allSlots = appDAO.getDynamicTimeSlots();
-                    appDAO.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots, currentStaffId, currentRole);
+                    String[] allSlots = appointmentController.getTimeSlots();
+                    appointmentController.blockAllDay(new java.sql.Date(datePicker.getDate().getTime()), allSlots, currentStaffId, currentRole);
                     refreshSchedule();
-                } catch (SQLException ex) { ex.printStackTrace(); }
+                } catch (Exception ex) { ex.printStackTrace(); }
             }
         });
 
@@ -113,10 +110,10 @@ public class StaffManageSchedulePanel extends JPanel {
             int confirm = JOptionPane.showConfirmDialog(this, "Clear all manual blocks for this day?", "Confirm Clear", JOptionPane.YES_NO_OPTION);
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
-                    appDAO.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()), currentStaffId, currentRole);
+                    appointmentController.unblockAllDay(new java.sql.Date(datePicker.getDate().getTime()), currentStaffId, currentRole);
                     refreshSchedule();
                     JOptionPane.showMessageDialog(this, "All blocks cleared.");
-                } catch (SQLException ex) { 
+                } catch (Exception ex) { 
                     ex.printStackTrace(); 
                     JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
                 }
@@ -133,10 +130,10 @@ public class StaffManageSchedulePanel extends JPanel {
         java.sql.Date selectedDate = new java.sql.Date(datePicker.getDate().getTime());
         
         try {
-            String[] allSlots = appDAO.getDynamicTimeSlots();
-            List<String> occupied = appDAO.getOccupiedSlots(selectedDate);
+            String[] allSlots = appointmentController.getTimeSlots();
+            List<String> occupied = appointmentController.getOccupiedSlots(selectedDate);
             Set<String> occupiedSet = new HashSet<>(occupied);
-            List<String> blocked = appDAO.getBlockedSlotsByDate(selectedDate);
+            List<String> blocked = appointmentController.getBlockedSlotsByDate(selectedDate);
             Set<String> blockedSet = new HashSet<>(blocked);
 
             for (String slot : allSlots) {
@@ -146,7 +143,7 @@ public class StaffManageSchedulePanel extends JPanel {
             
             statusLabel.setText("Currently managing: " + selectedDate.toString());
 
-        } catch (SQLException e) {
+        } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "Error loading schedule: " + e.getMessage());
         }
@@ -205,17 +202,17 @@ public class StaffManageSchedulePanel extends JPanel {
     
     private void handleBlock(java.sql.Date date, String slot) {
         try {
-            if (appDAO.blockSlot(date, slot, "Staff Manual Block", currentStaffId, currentRole)) {
+            if (appointmentController.blockSlot(date, slot, "Staff Manual Block", currentStaffId, currentRole)) {
                 refreshSchedule();
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void handleUnblock(java.sql.Date date, String slot) {
         try {
-            if (appDAO.unblockSlot(date, slot, currentStaffId, currentRole)) {
+            if (appointmentController.unblockSlot(date, slot, currentStaffId, currentRole)) {
                 refreshSchedule();
             }
-        } catch (SQLException e) { e.printStackTrace(); }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }

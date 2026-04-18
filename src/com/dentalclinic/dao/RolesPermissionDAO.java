@@ -1,5 +1,7 @@
 package com.dentalclinic.dao;
 
+import com.dentalclinic.model.Permission;
+import com.dentalclinic.model.Role;
 import com.dentalclinic.util.DBConnection;
 import java.sql.*;
 import java.util.ArrayList;
@@ -49,6 +51,19 @@ public class RolesPermissionDAO {
         return list;
     }
 
+    public List<Role> getAllRoles() throws SQLException {
+        List<Role> roles = new ArrayList<>();
+        String query = "SELECT role_id, role_name FROM roles ORDER BY role_name ASC";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
+            while (rs.next()) {
+                roles.add(new Role(rs.getInt("role_id"), rs.getString("role_name")));
+            }
+        }
+        return roles;
+    }
+
     // 3. Update Role Permissions using TRANSACTION
     public boolean updateRolePermissions(int roleId, List<Integer> newPermissionIds) {
         Connection conn = null;
@@ -89,21 +104,6 @@ public class RolesPermissionDAO {
         }
     }
 
-    // Simple Helper Class for the UI
-    public static class Permission {
-        public int id;
-        public String name;
-        public String description;
-
-        public Permission(int id, String name, String description) {
-            this.id = id;
-            this.name = name;
-            this.description = description;
-        }
-        @Override
-        public String toString() { return name; }
-    }
-    
     // Get permission names as strings for UserSession
     public List<String> getPermissionNamesForRole(int roleId) {
         List<String> permissionNames = new ArrayList<>();

@@ -97,7 +97,7 @@ public class AppointmentDAO {
 
     public int save(Appointment app) throws SQLException {
         String query = "INSERT INTO appointments (patient_id, service_id, appointment_date, appointment_time_new, age_at_visit, contact_at_visit, status, is_read) " +
-                       "VALUES (?, (SELECT service_id FROM services WHERE service_name = ?), ?, STR_TO_DATE(?, '%h:%i %p'), ?, ?, 'Pending', FALSE)";
+                       "VALUES (?, (SELECT service_id FROM services WHERE service_name = ?), ?, STR_TO_DATE(?, '%h:%i %p'), ?, ?, ?, FALSE)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, app.getPatientId());
@@ -106,6 +106,7 @@ public class AppointmentDAO {
             pstmt.setString(4, app.getAppointmentTime());
             pstmt.setInt(5, app.getAgeAtVisit());
             pstmt.setString(6, app.getContactAtVisit());
+            pstmt.setString(7, app.getStatus());
             if (pstmt.executeUpdate() > 0) {
                 try (ResultSet rs = pstmt.getGeneratedKeys()) {
                     if (rs.next()) return rs.getInt(1);
@@ -642,6 +643,24 @@ public class AppointmentDAO {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, appId);
+            return pstmt.executeUpdate() > 0;
+        }
+    }
+
+    public boolean clearCancelledOrDeclinedAppointments() throws SQLException {
+        String sql = "DELETE FROM appointments WHERE status IN ('Cancelled', 'Declined')";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+            return true;
+        }
+    }
+
+    public boolean deleteById(int appointmentId) throws SQLException {
+        String query = "DELETE FROM appointments WHERE appointment_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            pstmt.setInt(1, appointmentId);
             return pstmt.executeUpdate() > 0;
         }
     }

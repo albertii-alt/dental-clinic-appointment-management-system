@@ -1,16 +1,18 @@
 package com.dentalclinic.service;
 
 import com.dentalclinic.dao.AppointmentDAO;
+import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.dto.appointment.AppointmentRequest;
+import com.dentalclinic.dto.appointment.BookingResult;
 import com.dentalclinic.model.Appointment;
 import java.sql.SQLException;
 import java.util.List;
-import com.dentalclinic.util.DBConnection;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
 import com.dentalclinic.util.EmailUtil;
+import com.dentalclinic.util.Sanitizer;
 
 public class AppointmentService {
     private AppointmentDAO appointmentDAO = new AppointmentDAO();
+    private PatientDAO patientDAO = new PatientDAO();
     private LogService logService = new LogService();
 
     public String[] getServiceList() throws SQLException {
@@ -32,8 +34,76 @@ public class AppointmentService {
     public int createAppointment(Appointment app) throws SQLException {
         return appointmentDAO.save(app); 
     }
+
+    public BookingResult bookAppointment(AppointmentRequest request, boolean autoApprove) throws SQLException {
+        if (request.getPatientId() <= 0) {
+            return new BookingResult(false, "Please select a valid patient.", -1);
+        }
+        if (request.getAppointmentDate() == null) {
+            return new BookingResult(false, "Please select an appointment date.", -1);
+        }
+        if (request.getServiceType() == null || request.getServiceType().trim().isEmpty()) {
+            return new BookingResult(false, "Please select a service.", -1);
+        }
+        if (request.getAppointmentTime() == null || request.getAppointmentTime().trim().isEmpty()) {
+            return new BookingResult(false, "Please select a time slot.", -1);
+        }
+        if (!Sanitizer.isValidPhone(request.getContactNumber())) {
+            return new BookingResult(false, "Please enter a valid contact number.", -1);
+        }
+
+        if (!autoApprove && appointmentDAO.hasPendingAppointment(request.getPatientId())) {
+            return new BookingResult(false, "You currently have a request pending approval.", -1);
+        }
+
+        java.time.LocalDate selectedDate = request.getAppointmentDate().toLocalDate();
+        java.time.LocalDate today = java.time.LocalDate.now();
+        int leadDays = appointmentDAO.getLeadTime();
+        if (selectedDate.isBefore(today.plusDays(leadDays))) {
+            return new BookingResult(false, "Selected date violates booking lead time.", -1);
+        }
+
+        List<String> closedDays = appointmentDAO.getClosedDaysFromDB();
+        String selectedDayName = selectedDate.getDayOfWeek().name().substring(0, 1) +
+                selectedDate.getDayOfWeek().name().substring(1).toLowerCase();
+        if (closedDays.stream().anyMatch(day -> day.equalsIgnoreCase(selectedDayName))) {
+            return new BookingResult(false, "Clinic is closed on the selected date.", -1);
+        }
+
+        List<String> activeSlots = java.util.Arrays.asList(appointmentDAO.getDynamicTimeSlots());
+        if (!activeSlots.contains(request.getAppointmentTime())) {
+            return new BookingResult(false, "Selected time slot is not available.", -1);
+        }
+
+        List<String> occupiedSlots = appointmentDAO.getOccupiedSlots(request.getAppointmentDate());
+        List<String> blockedSlots = appointmentDAO.getBlockedSlotsByDate(request.getAppointmentDate());
+        if (occupiedSlots.contains(request.getAppointmentTime()) || blockedSlots.contains(request.getAppointmentTime())) {
+            return new BookingResult(false, "Selected time slot is no longer available.", -1);
+        }
+
+        String status = autoApprove ? "Approved" : "Pending";
+        Appointment appointment = new Appointment(
+                request.getPatientId(),
+                request.getServiceType(),
+                request.getAppointmentDate(),
+                request.getAppointmentTime(),
+                request.getAgeAtVisit(),
+                request.getContactNumber(),
+                status
+        );
+
+        int generatedId = appointmentDAO.save(appointment);
+        if (generatedId == -1) {
+            return new BookingResult(false, "Failed to save appointment.", -1);
+        }
+        return new BookingResult(true, autoApprove ? "Appointment booked and approved." : "Appointment request submitted.", generatedId);
+    }
     
     public List<Appointment> getPatientAppointmentHistory(int patientId) throws SQLException {
+        return appointmentDAO.getAppointmentsByPatient(patientId);
+    }
+
+    public List<Appointment> getAppointmentsByPatient(int patientId) throws SQLException {
         return appointmentDAO.getAppointmentsByPatient(patientId);
     }
     
@@ -44,9 +114,8 @@ public class AppointmentService {
     public boolean updateAppointmentStatus(int appId, String status, int actorId, String actorRole) throws SQLException {
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
         Appointment appointment = appointmentDAO.getAppointmentById(appId);
-        com.dentalclinic.model.Patient patient = null;
+            com.dentalclinic.model.Patient patient = null;
         if (appointment != null) {
-            com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
             patient = patientDAO.getPatientById(appointment.getPatientId());
         }
 
@@ -153,7 +222,6 @@ public class AppointmentService {
         String oldTime = originalApp.getAppointmentTime();
         com.dentalclinic.model.Patient patient = null;
         if (originalApp != null) {
-            com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
             patient = patientDAO.getPatientById(originalApp.getPatientId());
         }
         boolean success = appointmentDAO.updateDateTime(appId, newDate, newTime); 
@@ -223,13 +291,22 @@ public class AppointmentService {
                 .filter(a -> !a.getStatus().equalsIgnoreCase("Pending"))
                 .collect(java.util.stream.Collectors.toList());
     }
+
+    public boolean markNotificationAsRead(int appId) {
+        return appointmentDAO.markAsRead(appId);
+    }
+
+    public boolean archiveNotification(int appId) throws SQLException {
+        return appointmentDAO.archiveNotification(appId);
+    }
+
+    public boolean archiveAllNotifications(int patientId) throws SQLException {
+        return appointmentDAO.archiveAllNotifications(patientId);
+    }
     
     public boolean clearAllCancelledAppointments() {
-        String sql = "DELETE FROM appointments WHERE status IN ('Cancelled', 'Declined')";
-        try (Connection conn = com.dentalclinic.util.DBConnection.getConnection();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.executeUpdate();
-            return true;
+        try {
+            return appointmentDAO.clearCancelledOrDeclinedAppointments();
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -237,11 +314,8 @@ public class AppointmentService {
     }
     
     public boolean deleteAppointment(int appointmentId) {
-        String query = "DELETE FROM appointments WHERE appointment_id = ?";
-        try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(query)) {
-            ps.setInt(1, appointmentId);
-            return ps.executeUpdate() > 0;
+        try {
+            return appointmentDAO.deleteById(appointmentId);
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
@@ -250,6 +324,30 @@ public class AppointmentService {
     
     public List<Appointment> getAutoArchivedCancelled(int pId) throws SQLException {
         return appointmentDAO.getRecentCancelledByPatient(pId, 30);
+    }
+
+    public List<String> getOccupiedSlots(java.sql.Date date) throws SQLException {
+        return appointmentDAO.getOccupiedSlots(date);
+    }
+
+    public List<String> getBlockedSlotsByDate(java.sql.Date date) throws SQLException {
+        return appointmentDAO.getBlockedSlotsByDate(date);
+    }
+
+    public boolean blockSlot(java.sql.Date date, String slot, String reason, int staffId, String role) throws SQLException {
+        return appointmentDAO.blockSlot(date, slot, reason, staffId, role);
+    }
+
+    public boolean unblockSlot(java.sql.Date date, String slot, int staffId, String role) throws SQLException {
+        return appointmentDAO.unblockSlot(date, slot, staffId, role);
+    }
+
+    public void blockAllDay(java.sql.Date date, String[] slots, int staffId, String role) throws SQLException {
+        appointmentDAO.blockAllDay(date, slots, staffId, role);
+    }
+
+    public boolean unblockAllDay(java.sql.Date date, int staffId, String role) throws SQLException {
+        return appointmentDAO.unblockAllDay(date, staffId, role);
     }
 
     // ==========================================================
@@ -265,7 +363,6 @@ public class AppointmentService {
         if (appointment == null) {
             return false;
         }
-        com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
         com.dentalclinic.model.Patient patient = patientDAO.getPatientById(appointment.getPatientId());
         if (patient == null || patient.getEmail() == null || patient.getEmail().isEmpty()) {
             return false;
@@ -316,7 +413,6 @@ public class AppointmentService {
         if (appointment == null) {
             return false;
         }
-        com.dentalclinic.dao.PatientDAO patientDAO = new com.dentalclinic.dao.PatientDAO();
         com.dentalclinic.model.Patient patient = patientDAO.getPatientById(appointment.getPatientId());
         if (patient == null || patient.getEmail() == null || patient.getEmail().isEmpty()) {
             return false;
