@@ -7,6 +7,7 @@ import com.dentalclinic.service.AuthService;
 import com.dentalclinic.service.RolesService;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
 
 public class AuthController {
@@ -15,6 +16,10 @@ public class AuthController {
 
     public boolean isDatabaseAvailable() {
         return authService.isDatabaseAvailable();
+    }
+
+    public boolean testDatabaseConnection(String host, String port, String dbName, String user, String pass) {
+        return authService.testDatabaseConnection(host, port, dbName, user, pass);
     }
 
     public LoginResult login(LoginRequest request) throws SQLException {
@@ -91,5 +96,11 @@ public class AuthController {
     public boolean registerNewPatient(String fName, String mName, String lName, java.sql.Date dob, int age, String addr,
                                       String phone, String email, String user, String pass) throws SQLException {
         return authService.registerNewPatient(fName, mName, lName, dob, age, addr, phone, email, user, pass);
+    }
+
+    public boolean registerNewPatient(String fName, String mName, String lName, Date dob, int age, String addr,
+                                      String phone, String email, String user, String pass) throws SQLException {
+        java.sql.Date sqlDob = new java.sql.Date(dob.getTime());
+        return authService.registerNewPatient(fName, mName, lName, sqlDob, age, addr, phone, email, user, pass);
     }
 }

@@ -1,7 +1,7 @@
 package com.dentalclinic.model;
 
 import java.math.BigDecimal;
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class DentalService {
     private int serviceId;
@@ -9,15 +9,15 @@ public class DentalService {
     private String description;
     private BigDecimal price;
     private boolean active;
-    private Timestamp createdAt;
-    private Timestamp updatedAt;
+    private Date createdAt;
+    private Date updatedAt;
 
     public DentalService(int serviceId, String serviceName) {
         this.serviceId = serviceId;
         this.serviceName = serviceName;
     }
 
-    public DentalService(int serviceId, String serviceName, String description, BigDecimal price, boolean active, Timestamp createdAt, Timestamp updatedAt) {
+    public DentalService(int serviceId, String serviceName, String description, BigDecimal price, boolean active, Date createdAt, Date updatedAt) {
         this.serviceId = serviceId;
         this.serviceName = serviceName;
         this.description = description;
@@ -32,6 +32,6 @@ public class DentalService {
     public String getDescription() { return description; }
     public BigDecimal getPrice() { return price; }
     public boolean isActive() { return active; }
-    public Timestamp getCreatedAt() { return createdAt; }
-    public Timestamp getUpdatedAt() { return updatedAt; }
+    public Date getCreatedAt() { return createdAt; }
+    public Date getUpdatedAt() { return updatedAt; }
 }

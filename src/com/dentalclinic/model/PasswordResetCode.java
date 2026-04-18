@@ -1,6 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class PasswordResetCode {
     private int id;
@@ -8,11 +8,11 @@ public class PasswordResetCode {
     private String code;
     private String userType;
     private String username;
-    private Timestamp createdAt;
-    private Timestamp expiresAt;
+    private Date createdAt;
+    private Date expiresAt;
     private boolean used;
 
-    public PasswordResetCode(int id, String email, String code, String userType, String username, Timestamp createdAt, Timestamp expiresAt, boolean used) {
+    public PasswordResetCode(int id, String email, String code, String userType, String username, Date createdAt, Date expiresAt, boolean used) {
         this.id = id;
         this.email = email;
         this.code = code;
@@ -28,7 +28,7 @@ public class PasswordResetCode {
     public String getCode() { return code; }
     public String getUserType() { return userType; }
     public String getUsername() { return username; }
-    public Timestamp getCreatedAt() { return createdAt; }
-    public Timestamp getExpiresAt() { return expiresAt; }
+    public Date getCreatedAt() { return createdAt; }
+    public Date getExpiresAt() { return expiresAt; }
     public boolean isUsed() { return used; }
 }

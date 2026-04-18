@@ -102,7 +102,7 @@ public class AppointmentDAO {
              PreparedStatement pstmt = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS)) {
             pstmt.setInt(1, app.getPatientId());
             pstmt.setString(2, app.getServiceType());
-            pstmt.setDate(3, app.getAppointmentDate());
+            pstmt.setDate(3, new java.sql.Date(app.getAppointmentDate().getTime()));
             pstmt.setString(4, app.getAppointmentTime());
             pstmt.setInt(5, app.getAgeAtVisit());
             pstmt.setString(6, app.getContactAtVisit());

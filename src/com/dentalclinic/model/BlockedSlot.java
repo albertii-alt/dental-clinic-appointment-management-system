@@ -1,6 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Date;
+import java.util.Date;
 
 public class BlockedSlot {
     private int blockId;

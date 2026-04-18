@@ -6,6 +6,10 @@ import java.util.List;
 public class LogController {
     private final LogService logService = new LogService();
 
+    public List<Object[]> getActivityLogs() throws Exception {
+        return logService.getActivityLogs();
+    }
+
     public List<Object[]> getSystemLogs() throws Exception {
         return logService.getSystemLogs();
     }
@@ -16,6 +20,10 @@ public class LogController {
 
     public boolean clearAllSystemLogs(int staffId, String role) {
         return logService.clearAllSystemLogs(staffId, role);
+    }
+
+    public boolean archiveActivityLogs(int staffId, String role) {
+        return logService.archiveActivityLogs(staffId, role);
     }
 
     public void record(int actorId, String actorRole, String action, String details) {

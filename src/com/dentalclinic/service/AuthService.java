@@ -7,6 +7,8 @@ import com.dentalclinic.model.Patient;
 import com.dentalclinic.util.DBConnection;
 import com.dentalclinic.util.EmailUtil;
 import com.dentalclinic.util.PasswordUtil;
+import java.sql.Connection;
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import com.dentalclinic.util.PasswordValidator;
 import java.util.List;
@@ -18,6 +20,18 @@ public class AuthService {
 
     public boolean isDatabaseAvailable() {
         return DBConnection.testConnection();
+    }
+
+    public boolean testDatabaseConnection(String host, String port, String dbName, String user, String pass) {
+        String testUrl = String.format(
+                "jdbc:mysql://%s:%s/%s?useSSL=true&serverTimezone=UTC",
+                host, port, dbName
+        );
+        try (Connection ignored = DriverManager.getConnection(testUrl, user, pass)) {
+            return true;
+        } catch (SQLException ex) {
+            return false;
+        }
     }
 
     public Object login(String username, String password, String selectedRole) throws SQLException {

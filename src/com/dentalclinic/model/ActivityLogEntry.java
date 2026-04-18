@@ -1,6 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class ActivityLogEntry {
     private int logId;
@@ -8,9 +8,9 @@ public class ActivityLogEntry {
     private String userRole;
     private String action;
     private String details;
-    private Timestamp timestamp;
+    private Date timestamp;
 
-    public ActivityLogEntry(int logId, int userId, String userRole, String action, String details, Timestamp timestamp) {
+    public ActivityLogEntry(int logId, int userId, String userRole, String action, String details, Date timestamp) {
         this.logId = logId;
         this.userId = userId;
         this.userRole = userRole;
@@ -24,5 +24,5 @@ public class ActivityLogEntry {
     public String getUserRole() { return userRole; }
     public String getAction() { return action; }
     public String getDetails() { return details; }
-    public Timestamp getTimestamp() { return timestamp; }
+    public Date getTimestamp() { return timestamp; }
 }

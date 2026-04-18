@@ -19,6 +19,10 @@ public class PatientService {
         return patientDAO.getPatientById(patientId);
     }
 
+    public boolean isUsernameTakenInPatients(String username) throws SQLException {
+        return patientDAO.isUsernameTakenInPatients(username);
+    }
+
     public boolean verifyPassword(int patientId, String currentPassword) throws SQLException {
         return patientDAO.verifyPassword(patientId, currentPassword);
     }

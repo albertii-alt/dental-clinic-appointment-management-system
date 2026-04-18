@@ -1,15 +1,15 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class ClinicScheduleDay {
     private int dayId;
     private String dayName;
     private boolean open;
-    private Timestamp createdAt;
-    private Timestamp updatedAt;
+    private Date createdAt;
+    private Date updatedAt;
 
-    public ClinicScheduleDay(int dayId, String dayName, boolean open, Timestamp createdAt, Timestamp updatedAt) {
+    public ClinicScheduleDay(int dayId, String dayName, boolean open, Date createdAt, Date updatedAt) {
         this.dayId = dayId;
         this.dayName = dayName;
         this.open = open;
@@ -20,6 +20,6 @@ public class ClinicScheduleDay {
     public int getDayId() { return dayId; }
     public String getDayName() { return dayName; }
     public boolean isOpen() { return open; }
-    public Timestamp getCreatedAt() { return createdAt; }
-    public Timestamp getUpdatedAt() { return updatedAt; }
+    public Date getCreatedAt() { return createdAt; }
+    public Date getUpdatedAt() { return updatedAt; }
 }

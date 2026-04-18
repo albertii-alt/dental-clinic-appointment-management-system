@@ -1,8 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Date;
-import java.sql.Time;
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class Appointment {
     private int appointmentId; 
@@ -10,13 +8,13 @@ public class Appointment {
     private Integer serviceId;
     private String serviceType;
     private Date appointmentDate;
-    private Time appointmentTimeNew;
+    private Date appointmentTimeNew;
     private String appointmentTime;
     private int ageAtVisit;
     private String contactAtVisit;
     private String status;
     private String clinical_notes;
-    private Timestamp requestDate;
+    private Date requestDate;
     private boolean isRead; // New field for notification status
     private boolean isArchived;
     private boolean reminderSent;
@@ -73,11 +71,11 @@ public class Appointment {
             Integer serviceId,
             String serviceType,
             Date appointmentDate,
-            Time appointmentTimeNew,
+            Date appointmentTimeNew,
             int ageAtVisit,
             String contactAtVisit,
             String status,
-            Timestamp requestDate,
+            Date requestDate,
             String clinicalNotes,
             boolean isRead,
             boolean isArchived,
@@ -108,13 +106,13 @@ public class Appointment {
     public Integer getServiceId() { return serviceId; }
     public String getServiceType() { return serviceType; }
     public Date getAppointmentDate() { return appointmentDate; }
-    public Time getAppointmentTimeNew() { return appointmentTimeNew; }
+    public Date getAppointmentTimeNew() { return appointmentTimeNew; }
     public String getAppointmentTime() { return appointmentTime; }
     public int getAgeAtVisit() { return ageAtVisit; }
     public String getContactAtVisit() { return contactAtVisit; }
     public String getStatus() { return status; }
     public String getClinicalNotes() { return clinical_notes; }
-    public Timestamp getRequestDate() { return requestDate; }
+    public Date getRequestDate() { return requestDate; }
     public boolean isReminderSent() { return reminderSent; }
     public boolean isDayOfReminderSent() { return dayOfReminderSent; }
     public DentalService getService() { return service; }
@@ -122,11 +120,11 @@ public class Appointment {
 
     public void setClinicalNotes(String notes) { this.clinical_notes = notes; }
     public void setServiceId(Integer serviceId) { this.serviceId = serviceId; }
-    public void setAppointmentTimeNew(Time appointmentTimeNew) {
+    public void setAppointmentTimeNew(Date appointmentTimeNew) {
         this.appointmentTimeNew = appointmentTimeNew;
         this.appointmentTime = appointmentTimeNew != null ? appointmentTimeNew.toString() : this.appointmentTime;
     }
-    public void setRequestDate(Timestamp requestDate) { this.requestDate = requestDate; }
+    public void setRequestDate(Date requestDate) { this.requestDate = requestDate; }
     public void setReminderSent(boolean reminderSent) { this.reminderSent = reminderSent; }
     public void setDayOfReminderSent(boolean dayOfReminderSent) { this.dayOfReminderSent = dayOfReminderSent; }
     public void setService(DentalService service) { this.service = service; }

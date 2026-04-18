@@ -1,15 +1,15 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 public class Role {
     private final int roleId;
     private final String roleName;
     private final String description;
-    private final Timestamp createdAt;
-    private final Timestamp updatedAt;
+    private final Date createdAt;
+    private final Date updatedAt;
     private List<Permission> permissions;
 
     public Role(int roleId, String roleName) {
@@ -21,7 +21,7 @@ public class Role {
         this.permissions = new ArrayList<>();
     }
 
-    public Role(int roleId, String roleName, String description, Timestamp createdAt, Timestamp updatedAt) {
+    public Role(int roleId, String roleName, String description, Date createdAt, Date updatedAt) {
         this.roleId = roleId;
         this.roleName = roleName;
         this.description = description;
@@ -42,11 +42,11 @@ public class Role {
         return description;
     }
 
-    public Timestamp getCreatedAt() {
+    public Date getCreatedAt() {
         return createdAt;
     }
 
-    public Timestamp getUpdatedAt() {
+    public Date getUpdatedAt() {
         return updatedAt;
     }
 

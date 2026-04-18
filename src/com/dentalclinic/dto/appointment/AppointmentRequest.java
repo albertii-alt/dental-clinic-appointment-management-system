@@ -19,6 +19,17 @@ public class AppointmentRequest {
         this.contactNumber = contactNumber;
     }
 
+    public AppointmentRequest(int patientId, String serviceType, java.util.Date appointmentDate, String appointmentTime, int ageAtVisit, String contactNumber) {
+        this(
+                patientId,
+                serviceType,
+                new Date(appointmentDate.getTime()),
+                appointmentTime,
+                ageAtVisit,
+                contactNumber
+        );
+    }
+
     public int getPatientId() {
         return patientId;
     }

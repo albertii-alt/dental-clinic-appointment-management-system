@@ -1,6 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class Staff {
     private int staffId;
@@ -10,13 +10,13 @@ public class Staff {
     private int roleId;
     private String specialization;
     private String contactNumber;
-    private Timestamp createdAt;
+    private Date createdAt;
     private boolean active;
     private boolean superAdmin;
     private boolean forcePasswordReset;
     private int failedLoginAttempts;
     private boolean accountLocked;
-    private Timestamp lockoutTime;
+    private Date lockoutTime;
     private Role role;
 
     public Staff(int staffId, String username, String fullName, String email, int roleId) {
@@ -35,13 +35,13 @@ public class Staff {
             int roleId,
             String specialization,
             String contactNumber,
-            Timestamp createdAt,
+            Date createdAt,
             boolean active,
             boolean superAdmin,
             boolean forcePasswordReset,
             int failedLoginAttempts,
             boolean accountLocked,
-            Timestamp lockoutTime
+            Date lockoutTime
     ) {
         this.staffId = staffId;
         this.username = username;
@@ -66,13 +66,13 @@ public class Staff {
     public int getRoleId() { return roleId; }
     public String getSpecialization() { return specialization; }
     public String getContactNumber() { return contactNumber; }
-    public Timestamp getCreatedAt() { return createdAt; }
+    public Date getCreatedAt() { return createdAt; }
     public boolean isActive() { return active; }
     public boolean isSuperAdmin() { return superAdmin; }
     public boolean isForcePasswordReset() { return forcePasswordReset; }
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
     public boolean isAccountLocked() { return accountLocked; }
-    public Timestamp getLockoutTime() { return lockoutTime; }
+    public Date getLockoutTime() { return lockoutTime; }
     public Role getRole() { return role; }
 
     public void setRole(Role role) { this.role = role; }

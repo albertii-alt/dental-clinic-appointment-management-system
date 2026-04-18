@@ -4,33 +4,42 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-view_paths=(
-  "src/com/dentalclinic/ui"
-  "src/com/dentalclinic/admin"
-  "src/com/dentalclinic/patient"
-  "src/com/dentalclinic/staff"
-)
-
 status=0
-echo "Checking MVC boundaries for view classes..."
+echo "Checking strict MVC boundaries..."
 
-for path in "${view_paths[@]}"; do
-  [[ -d "$path" ]] || continue
+check_pattern() {
+  local path="$1"
+  local pattern="$2"
+  local message="$3"
+  local tmp_file
+  tmp_file="$(mktemp)"
 
-  if grep -RInE "import[[:space:]]+java\\.sql\\." "$path" --include='*.java' >/tmp/mvc_sql_hits.txt; then
-    echo "ERROR: java.sql import found in view classes under $path"
-    cat /tmp/mvc_sql_hits.txt
+  if [[ -d "$path" ]] && grep -RInE "$pattern" "$path" --include='*.java' >"$tmp_file"; then
+    echo "ERROR: $message"
+    cat "$tmp_file"
     status=1
   fi
 
-  if grep -RInE "import[[:space:]]+com\\.dentalclinic\\.dao\\." "$path" --include='*.java' >/tmp/mvc_dao_hits.txt; then
-    echo "ERROR: DAO import found in view classes under $path"
-    cat /tmp/mvc_dao_hits.txt
-    status=1
-  fi
-done
+  rm -f "$tmp_file"
+}
 
-rm -f /tmp/mvc_sql_hits.txt /tmp/mvc_dao_hits.txt
+# View constraints: no direct JDBC imports, no DAO imports.
+check_pattern "src/com/dentalclinic/view" "import[[:space:]]+java\\.sql\\." \
+  "View must not import java.sql.*"
+check_pattern "src/com/dentalclinic/view" "import[[:space:]]+com\\.dentalclinic\\.dao\\." \
+  "View must not import DAO packages"
+
+# Controller constraints: no DAO imports, no DBConnection usage.
+check_pattern "src/com/dentalclinic/controller" "import[[:space:]]+com\\.dentalclinic\\.dao\\." \
+  "Controller must not import DAO packages"
+check_pattern "src/com/dentalclinic/controller" "DBConnection" \
+  "Controller must not reference DBConnection"
+
+# Service constraints: no Swing/AWT imports.
+check_pattern "src/com/dentalclinic/service" "import[[:space:]]+javax\\.swing\\." \
+  "Service must not import Swing classes"
+check_pattern "src/com/dentalclinic/service" "import[[:space:]]+java\\.awt\\." \
+  "Service must not import AWT classes"
 
 if [[ $status -ne 0 ]]; then
   echo "MVC boundary check failed."

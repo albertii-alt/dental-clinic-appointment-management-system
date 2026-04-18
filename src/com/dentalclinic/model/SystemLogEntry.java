@@ -1,15 +1,15 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class SystemLogEntry {
     private int systemLogId;
     private String logLevel;
     private String sourceClass;
     private String message;
-    private Timestamp timestamp;
+    private Date timestamp;
 
-    public SystemLogEntry(int systemLogId, String logLevel, String sourceClass, String message, Timestamp timestamp) {
+    public SystemLogEntry(int systemLogId, String logLevel, String sourceClass, String message, Date timestamp) {
         this.systemLogId = systemLogId;
         this.logLevel = logLevel;
         this.sourceClass = sourceClass;
@@ -21,5 +21,5 @@ public class SystemLogEntry {
     public String getLogLevel() { return logLevel; }
     public String getSourceClass() { return sourceClass; }
     public String getMessage() { return message; }
-    public Timestamp getTimestamp() { return timestamp; }
+    public Date getTimestamp() { return timestamp; }
 }

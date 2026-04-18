@@ -1,7 +1,6 @@
 package com.dentalclinic.model;
 
-import java.sql.Date;
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class Patient {
     private int patientId;
@@ -11,11 +10,11 @@ public class Patient {
     private Date birthDate;
     private int age;
     private String address, contactNumber, email, username;
-    private Timestamp registrationDate;
+    private Date registrationDate;
     private boolean forcePasswordReset;
     private int failedLoginAttempts;
     private boolean accountLocked;
-    private Timestamp lockoutTime;
+    private Date lockoutTime;
 
     // Constructor to quickly build a Patient object
     public Patient(int id, String fName, String mName, String lName, Date dob, int age, String addr, String phone, String email, String user) {
@@ -47,11 +46,11 @@ public class Patient {
             String contactNumber,
             String email,
             String username,
-            Timestamp registrationDate,
+            Date registrationDate,
             boolean forcePasswordReset,
             int failedLoginAttempts,
             boolean accountLocked,
-            Timestamp lockoutTime
+            Date lockoutTime
     ) {
         this.patientId = patientId;
         this.firstName = firstName;
@@ -82,11 +81,11 @@ public class Patient {
     public String getContactNumber() { return contactNumber; }
     public String getUsername() { return username; }
     public String getEmail() {return email;}
-    public Timestamp getRegistrationDate() { return registrationDate; }
+    public Date getRegistrationDate() { return registrationDate; }
     public boolean isForcePasswordReset() { return forcePasswordReset; }
     public int getFailedLoginAttempts() { return failedLoginAttempts; }
     public boolean isAccountLocked() { return accountLocked; }
-    public Timestamp getLockoutTime() { return lockoutTime; }
+    public Date getLockoutTime() { return lockoutTime; }
 
     // Setters for mutable domain updates
     public void setFirstName(String firstName) { this.firstName = firstName; }
@@ -98,9 +97,9 @@ public class Patient {
     public void setContactNumber(String contactNumber) { this.contactNumber = contactNumber; }
     public void setEmail(String email) { this.email = email; }
     public void setUsername(String username) { this.username = username; }
-    public void setRegistrationDate(Timestamp registrationDate) { this.registrationDate = registrationDate; }
+    public void setRegistrationDate(Date registrationDate) { this.registrationDate = registrationDate; }
     public void setForcePasswordReset(boolean forcePasswordReset) { this.forcePasswordReset = forcePasswordReset; }
     public void setFailedLoginAttempts(int failedLoginAttempts) { this.failedLoginAttempts = failedLoginAttempts; }
     public void setAccountLocked(boolean accountLocked) { this.accountLocked = accountLocked; }
-    public void setLockoutTime(Timestamp lockoutTime) { this.lockoutTime = lockoutTime; }
+    public void setLockoutTime(Date lockoutTime) { this.lockoutTime = lockoutTime; }
 }

@@ -1,13 +1,13 @@
 package com.dentalclinic.model;
 
-import java.sql.Timestamp;
+import java.util.Date;
 
 public class Permission {
     private final int permissionId;
     private final String permissionName;
     private final String description;
-    private final Timestamp createdAt;
-    private final Timestamp updatedAt;
+    private final Date createdAt;
+    private final Date updatedAt;
 
     public Permission(int permissionId, String permissionName, String description) {
         this.permissionId = permissionId;
@@ -17,7 +17,7 @@ public class Permission {
         this.updatedAt = null;
     }
 
-    public Permission(int permissionId, String permissionName, String description, Timestamp createdAt, Timestamp updatedAt) {
+    public Permission(int permissionId, String permissionName, String description, Date createdAt, Date updatedAt) {
         this.permissionId = permissionId;
         this.permissionName = permissionName;
         this.description = description;
@@ -37,11 +37,11 @@ public class Permission {
         return description;
     }
 
-    public Timestamp getCreatedAt() {
+    public Date getCreatedAt() {
         return createdAt;
     }
 
-    public Timestamp getUpdatedAt() {
+    public Date getUpdatedAt() {
         return updatedAt;
     }
 }

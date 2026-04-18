@@ -1,20 +1,20 @@
 package com.dentalclinic.controller;
 
-import com.dentalclinic.dao.PatientDAO;
+import com.dentalclinic.service.PatientService;
 import com.dentalclinic.service.StaffService;
 import java.sql.SQLException;
 import java.util.List;
 
 public class AdminController {
     private final StaffService staffService = new StaffService();
-    private final PatientDAO patientDAO = new PatientDAO();
+    private final PatientService patientService = new PatientService();
 
     public List<Object[]> getAllStaff() throws SQLException {
         return staffService.getAllStaff();
     }
 
     public boolean isPatientUsernameTaken(String username) throws SQLException {
-        return patientDAO.isUsernameTakenInPatients(username);
+        return patientService.isUsernameTakenInPatients(username);
     }
 
     public boolean addStaff(String name, String user, String pass, String email, String role, int adminId, String adminRole) throws SQLException {
