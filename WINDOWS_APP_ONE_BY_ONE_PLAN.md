@@ -72,6 +72,12 @@ Progress in this step:
 - [x] Startup availability check now validates backend API health endpoint.
 - [ ] Remove remaining desktop direct-DB dependencies beyond login flow.
 
+Spring Boot migration progress:
+- [x] Created Spring Boot module at `backend-spring/`.
+- [x] Added Spring endpoints `GET /health` and `POST /auth/login`.
+- [x] Implemented login bridge forwarding to legacy temporary API for safe transition.
+- [ ] Replace bridge forwarding with native Spring service and repository implementation.
+
 Definition of done:
 - Login works with backend API.
 - Desktop no longer needs `db.url/db.user/db.password`.
