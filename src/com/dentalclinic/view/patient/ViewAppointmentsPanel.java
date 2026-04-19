@@ -8,6 +8,8 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
 import javax.imageio.ImageIO;
@@ -15,18 +17,35 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 
 public class ViewAppointmentsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, CacheEntry> REQUEST_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
     private List<Appointment> filteredList = new ArrayList<>();
+    private final int patientID;
+    private SwingWorker<List<Appointment>, Void> loadWorker;
+    private long loadRequestId = 0;
 
     // UI Style Constants
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
     private final Color PENDING_ORANGE = new Color(230, 126, 34);
     private final Color DECLINED_RED = new Color(231, 76, 60);
 
+    private static class CacheEntry {
+        private final List<Appointment> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Appointment> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
     public ViewAppointmentsPanel(int patientID) {
+        this.patientID = patientID;
         setLayout(new BorderLayout(15, 15));
         setBackground(new Color(245, 247, 250));
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
@@ -53,7 +72,7 @@ public class ViewAppointmentsPanel extends JPanel {
                 if (e.getClickCount() == 2) { 
                     int row = table.getSelectedRow();
                     if (row != -1) {
-                        showAppointmentDetails(row, patientID);
+                        showAppointmentDetails(row, ViewAppointmentsPanel.this.patientID);
                     }
                 }
             }
@@ -63,7 +82,7 @@ public class ViewAppointmentsPanel extends JPanel {
         scrollPane.setBorder(new LineBorder(new Color(230, 230, 230)));
         add(scrollPane, BorderLayout.CENTER);
 
-        loadData(patientID);
+        loadData(false);
     }
 
     private void styleTable(JTable table) {
@@ -95,31 +114,77 @@ public class ViewAppointmentsPanel extends JPanel {
         });
     }
 
-    private void loadData(int pID) {
-        try {
-            model.setRowCount(0);
-            List<Appointment> allAppointments = appointmentController.getPatientAppointmentHistory(pID);
+    private void loadData(boolean forceRefresh) {
+        CacheEntry cached = REQUEST_CACHE.get(patientID);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
 
-            filteredList = allAppointments.stream()
-                .filter(a -> a.getStatus().equalsIgnoreCase("Pending") || 
-                             a.getStatus().equalsIgnoreCase("Declined")) 
-                .collect(Collectors.toList());
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
 
-            if (filteredList.isEmpty()) {   
-                showNoDataScreen();
-            } else {
-                for (Appointment a : filteredList) {
-                    model.addRow(new Object[]{
-                        a.getServiceType(),
-                        a.getAppointmentDate().toString(),
-                        a.getAppointmentTime(),
-                        a.getStatus()
-                    });
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Appointment>, Void>() {
+            @Override
+            protected List<Appointment> doInBackground() throws Exception {
+                List<Appointment> allAppointments = appointmentController.getPatientAppointmentHistory(patientID);
+                return allAppointments.stream()
+                    .filter(a -> a.getStatus().equalsIgnoreCase("Pending") ||
+                                 a.getStatus().equalsIgnoreCase("Declined"))
+                    .collect(Collectors.toList());
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Appointment> data = get();
+                    REQUEST_CACHE.put(patientID, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(ViewAppointmentsPanel.this,
+                        "Error loading appointments: " + e.getMessage(),
+                        "Load Error",
+                        JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Appointment> data) {
+        model.setRowCount(0);
+        filteredList = new ArrayList<>(data);
+
+        if (filteredList.isEmpty()) {
+            showNoDataScreen();
+            return;
         }
+
+        for (Appointment a : filteredList) {
+            model.addRow(new Object[]{
+                a.getServiceType(),
+                a.getAppointmentDate().toString(),
+                a.getAppointmentTime(),
+                a.getStatus()
+            });
+        }
+    }
+
+    private void invalidateCache() {
+        REQUEST_CACHE.remove(patientID);
     }
     
     private void showNoDataScreen() {
@@ -261,7 +326,8 @@ public class ViewAppointmentsPanel extends JPanel {
 
                 if (appointmentController.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
-                    loadData(pID);
+                    invalidateCache();
+                    loadData(true);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
@@ -280,7 +346,8 @@ public class ViewAppointmentsPanel extends JPanel {
                 // If not, you might need to add deleteAppointment(id) to AppointmentService
                 if (appointmentController.deleteAppointment(app.getAppointmentId())) {
                     JOptionPane.showMessageDialog(this, "Record removed.");
-                    loadData(pID); // Refresh the table
+                    invalidateCache();
+                    loadData(true); // Refresh the table
                 } else {
                     JOptionPane.showMessageDialog(this, "Failed to delete record.", "Error", JOptionPane.ERROR_MESSAGE);
                 }

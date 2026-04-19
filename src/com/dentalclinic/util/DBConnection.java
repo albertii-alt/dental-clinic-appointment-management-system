@@ -1,24 +1,10 @@
 package com.dentalclinic.util;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.PreparedStatement;
-import java.sql.CallableStatement;
-import java.sql.DatabaseMetaData;
-import java.sql.SQLWarning;
-import java.sql.Savepoint;
-import java.sql.SQLClientInfoException;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.NClob;
-import java.sql.SQLXML;
-import java.sql.Struct;
 import java.util.Properties;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.io.InputStream;
 import java.io.FileInputStream;
 import java.io.File;
@@ -36,15 +22,7 @@ public class DBConnection {
     private static String PASSWORD;
     private static boolean configLoaded = false;
     private static String configError = null;
-    
-    // Connection tracking for debugging
-    private static int activeConnections = 0;
-    private static int totalConnectionsCreated = 0;
-    private static Map<Connection, StackTraceElement[]> connectionTraces = new ConcurrentHashMap<>();
-    
-    // Connection limits
-    private static final int MAX_CONNECTIONS = 50;
-    private static final long CONNECTION_TIMEOUT_MS = 30000;
+    private static HikariDataSource dataSource;
     
     // SECURITY: Load configuration on class initialization
     static {
@@ -54,118 +32,15 @@ public class DBConnection {
             loadConfigFromEnv();
         }
         
-        if (configLoaded) {
-            LOGGER.info("Database configuration loaded successfully");
-        } else {
+        if (!configLoaded) {
             LOGGER.warning("Database configuration NOT loaded: " + configError);
+        } else {
+            initializeDataSource();
         }
         
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            LOGGER.info("Shutdown - Final connection stats: " + getConnectionStats());
-            if (activeConnections > 0) {
-                LOGGER.warning("WARNING: " + activeConnections + " connections still active at shutdown!");
-            }
+            closeDataSource();
         }));
-    }
-    
-    // ==========================================================
-    // CONNECTION WRAPPER CLASS
-    // ==========================================================
-    
-    /**
-     * Wrapper class that tracks connection closure
-     */
-    private static class TrackedConnection implements Connection {
-        private final Connection delegate;
-        private final StackTraceElement[] creationTrace;
-        
-        public TrackedConnection(Connection delegate) {
-            this.delegate = delegate;
-            this.creationTrace = Thread.currentThread().getStackTrace();
-        }
-        
-        @Override
-        public void close() throws SQLException {
-            try {
-                delegate.close();
-            } finally {
-                // Call our release method after closing
-                releaseConnection(this, creationTrace);
-            }
-        }
-        
-        // Delegate all other methods to the real connection
-        @Override public Statement createStatement() throws SQLException { return delegate.createStatement(); }
-        @Override public PreparedStatement prepareStatement(String sql) throws SQLException { return delegate.prepareStatement(sql); }
-        @Override public CallableStatement prepareCall(String sql) throws SQLException { return delegate.prepareCall(sql); }
-        @Override public String nativeSQL(String sql) throws SQLException { return delegate.nativeSQL(sql); }
-        @Override public void setAutoCommit(boolean autoCommit) throws SQLException { delegate.setAutoCommit(autoCommit); }
-        @Override public boolean getAutoCommit() throws SQLException { return delegate.getAutoCommit(); }
-        @Override public void commit() throws SQLException { delegate.commit(); }
-        @Override public void rollback() throws SQLException { delegate.rollback(); }
-        @Override public boolean isClosed() throws SQLException { return delegate.isClosed(); }
-        @Override public DatabaseMetaData getMetaData() throws SQLException { return delegate.getMetaData(); }
-        @Override public void setReadOnly(boolean readOnly) throws SQLException { delegate.setReadOnly(readOnly); }
-        @Override public boolean isReadOnly() throws SQLException { return delegate.isReadOnly(); }
-        @Override public void setCatalog(String catalog) throws SQLException { delegate.setCatalog(catalog); }
-        @Override public String getCatalog() throws SQLException { return delegate.getCatalog(); }
-        @Override public void setTransactionIsolation(int level) throws SQLException { delegate.setTransactionIsolation(level); }
-        @Override public int getTransactionIsolation() throws SQLException { return delegate.getTransactionIsolation(); }
-        @Override public SQLWarning getWarnings() throws SQLException { return delegate.getWarnings(); }
-        @Override public void clearWarnings() throws SQLException { delegate.clearWarnings(); }
-        @Override public Statement createStatement(int resultSetType, int resultSetConcurrency) throws SQLException { 
-            return delegate.createStatement(resultSetType, resultSetConcurrency); 
-        }
-        @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { 
-            return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency); 
-        }
-        @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency) throws SQLException { 
-            return delegate.prepareCall(sql, resultSetType, resultSetConcurrency); 
-        }
-        @Override public Map<String, Class<?>> getTypeMap() throws SQLException { return delegate.getTypeMap(); }
-        @Override public void setTypeMap(Map<String, Class<?>> map) throws SQLException { delegate.setTypeMap(map); }
-        @Override public void setHoldability(int holdability) throws SQLException { delegate.setHoldability(holdability); }
-        @Override public int getHoldability() throws SQLException { return delegate.getHoldability(); }
-        @Override public Savepoint setSavepoint() throws SQLException { return delegate.setSavepoint(); }
-        @Override public Savepoint setSavepoint(String name) throws SQLException { return delegate.setSavepoint(name); }
-        @Override public void rollback(Savepoint savepoint) throws SQLException { delegate.rollback(savepoint); }
-        @Override public void releaseSavepoint(Savepoint savepoint) throws SQLException { delegate.releaseSavepoint(savepoint); }
-        @Override public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException { 
-            return delegate.createStatement(resultSetType, resultSetConcurrency, resultSetHoldability); 
-        }
-        @Override public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException { 
-            return delegate.prepareStatement(sql, resultSetType, resultSetConcurrency, resultSetHoldability); 
-        }
-        @Override public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability) throws SQLException { 
-            return delegate.prepareCall(sql, resultSetType, resultSetConcurrency, resultSetHoldability); 
-        }
-        @Override public PreparedStatement prepareStatement(String sql, int autoGeneratedKeys) throws SQLException { 
-            return delegate.prepareStatement(sql, autoGeneratedKeys); 
-        }
-        @Override public PreparedStatement prepareStatement(String sql, int[] columnIndexes) throws SQLException { 
-            return delegate.prepareStatement(sql, columnIndexes); 
-        }
-        @Override public PreparedStatement prepareStatement(String sql, String[] columnNames) throws SQLException { 
-            return delegate.prepareStatement(sql, columnNames); 
-        }
-        @Override public Clob createClob() throws SQLException { return delegate.createClob(); }
-        @Override public Blob createBlob() throws SQLException { return delegate.createBlob(); }
-        @Override public NClob createNClob() throws SQLException { return delegate.createNClob(); }
-        @Override public SQLXML createSQLXML() throws SQLException { return delegate.createSQLXML(); }
-        @Override public boolean isValid(int timeout) throws SQLException { return delegate.isValid(timeout); }
-        @Override public void setClientInfo(String name, String value) throws SQLClientInfoException { delegate.setClientInfo(name, value); }
-        @Override public void setClientInfo(Properties properties) throws SQLClientInfoException { delegate.setClientInfo(properties); }
-        @Override public String getClientInfo(String name) throws SQLException { return delegate.getClientInfo(name); }
-        @Override public Properties getClientInfo() throws SQLException { return delegate.getClientInfo(); }
-        @Override public Array createArrayOf(String typeName, Object[] elements) throws SQLException { return delegate.createArrayOf(typeName, elements); }
-        @Override public Struct createStruct(String typeName, Object[] attributes) throws SQLException { return delegate.createStruct(typeName, attributes); }
-        @Override public void setSchema(String schema) throws SQLException { delegate.setSchema(schema); }
-        @Override public String getSchema() throws SQLException { return delegate.getSchema(); }
-        @Override public void abort(java.util.concurrent.Executor executor) throws SQLException { delegate.abort(executor); }
-        @Override public void setNetworkTimeout(java.util.concurrent.Executor executor, int milliseconds) throws SQLException { delegate.setNetworkTimeout(executor, milliseconds); }
-        @Override public int getNetworkTimeout() throws SQLException { return delegate.getNetworkTimeout(); }
-        @Override public <T> T unwrap(Class<T> iface) throws SQLException { return delegate.unwrap(iface); }
-        @Override public boolean isWrapperFor(Class<?> iface) throws SQLException { return delegate.isWrapperFor(iface); }
     }
     
     // ==========================================================
@@ -225,69 +100,73 @@ public class DBConnection {
     // ==========================================================
     // CONNECTION MANAGEMENT
     // ==========================================================
+
+    private static void initializeDataSource() {
+        try {
+            HikariConfig config = new HikariConfig();
+            config.setJdbcUrl(buildOptimizedJdbcUrl(URL));
+            config.setUsername(USER);
+            config.setPassword(PASSWORD);
+            config.setMaximumPoolSize(10);
+            config.setConnectionTimeout(10000);
+            config.setIdleTimeout(300000);
+            config.setPoolName("DentalClinicHikariPool");
+
+            config.addDataSourceProperty("cachePrepStmts", "true");
+            config.addDataSourceProperty("prepStmtCacheSize", "250");
+            config.addDataSourceProperty("rewriteBatchedStatements", "true");
+
+            dataSource = new HikariDataSource(config);
+            LOGGER.info("Database configuration loaded successfully (HikariCP enabled)");
+        } catch (RuntimeException ex) {
+            configLoaded = false;
+            configError = "Failed to initialize HikariCP: " + ex.getMessage();
+            LOGGER.log(Level.SEVERE, configError, ex);
+        }
+    }
+
+    private static String buildOptimizedJdbcUrl(String baseUrl) {
+        StringBuilder url = new StringBuilder(baseUrl == null ? "" : baseUrl.trim());
+        appendJdbcParam(url, "cachePrepStmts", "true");
+        appendJdbcParam(url, "prepStmtCacheSize", "250");
+        appendJdbcParam(url, "rewriteBatchedStatements", "true");
+        return url.toString();
+    }
+
+    private static void appendJdbcParam(StringBuilder url, String key, String value) {
+        String lower = url.toString().toLowerCase();
+        String prefix = key.toLowerCase() + "=";
+        if (lower.contains(prefix)) {
+            return;
+        }
+
+        if (url.indexOf("?") >= 0) {
+            if (url.charAt(url.length() - 1) != '?' && url.charAt(url.length() - 1) != '&') {
+                url.append('&');
+            }
+        } else {
+            url.append('?');
+        }
+        url.append(key).append('=').append(value);
+    }
+
+    private static void closeDataSource() {
+        if (dataSource != null) {
+            try {
+                dataSource.close();
+            } catch (Exception ex) {
+                LOGGER.log(Level.WARNING, "Error while closing HikariCP data source", ex);
+            }
+        }
+    }
     
     public static Connection getConnection() throws SQLException {
-        if (!configLoaded) {
+        if (!configLoaded || dataSource == null) {
             throw new SQLException("Database not configured. Please run the setup wizard or check config file.\n" + 
                                    "Error: " + configError);
         }
-
-        long startTime = System.currentTimeMillis();
-
-        while (activeConnections >= MAX_CONNECTIONS) {
-            long elapsed = System.currentTimeMillis() - startTime;
-            if (elapsed > CONNECTION_TIMEOUT_MS) {
-                logConnectionLeaks();
-                throw new SQLException("Connection timeout after " + (elapsed/1000) + 
-                                       " seconds. All " + MAX_CONNECTIONS + 
-                                       " connections are busy. Please try again later.\n" +
-                                       "Active connections: " + activeConnections);
-            }
-            try {
-                LOGGER.fine("Waiting for connection... Active: " + activeConnections + 
-                           "/" + MAX_CONNECTIONS + " (waited " + (elapsed/1000) + "s)");
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new SQLException("Interrupted while waiting for database connection");
-            }
-        }
-
         try {
-            Properties connProps = new Properties();
-            connProps.setProperty("user", USER);
-            connProps.setProperty("password", PASSWORD);
-            connProps.setProperty("useSSL", "true");
-            connProps.setProperty("serverTimezone", "UTC");
-            connProps.setProperty("useUnicode", "true");
-            connProps.setProperty("characterEncoding", "UTF-8");
-            connProps.setProperty("connectTimeout", "10000");
-            connProps.setProperty("socketTimeout", "60000");
-
-            Connection rawConn = DriverManager.getConnection(URL, connProps);
-            
-            // Wrap the connection to track closure
-            TrackedConnection trackedConn = new TrackedConnection(rawConn);
-            
-            activeConnections++;
-            totalConnectionsCreated++;
-            
-            // Track connection for leak detection
-            connectionTraces.put(trackedConn, Thread.currentThread().getStackTrace());
-
-            // Enhanced logging to show which method created the connection
-            StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-            String caller = "unknown";
-            if (stack.length > 2) {
-                caller = stack[2].getClassName() + "." + stack[2].getMethodName() + ":" + stack[2].getLineNumber();
-            }
-
-            LOGGER.info("🔌 Connection CREATED. Active: " + activeConnections + 
-                       "/" + MAX_CONNECTIONS + ", Total: " + totalConnectionsCreated +
-                       " | Called by: " + caller);
-
-            return trackedConn;
-
+            return dataSource.getConnection();
         } catch (SQLException e) {
             String safeMessage = getSafeErrorMessage(e);
             LOGGER.log(Level.SEVERE, "Database connection failed: " + safeMessage);
@@ -295,44 +174,6 @@ public class DBConnection {
                                    "1. MySQL server is running\n" +
                                    "2. Database credentials are correct\n" +
                                    "3. Database 'dental_clinic_db' exists");
-        }
-    }
-    
-    /**
-     * Release connection back to pool (called automatically when wrapped connection is closed)
-     */
-    public static void releaseConnection(Connection conn, StackTraceElement[] creationTrace) {
-        if (conn != null) {
-            // Get caller info
-            StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-            String caller = "unknown";
-            if (stack.length > 2) {
-                caller = stack[2].getClassName() + "." + stack[2].getMethodName() + ":" + stack[2].getLineNumber();
-            }
-            
-            activeConnections--;
-            connectionTraces.remove(conn);
-            LOGGER.info("🔌 Connection RELEASED. Active: " + activeConnections + 
-                       "/" + MAX_CONNECTIONS + " | Released by: " + caller);
-        }
-    }
-    
-    // ==========================================================
-    // HELPER METHODS
-    // ==========================================================
-    
-    private static void logConnectionLeaks() {
-        LOGGER.warning("=== CONNECTION LEAK DETECTED ===");
-        LOGGER.warning("Active connections: " + activeConnections + "/" + MAX_CONNECTIONS);
-        LOGGER.warning("Connection traces:");
-        
-        for (Map.Entry<Connection, StackTraceElement[]> entry : connectionTraces.entrySet()) {
-            LOGGER.warning("Connection: " + entry.getKey().toString());
-            StackTraceElement[] stack = entry.getValue();
-            int lines = Math.min(stack.length, 10);
-            for (int i = 0; i < lines; i++) {
-                LOGGER.warning("  " + stack[i].toString());
-            }
         }
     }
     
@@ -363,25 +204,33 @@ public class DBConnection {
     }
     
     public static String getConnectionStats() {
-        return String.format("Active: %d/%d, Total Created: %d, Configured: %s",
-            activeConnections, MAX_CONNECTIONS, totalConnectionsCreated, configLoaded ? "Yes" : "No");
+        if (dataSource == null) {
+            return String.format("Active: %d/%d, Idle: %d, Configured: %s",
+                0, 0, 0, configLoaded ? "Yes" : "No");
+        }
+
+        return String.format("Active: %d/%d, Idle: %d, Configured: %s",
+            dataSource.getHikariPoolMXBean().getActiveConnections(),
+            dataSource.getMaximumPoolSize(),
+            dataSource.getHikariPoolMXBean().getIdleConnections(),
+            configLoaded ? "Yes" : "No");
     }
     
     public static void logActiveConnections() {
-        System.err.println("=== ACTIVE CONNECTIONS: " + activeConnections + "/" + MAX_CONNECTIONS + " ===");
-        if (activeConnections > 0) {
-            System.err.println("Connection traces:");
-            for (Map.Entry<Connection, StackTraceElement[]> entry : connectionTraces.entrySet()) {
-                System.err.println("  Connection: " + entry.getKey());
-                StackTraceElement[] stack = entry.getValue();
-                for (int i = 0; i < Math.min(stack.length, 5); i++) {
-                    System.err.println("    " + stack[i]);
-                }
-            }
+        if (dataSource == null) {
+            System.err.println("=== POOL NOT INITIALIZED ===");
+            return;
         }
+
+        System.err.println("=== ACTIVE CONNECTIONS: " +
+                dataSource.getHikariPoolMXBean().getActiveConnections() + "/" +
+                dataSource.getMaximumPoolSize() + " ===");
     }
     
     public static int getActiveConnectionCount() {
-        return activeConnections;
+        if (dataSource == null) {
+            return 0;
+        }
+        return dataSource.getHikariPoolMXBean().getActiveConnections();
     }
 }

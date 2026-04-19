@@ -5,13 +5,23 @@ import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import com.dentalclinic.controller.AppointmentController;
 import com.dentalclinic.dto.appointment.AppointmentRequest;
 import com.dentalclinic.dto.appointment.BookingResult;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class StaffBookAppointmentPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static InitialDataCacheEntry initialDataCache;
+    private static final Map<String, SearchCacheEntry> SEARCH_CACHE = new ConcurrentHashMap<>();
+    private static final Map<String, SlotCacheEntry> SLOT_CACHE = new ConcurrentHashMap<>();
+
     private AppointmentController appointmentController = new AppointmentController();
     private JLabel stepLabel;
     private JTextField searchField;
@@ -22,11 +32,60 @@ public class StaffBookAppointmentPanel extends JPanel {
     private JComboBox<String> serviceTypeCombo, timeSlotCombo;
     private JDateChooser appointmentDatePicker;
     private int selectedPatientID = -1;
+    private SwingWorker<InitialData, Void> initialDataWorker;
+    private SwingWorker<List<Object[]>, Void> searchWorker;
+    private SwingWorker<List<String>, Void> slotWorker;
+    private long searchRequestId = 0;
+    private long slotRequestId = 0;
+    private final java.util.Set<Integer> closedDaysOfWeek = new java.util.HashSet<>();
+    private boolean dateEvaluatorAdded = false;
 
     // SECURITY: Input limits
     private static final int MAX_CONTACT_LENGTH = 11;
     private static final int MAX_AGE = 120;
     private static final int MIN_AGE = 0;
+
+    private static class InitialData {
+        private final String[] services;
+        private final int leadTime;
+        private final List<String> closedDays;
+
+        private InitialData(String[] services, int leadTime, List<String> closedDays) {
+            this.services = services;
+            this.leadTime = leadTime;
+            this.closedDays = closedDays;
+        }
+    }
+
+    private static class InitialDataCacheEntry {
+        private final InitialData data;
+        private final long createdAtMs;
+
+        private InitialDataCacheEntry(InitialData data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
+    private static class SearchCacheEntry {
+        private final List<Object[]> rows;
+        private final long createdAtMs;
+
+        private SearchCacheEntry(List<Object[]> rows, long createdAtMs) {
+            this.rows = rows;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
+    private static class SlotCacheEntry {
+        private final List<String> slots;
+        private final long createdAtMs;
+
+        private SlotCacheEntry(List<String> slots, long createdAtMs) {
+            this.slots = slots;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // THEME
     private final Color BG = new Color(245, 247, 250);
@@ -96,11 +155,6 @@ public class StaffBookAppointmentPanel extends JPanel {
         container.add(createSectionLabel("Step 2: Service & Schedule"));
         container.add(Box.createRigidArea(new Dimension(0, 8)));
 
-        try {
-            String[] services = appointmentController.getServiceList();
-            if (services != null) serviceTypeCombo.setModel(new DefaultComboBoxModel<>(services));
-        } catch (Exception e) {}
-
         container.add(createLabelOnly("Select Service:"));
         container.add(createCombo(serviceTypeCombo));
         
@@ -116,16 +170,7 @@ public class StaffBookAppointmentPanel extends JPanel {
         container.add(createCombo(timeSlotCombo));
 
         // Logic for Date restrictions
-        try {
-            int leadTime = appointmentController.getBookingLeadTime();
-            java.util.List<String> closedDays = appointmentController.getClosedDays();
-            java.util.Calendar cal = java.util.Calendar.getInstance();
-            cal.add(java.util.Calendar.DAY_OF_MONTH, leadTime);
-            appointmentDatePicker.setMinSelectableDate(cal.getTime());
-            applyCalendarFilter(closedDays);
-        } catch (Exception e) {
-            appointmentDatePicker.setMinSelectableDate(new java.util.Date());
-        }
+        setupCalendarFilterEvaluator();
 
         // BUTTON
         container.add(Box.createRigidArea(new Dimension(0, 30)));
@@ -138,19 +183,20 @@ public class StaffBookAppointmentPanel extends JPanel {
         // LISTENERS
         searchField.addKeyListener(new java.awt.event.KeyAdapter() {
             public void keyReleased(java.awt.event.KeyEvent e) {
-                refreshPatientDropdown(searchField.getText());
+                refreshPatientDropdownAsync(searchField.getText(), false);
             }
         });
 
         patientResultsCombo.addActionListener(e -> selectPatient());
-        appointmentDatePicker.addPropertyChangeListener("date", evt -> refreshSlots());
+        appointmentDatePicker.addPropertyChangeListener("date", evt -> refreshSlots(false));
         confirmBtn.addActionListener(e -> handleStaffBooking());
 
         // SECURITY: Add input validation listeners
         addContactValidation(contactField);
         addAgeValidation(ageField);
 
-        try { refreshPatientDropdown(""); } catch (Exception e) {}
+        loadInitialDataAsync(false);
+        refreshPatientDropdownAsync("", false);
 
         GridBagConstraints gbc = new GridBagConstraints();
         add(container, gbc);
@@ -306,38 +352,237 @@ public class StaffBookAppointmentPanel extends JPanel {
         }
     }
 
-    private void refreshPatientDropdown(String query) {
-        try {
-            if (query.trim().isEmpty()) {
-                currentSearchResults = appointmentController.searchPatientsByName("");
-            } else {
-                currentSearchResults = appointmentController.searchPatientsByName(query);
+    private void refreshPatientDropdownAsync(String query, boolean forceRefresh) {
+        String trimmedQuery = query == null ? "" : query.trim();
+        String cacheKey = trimmedQuery.toLowerCase();
+
+        SearchCacheEntry cached = SEARCH_CACHE.get(cacheKey);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            applyPatientSearchResults(cached.rows);
+            return;
+        }
+
+        if (searchWorker != null && !searchWorker.isDone()) {
+            searchWorker.cancel(true);
+        }
+
+        final long requestId = ++searchRequestId;
+        patientResultsCombo.setEnabled(false);
+        patientResultsCombo.setModel(new DefaultComboBoxModel<>(new String[]{"Searching..."}));
+
+        searchWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                if (trimmedQuery.isEmpty()) {
+                    return appointmentController.searchPatientsByName("");
+                }
+                return appointmentController.searchPatientsByName(trimmedQuery);
             }
-            DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
-            for (Object[] p : currentSearchResults) {
-                // ==========================================================
-                // FIXED: Use Sanitizer for display name
-                // ==========================================================
-                String displayName = Sanitizer.sanitizeName((String) p[1]) + " (ID: " + p[0] + ")";
-                model.addElement(displayName);
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != searchRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    SEARCH_CACHE.put(cacheKey, new SearchCacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    applyPatientSearchResults(rows);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    patientResultsCombo.setModel(new DefaultComboBoxModel<>(new String[]{"Search failed"}));
+                } finally {
+                    patientResultsCombo.setEnabled(true);
+                }
             }
-            patientResultsCombo.setModel(model);
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        searchWorker.execute();
+    }
+
+    private void applyPatientSearchResults(List<Object[]> rows) {
+        currentSearchResults = rows;
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>();
+        for (Object[] p : currentSearchResults) {
+            String displayName = Sanitizer.sanitizeName((String) p[1]) + " (ID: " + p[0] + ")";
+            model.addElement(displayName);
+        }
+        patientResultsCombo.setModel(model);
+    }
+
+    private void refreshSlots(boolean forceRefresh) {
+        if (appointmentDatePicker.getDate() == null) return;
+
+        String dateKey = new SimpleDateFormat("yyyy-MM-dd").format(appointmentDatePicker.getDate());
+        SlotCacheEntry cached = SLOT_CACHE.get(dateKey);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            applySlots(cached.slots);
+            return;
+        }
+
+        if (slotWorker != null && !slotWorker.isDone()) {
+            slotWorker.cancel(true);
+        }
+
+        final long requestId = ++slotRequestId;
+        timeSlotCombo.setEnabled(false);
+        timeSlotCombo.removeAllItems();
+        timeSlotCombo.addItem("Loading...");
+
+        java.util.Date selectedDate = appointmentDatePicker.getDate();
+        slotWorker = new SwingWorker<List<String>, Void>() {
+            @Override
+            protected List<String> doInBackground() throws Exception {
+                return appointmentController.getAvailableSlotsForDate(selectedDate);
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != slotRequestId) {
+                    return;
+                }
+
+                try {
+                    List<String> available = get();
+                    SLOT_CACHE.put(dateKey, new SlotCacheEntry(new ArrayList<>(available), System.currentTimeMillis()));
+                    applySlots(available);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    timeSlotCombo.removeAllItems();
+                    timeSlotCombo.addItem("Failed to load slots");
+                } finally {
+                    timeSlotCombo.setEnabled(true);
+                }
+            }
+        };
+
+        slotWorker.execute();
+    }
+
+    private void applySlots(List<String> available) {
+        timeSlotCombo.removeAllItems();
+        if (available == null || available.isEmpty()) {
+            timeSlotCombo.addItem("Fully Booked");
+            return;
+        }
+        for (String s : available) {
+            timeSlotCombo.addItem(s);
         }
     }
 
-    private void refreshSlots() {
-        if (appointmentDatePicker.getDate() == null) return;
-        try {
-            java.util.List<String> available = appointmentController.getAvailableSlotsForDate(appointmentDatePicker.getDate());
-            timeSlotCombo.removeAllItems();
-            if (available.isEmpty()) {
-                timeSlotCombo.addItem("Fully Booked");
-            } else {
-                for (String s : available) timeSlotCombo.addItem(s);
+    private void loadInitialDataAsync(boolean forceRefresh) {
+        if (!forceRefresh && initialDataCache != null && System.currentTimeMillis() - initialDataCache.createdAtMs <= CACHE_TTL_MS) {
+            applyInitialData(initialDataCache.data);
+            return;
+        }
+
+        if (initialDataWorker != null && !initialDataWorker.isDone()) {
+            initialDataWorker.cancel(true);
+        }
+
+        serviceTypeCombo.setEnabled(false);
+        searchField.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        initialDataWorker = new SwingWorker<InitialData, Void>() {
+            @Override
+            protected InitialData doInBackground() throws Exception {
+                String[] services = appointmentController.getServiceList();
+                int leadTime = appointmentController.getBookingLeadTime();
+                List<String> closedDays = appointmentController.getClosedDays();
+                return new InitialData(services, leadTime, closedDays);
             }
-        } catch (Exception e) { e.printStackTrace(); }
+
+            @Override
+            protected void done() {
+                if (isCancelled()) {
+                    return;
+                }
+
+                try {
+                    InitialData data = get();
+                    initialDataCache = new InitialDataCacheEntry(data, System.currentTimeMillis());
+                    applyInitialData(data);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    appointmentDatePicker.setMinSelectableDate(new java.util.Date());
+                } finally {
+                    serviceTypeCombo.setEnabled(true);
+                    searchField.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        initialDataWorker.execute();
+    }
+
+    private void applyInitialData(InitialData data) {
+        if (data.services != null) {
+            serviceTypeCombo.setModel(new DefaultComboBoxModel<>(data.services));
+        }
+
+        java.util.Calendar cal = java.util.Calendar.getInstance();
+        cal.add(java.util.Calendar.DAY_OF_MONTH, data.leadTime);
+        appointmentDatePicker.setMinSelectableDate(cal.getTime());
+
+        updateClosedDaysSet(data.closedDays);
+        refreshSlots(false);
+    }
+
+    private void setupCalendarFilterEvaluator() {
+        if (dateEvaluatorAdded) {
+            return;
+        }
+
+        appointmentDatePicker.getJCalendar().getDayChooser().addDateEvaluator(new com.toedter.calendar.IDateEvaluator() {
+            @Override
+            public boolean isInvalid(java.util.Date date) {
+                java.util.Calendar cal = java.util.Calendar.getInstance();
+                cal.setTime(date);
+                return closedDaysOfWeek.contains(cal.get(java.util.Calendar.DAY_OF_WEEK));
+            }
+
+            @Override public boolean isSpecial(java.util.Date date) { return false; }
+            @Override public Color getSpecialForegroundColor() { return null; }
+            @Override public Color getSpecialBackroundColor() { return null; }
+            @Override public String getSpecialTooltip() { return null; }
+            @Override public Color getInvalidForegroundColor() { return Color.RED; }
+            @Override public Color getInvalidBackroundColor() { return new Color(240, 240, 240); }
+            @Override public String getInvalidTooltip() { return "Clinic Closed"; }
+        });
+
+        dateEvaluatorAdded = true;
+    }
+
+    private void updateClosedDaysSet(List<String> closedDayNames) {
+        closedDaysOfWeek.clear();
+        if (closedDayNames == null) {
+            return;
+        }
+
+        Map<String, Integer> dayMap = new HashMap<>();
+        dayMap.put("SUNDAY", java.util.Calendar.SUNDAY);
+        dayMap.put("MONDAY", java.util.Calendar.MONDAY);
+        dayMap.put("TUESDAY", java.util.Calendar.TUESDAY);
+        dayMap.put("WEDNESDAY", java.util.Calendar.WEDNESDAY);
+        dayMap.put("THURSDAY", java.util.Calendar.THURSDAY);
+        dayMap.put("FRIDAY", java.util.Calendar.FRIDAY);
+        dayMap.put("SATURDAY", java.util.Calendar.SATURDAY);
+
+        for (String day : closedDayNames) {
+            if (day == null) {
+                continue;
+            }
+            Integer mapped = dayMap.get(day.trim().toUpperCase());
+            if (mapped != null) {
+                closedDaysOfWeek.add(mapped);
+            }
+        }
+
+        appointmentDatePicker.getJCalendar().revalidate();
+        appointmentDatePicker.getJCalendar().repaint();
     }
 
     private void handleStaffBooking() {
@@ -385,6 +630,11 @@ public class StaffBookAppointmentPanel extends JPanel {
             BookingResult result = appointmentController.bookAndApproveByStaff(request);
             if (result.isSuccess()) {
                 JOptionPane.showMessageDialog(this, result.getMessage());
+                if (appointmentDatePicker.getDate() != null) {
+                    String key = new SimpleDateFormat("yyyy-MM-dd").format(appointmentDatePicker.getDate());
+                    SLOT_CACHE.remove(key);
+                    refreshSlots(true);
+                }
             } else {
                 JOptionPane.showMessageDialog(this, result.getMessage());
             }
@@ -393,34 +643,6 @@ public class StaffBookAppointmentPanel extends JPanel {
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
         }
-    }
-
-    private void applyCalendarFilter(java.util.List<String> closedDayNames) {
-        java.util.Set<Integer> closedDays = new java.util.HashSet<>();
-        for (String day : closedDayNames) {
-            if (day.equalsIgnoreCase("Sunday")) closedDays.add(java.util.Calendar.SUNDAY);
-            else if (day.equalsIgnoreCase("Monday")) closedDays.add(java.util.Calendar.MONDAY);
-            else if (day.equalsIgnoreCase("Tuesday")) closedDays.add(java.util.Calendar.TUESDAY);
-            else if (day.equalsIgnoreCase("Wednesday")) closedDays.add(java.util.Calendar.WEDNESDAY);
-            else if (day.equalsIgnoreCase("Thursday")) closedDays.add(java.util.Calendar.THURSDAY);
-            else if (day.equalsIgnoreCase("Friday")) closedDays.add(java.util.Calendar.FRIDAY);
-            else if (day.equalsIgnoreCase("Saturday")) closedDays.add(java.util.Calendar.SATURDAY);
-        }
-
-        appointmentDatePicker.getJCalendar().getDayChooser().addDateEvaluator(new com.toedter.calendar.IDateEvaluator() {
-            @Override public boolean isInvalid(java.util.Date date) {
-                java.util.Calendar cal = java.util.Calendar.getInstance();
-                cal.setTime(date);
-                return closedDays.contains(cal.get(java.util.Calendar.DAY_OF_WEEK));
-            }
-            @Override public boolean isSpecial(java.util.Date date) { return false; }
-            @Override public Color getSpecialForegroundColor() { return null; }
-            @Override public Color getSpecialBackroundColor() { return null; }
-            @Override public String getSpecialTooltip() { return null; }
-            @Override public Color getInvalidForegroundColor() { return Color.RED; }
-            @Override public Color getInvalidBackroundColor() { return new Color(240, 240, 240); }
-            @Override public String getInvalidTooltip() { return "Clinic Closed"; }
-        });
     }
 
     public void cleanup() {

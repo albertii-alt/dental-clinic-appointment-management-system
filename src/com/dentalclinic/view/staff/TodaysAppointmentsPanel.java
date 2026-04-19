@@ -9,13 +9,32 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class TodaysAppointmentsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "TODAY_SCHEDULE";
+    private static final Map<String, CacheEntry> TODAY_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
+
+    private static class CacheEntry {
+        private final List<Object[]> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // THEME CONSTANTS
     private final Color BG = new Color(245, 247, 250);
@@ -82,7 +101,7 @@ public class TodaysAppointmentsPanel extends JPanel {
         mainCard.add(scroll, BorderLayout.CENTER);
 
         add(mainCard, BorderLayout.CENTER);
-        loadData();
+        loadData(false);
     }
 
     private void styleTable(JTable table) {
@@ -105,15 +124,69 @@ public class TodaysAppointmentsPanel extends JPanel {
     }
 
     public void loadData() {
-        try {
-            model.setRowCount(0);
-            List<Object[]> data = appointmentController.getTodaysSchedule();
-            if (data.isEmpty()) {
-                showEmptyState();
-            } else {
-                for (Object[] row : data) model.addRow(row);
+        loadData(false);
+    }
+
+    private void loadData(boolean forceRefresh) {
+        CacheEntry cached = TODAY_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                return appointmentController.getTodaysSchedule();
             }
-        } catch (Exception e) { e.printStackTrace(); }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> data = get();
+                    TODAY_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(TodaysAppointmentsPanel.this,
+                            "Error loading today's schedule: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> data) {
+        model.setRowCount(0);
+        if (data.isEmpty()) {
+            showEmptyState();
+            return;
+        }
+
+        for (Object[] row : data) {
+            model.addRow(row);
+        }
+    }
+
+    private void invalidateCache() {
+        TODAY_CACHE.remove(CACHE_KEY);
     }
 
     private void showEmptyState() {
@@ -175,13 +248,15 @@ public class TodaysAppointmentsPanel extends JPanel {
             if (selection == 0) { // Mark Completed
                 if (appointmentController.updateAppointmentStatus(appId, "Completed", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Visit logged as Completed.");
-                    loadData();
+                    invalidateCache();
+                    loadData(true);
                 }
             } else if (selection == 1) { // No-Show
                 int confirm = JOptionPane.showConfirmDialog(this, "Confirm No-Show? (Patient record will reflect cancellation)", "Confirm", JOptionPane.YES_NO_OPTION);
                 if (confirm == JOptionPane.YES_OPTION) {
                     appointmentController.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole);
-                    loadData();
+                    invalidateCache();
+                    loadData(true);
                 }
             }
         } catch (Exception ex) { ex.printStackTrace(); }

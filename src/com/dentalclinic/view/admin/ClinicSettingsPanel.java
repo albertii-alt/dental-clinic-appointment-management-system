@@ -6,9 +6,14 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import com.dentalclinic.util.Sanitizer;  // ADDED: Import Sanitizer
 
 public class ClinicSettingsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+
     private JSpinner leadTimeSpinner;
     private JCheckBox[] dayChecks;
     private List<JCheckBox> timeChecks = new ArrayList<>();
@@ -21,6 +26,10 @@ public class ClinicSettingsPanel extends JPanel {
     private boolean isSuperAdmin;
     private String currentRole;
     private boolean settingsLoaded = false;
+    private SwingWorker<SettingsSnapshot, Void> settingsLoadWorker;
+    private long settingsLoadRequestId = 0;
+    private SettingsSnapshot cachedSnapshot;
+    private long cacheLoadedAtMs = 0;
 
     private String[] days = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
 
@@ -34,6 +43,26 @@ public class ClinicSettingsPanel extends JPanel {
     private final Color CARD = Color.WHITE;
     private final Color TEXT = new Color(44, 62, 80);
     private final Color TEXT_MUTED = new Color(127, 140, 141);
+
+    private static class SettingsSnapshot {
+        private final int bookingLeadTime;
+        private final List<String> closedDays;
+        private final List<String> allSlots;
+        private final Set<String> activeSlots;
+        private final List<Object[]> services;
+
+        private SettingsSnapshot(int bookingLeadTime,
+                                 List<String> closedDays,
+                                 List<String> allSlots,
+                                 Set<String> activeSlots,
+                                 List<Object[]> services) {
+            this.bookingLeadTime = bookingLeadTime;
+            this.closedDays = closedDays;
+            this.allSlots = allSlots;
+            this.activeSlots = activeSlots;
+            this.services = services;
+        }
+    }
 
     public ClinicSettingsPanel(int adminId, boolean isSuper) {
         this.currentAdminId = adminId;
@@ -130,8 +159,7 @@ public class ClinicSettingsPanel extends JPanel {
 
         add(bottom, BorderLayout.SOUTH);
 
-        buildServiceList();
-        loadCurrentSettings();
+        loadAllSettingsAsync(false);
     }
 
     // ---------- UI BUILDERS ----------
@@ -274,7 +302,7 @@ public class ClinicSettingsPanel extends JPanel {
                     serviceNameField.setText("");
                     serviceDescField.setText("");
                     servicePriceField.setText("");
-                    buildServiceList();
+                    loadAllSettingsAsync(true);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(ClinicSettingsPanel.this, "Check price format: " + ex.getMessage());
@@ -316,20 +344,67 @@ public class ClinicSettingsPanel extends JPanel {
 
     // ---------- ORIGINAL LOGIC (UNCHANGED) ----------
 
-    private void loadCurrentSettings() {
-        if (settingsLoaded) return;
-        settingsLoaded = true;
-
-        try {
-            leadTimeSpinner.setValue(clinicSettingsController.getBookingLeadTime());
-            List<String> closedDays = clinicSettingsController.getClosedDays();
-            for (int i = 0; i < days.length; i++) {
-                dayChecks[i].setSelected(!closedDays.contains(days[i]));
-            }
-            buildTimeSlotCheckboxes();
-        } catch (Exception e) {
-            e.printStackTrace();
+    private void loadAllSettingsAsync(boolean forceRefresh) {
+        if (!forceRefresh && cachedSnapshot != null && System.currentTimeMillis() - cacheLoadedAtMs <= CACHE_TTL_MS) {
+            applySettingsSnapshot(cachedSnapshot);
+            return;
         }
+
+        if (settingsLoadWorker != null && !settingsLoadWorker.isDone()) {
+            settingsLoadWorker.cancel(true);
+        }
+
+        final long requestId = ++settingsLoadRequestId;
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        settingsLoadWorker = new SwingWorker<SettingsSnapshot, Void>() {
+            @Override
+            protected SettingsSnapshot doInBackground() throws Exception {
+                int lead = clinicSettingsController.getBookingLeadTime();
+                List<String> closed = clinicSettingsController.getClosedDays();
+                List<String> slots = clinicSettingsController.getAllTimeSlots();
+                Set<String> active = new HashSet<>(Arrays.asList(clinicSettingsController.getActiveTimeSlots()));
+                List<Object[]> services = clinicSettingsController.getServiceList();
+                return new SettingsSnapshot(
+                        lead,
+                        new ArrayList<>(closed),
+                        new ArrayList<>(slots),
+                        active,
+                        new ArrayList<>(services)
+                );
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != settingsLoadRequestId) {
+                    return;
+                }
+
+                try {
+                    SettingsSnapshot snapshot = get();
+                    cachedSnapshot = snapshot;
+                    cacheLoadedAtMs = System.currentTimeMillis();
+                    settingsLoaded = true;
+                    applySettingsSnapshot(snapshot);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(ClinicSettingsPanel.this, "Failed to load clinic settings: " + e.getMessage());
+                } finally {
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        settingsLoadWorker.execute();
+    }
+
+    private void applySettingsSnapshot(SettingsSnapshot snapshot) {
+        leadTimeSpinner.setValue(snapshot.bookingLeadTime);
+        for (int i = 0; i < days.length; i++) {
+            dayChecks[i].setSelected(!snapshot.closedDays.contains(days[i]));
+        }
+        buildTimeSlotCheckboxes(snapshot.allSlots, snapshot.activeSlots);
+        buildServiceList(snapshot.services);
     }
 
     private void saveSettings() {
@@ -348,28 +423,20 @@ public class ClinicSettingsPanel extends JPanel {
     }
 
     private void refreshTimeSlotsUI() {
-        buildTimeSlotCheckboxes();
+        loadAllSettingsAsync(true);
     }
 
-    private void buildTimeSlotCheckboxes() {
+    private void buildTimeSlotCheckboxes(List<String> allSlots, Set<String> activeSet) {
         timePanel.removeAll();
         timeChecks.clear();
 
         JPanel amList = createTimeSubPanel("MORNING (AM)");
         JPanel pmList = createTimeSubPanel("AFTERNOON (PM)");
 
-        try {
-            List<String> allSlots = clinicSettingsController.getAllTimeSlots();
-            String[] activeSlots = clinicSettingsController.getActiveTimeSlots();
-            java.util.Set<String> activeSet = new java.util.HashSet<>(java.util.Arrays.asList(activeSlots));
-
-            for (String slot : allSlots) {
-                JPanel row = createTimeRow(slot, activeSet.contains(slot));
-                if (slot.contains("AM")) amList.add(row);
-                else pmList.add(row);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        for (String slot : allSlots) {
+            JPanel row = createTimeRow(slot, activeSet.contains(slot));
+            if (slot.contains("AM")) amList.add(row);
+            else pmList.add(row);
         }
 
         timePanel.add(amList);
@@ -423,10 +490,9 @@ public class ClinicSettingsPanel extends JPanel {
         return row;
     }
 
-    private void buildServiceList() {
+    private void buildServiceList(List<Object[]> services) {
         servicePanel.removeAll();
         try {
-            List<Object[]> services = clinicSettingsController.getServiceList();
             for (Object[] serviceData : services) {
                 String name = (String) serviceData[0];
                 boolean isActive = serviceData[1] != null && serviceData[1].toString().equals("1");
@@ -463,7 +529,7 @@ public class ClinicSettingsPanel extends JPanel {
                 toggleBtn.addActionListener(e -> {
                     try {
                         if (clinicSettingsController.updateServiceStatus(name, !isActive, currentAdminId, currentRole)) {
-                            buildServiceList();
+                            loadAllSettingsAsync(true);
                         }
                     } catch (Exception ex) { ex.printStackTrace(); }
                 });
@@ -474,7 +540,7 @@ public class ClinicSettingsPanel extends JPanel {
                 delBtn.addActionListener(e -> {
                     if (JOptionPane.showConfirmDialog(this, "Delete " + name + "?") == JOptionPane.YES_OPTION) {
                         try {
-                            if (clinicSettingsController.deleteService(name, currentAdminId, currentRole)) buildServiceList();
+                            if (clinicSettingsController.deleteService(name, currentAdminId, currentRole)) loadAllSettingsAsync(true);
                         } catch (Exception ex) { ex.printStackTrace(); }
                     }
                 });
@@ -581,7 +647,7 @@ public class ClinicSettingsPanel extends JPanel {
                 if (clinicSettingsController.updateService(serviceName, newName, newDesc, newPrice, currentAdminId, currentRole)) {
                     JOptionPane.showMessageDialog(editDialog, "Service updated successfully!");
                     editDialog.dispose();
-                    buildServiceList();
+                    loadAllSettingsAsync(true);
                 } else {
                     JOptionPane.showMessageDialog(editDialog, "Failed to update service.");
                 }

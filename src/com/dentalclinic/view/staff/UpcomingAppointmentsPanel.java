@@ -8,7 +8,10 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.util.EmailUtil;
@@ -16,10 +19,26 @@ import com.dentalclinic.util.UserSession;
 import com.toedter.calendar.JDateChooser;
 
 public class UpcomingAppointmentsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "UPCOMING_APPOINTMENTS";
+    private static final Map<String, CacheEntry> UPCOMING_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
+
+    private static class CacheEntry {
+        private final List<Object[]> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -113,7 +132,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
         cardContainer.add(scrollPane, BorderLayout.CENTER);
 
         add(cardContainer, BorderLayout.CENTER);
-        loadUpcomingData();
+        loadUpcomingData(false);
     }
 
     private void styleTable(JTable table) {
@@ -144,23 +163,80 @@ public class UpcomingAppointmentsPanel extends JPanel {
     }
 
     private void loadUpcomingData() {
-        try {
-            model.setRowCount(0);
-            List<Appointment> upcoming = appointmentController.getUpcomingAppointments();
-            if (upcoming.isEmpty()) {   
-                // If empty, the table just shows no rows.
-            } else {
+        loadUpcomingData(false);
+    }
+
+    private void loadUpcomingData(boolean forceRefresh) {
+        CacheEntry cached = UPCOMING_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                List<Object[]> rows = new ArrayList<>();
+                List<Appointment> upcoming = appointmentController.getUpcomingAppointments();
                 for (Appointment a : upcoming) {
                     Patient p = patientController.getPatientById(a.getPatientId());
                     String fullName = p.getFirstName() + " " + p.getLastName();
-                    model.addRow(new Object[]{
-                        a.getAppointmentId(), a.getPatientId(), fullName, 
-                        a.getServiceType(), a.getAppointmentDate(), a.getAppointmentTime(), a.getStatus(),
+                    rows.add(new Object[]{
+                        a.getAppointmentId(),
+                        a.getPatientId(),
+                        fullName,
+                        a.getServiceType(),
+                        a.getAppointmentDate(),
+                        a.getAppointmentTime(),
+                        a.getStatus(),
                         "Send Reminder"
                     });
                 }
+                return rows;
             }
-        } catch (Exception e) { e.printStackTrace(); }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    UPCOMING_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderRows(rows);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(UpcomingAppointmentsPanel.this,
+                            "Error loading upcoming appointments: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> rows) {
+        model.setRowCount(0);
+        for (Object[] row : rows) {
+            model.addRow(row);
+        }
+    }
+
+    private void invalidateCache() {
+        UPCOMING_CACHE.remove(CACHE_KEY);
     }
 
     private void showUpcomingDetailModal(int appId, int pId) {
@@ -468,7 +544,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
                 if (appointmentController.rescheduleAppointment(appId, dateChooser.getDate(), selectedTime, actorId, actorRole)) {
                     JOptionPane.showMessageDialog(rescheduleDialog, "Appointment Rescheduled.");
                     rescheduleDialog.dispose();
-                    loadUpcomingData();
+                    invalidateCache();
+                    loadUpcomingData(true);
                 }
             } catch (Exception ex) { ex.printStackTrace(); }
         });
@@ -504,7 +581,8 @@ public class UpcomingAppointmentsPanel extends JPanel {
                 String actorRole = UserSession.getUserRole();
                 if (appointmentController.updateAppointmentStatus(appId, "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled.");
-                    loadUpcomingData(); 
+                    invalidateCache();
+                    loadUpcomingData(true); 
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());

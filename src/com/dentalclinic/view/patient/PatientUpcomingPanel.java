@@ -10,23 +10,42 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.imageio.ImageIO;
 import com.dentalclinic.model.Appointment;
 
 public class PatientUpcomingPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, CacheEntry> UPCOMING_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
-    private List<Appointment> upcomingList;
+    private List<Appointment> upcomingList = new ArrayList<>();
     private List<Appointment> filteredList = new ArrayList<>();
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
+    private final int patientID;
+    private SwingWorker<List<Appointment>, Void> loadWorker;
+    private long loadRequestId = 0;
 
     // UI Colors
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
     private final Color SUCCESS_GREEN = new Color(39, 174, 96);
     private final Color BG_LIGHT = new Color(245, 247, 250);
 
+    private static class CacheEntry {
+        private final List<Appointment> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Appointment> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
     public PatientUpcomingPanel(int patientID) {
+        this.patientID = patientID;
         // --- PANEL SETUP ---
         setLayout(new BorderLayout(15, 15));
         setBackground(BG_LIGHT);
@@ -55,7 +74,7 @@ public class PatientUpcomingPanel extends JPanel {
                 if (e.getClickCount() == 2) {
                     int row = table.getSelectedRow();
                     if (row != -1) {
-                        showApprovedAppointmentDetails(row, patientID);
+                        showApprovedAppointmentDetails(row, PatientUpcomingPanel.this.patientID);
                     }
                 }
             }
@@ -75,7 +94,7 @@ public class PatientUpcomingPanel extends JPanel {
         footer.add(hint);
         add(footer, BorderLayout.SOUTH);
 
-        loadData(patientID);
+        loadData(false);
     }
 
     private void styleTable(JTable table) {
@@ -103,29 +122,72 @@ public class PatientUpcomingPanel extends JPanel {
         });
     }
 
-    private void loadData(int pID) {
-        try {
-            model.setRowCount(0);
-            upcomingList = appointmentController.getUpcomingScheduleByPatient(pID);
-            filteredList = new ArrayList<>(upcomingList); 
+    private void loadData(boolean forceRefresh) {
+        CacheEntry cached = UPCOMING_CACHE.get(patientID);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
 
-            if (upcomingList.isEmpty()) {   
-                showNoDataMessage();
-            } else {
-                for (Appointment a : upcomingList) {
-                    model.addRow(new Object[]{
-                        a.getServiceType(),
-                        a.getAppointmentDate(),
-                        a.getAppointmentTime(),
-                        "Confirmed"
-                    });
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Appointment>, Void>() {
+            @Override
+            protected List<Appointment> doInBackground() throws Exception {
+                return appointmentController.getUpcomingScheduleByPatient(patientID);
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Appointment> data = get();
+                    UPCOMING_CACHE.put(patientID, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(PatientUpcomingPanel.this,
+                            "Error loading upcoming appointments: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-            revalidate();
-            repaint();
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Appointment> data) {
+        model.setRowCount(0);
+        upcomingList = new ArrayList<>(data);
+        filteredList = new ArrayList<>(upcomingList);
+
+        if (upcomingList.isEmpty()) {
+            showNoDataMessage();
+            return;
         }
+
+        for (Appointment a : upcomingList) {
+            model.addRow(new Object[]{
+                a.getServiceType(),
+                a.getAppointmentDate(),
+                a.getAppointmentTime(),
+                "Confirmed"
+            });
+        }
+        revalidate();
+        repaint();
     }
 
     private void showApprovedAppointmentDetails(int rowIndex, int pID) {
@@ -259,7 +321,8 @@ public class PatientUpcomingPanel extends JPanel {
 
                 if (appointmentController.updateAppointmentStatus(app.getAppointmentId(), "Cancelled", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Appointment Cancelled Successfully.");
-                    loadData(pID);
+                    UPCOMING_CACHE.remove(patientID);
+                    loadData(true);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());

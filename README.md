@@ -122,6 +122,98 @@ Direct repair tools:
 ./scripts/apache-auto-repair.sh
 ```
 
+### 5. Cloud-Safe DB Operations (No Local XAMPP Assumptions)
+
+When running against a managed cloud MySQL provider (Aiven, RDS, etc.), use these scripts:
+
+```bash
+./scripts/cloud-db-health-check.sh
+./scripts/cloud-backup-dental.sh
+./scripts/cloud-restore-latest.sh
+./scripts/cloud-security-audit.sh
+RUNTIME_DB_USER=dc_app RUNTIME_DB_PASSWORD='strong-pass' ./scripts/cloud-create-runtime-user.sh
+NEW_DB_USER=dc_app NEW_DB_PASSWORD='strong-pass' ./scripts/cloud-switch-app-user.sh
+```
+
+Notes:
+- These scripts read `db.url`, `db.user`, and `db.password` from `~/.dental_clinic/db.properties`.
+- They use standard `mysql`, `mysqldump`, and `mysqladmin` clients from `PATH` (with `/opt/lampp/bin` fallback).
+- `cloud-db-health-check.sh` verifies connectivity, active database, TLS session (when SSL is enabled in `db.url`), and round-trip latency.
+- `cloud-backup-dental.sh` includes dump integrity checks and retention cleanup.
+- `cloud-restore-latest.sh` restores the newest backup after explicit confirmation.
+- `cloud-security-audit.sh` inspects runtime user grants and flags risky privilege patterns.
+- `cloud-create-runtime-user.sh` provisions a least-privileged runtime account with SSL requirement.
+- `cloud-switch-app-user.sh` updates `~/.dental_clinic/db.properties` runtime credentials with automatic backup.
+
+Automatic backups for laptops (anacron):
+
+```bash
+sudo ./scripts/setup-cloud-backup-anacron.sh
+```
+
+What this configures:
+- Creates a runner at `/usr/local/bin/dental-clinic-cloud-backup`.
+- Adds/updates one idempotent entry in `/etc/anacrontab`.
+- Runs `cloud-backup-dental.sh` daily even if the laptop was off at the scheduled hour (anacron executes missed jobs after boot).
+
+Optional tuning examples:
+
+```bash
+sudo ANACRON_DELAY=5 ./scripts/setup-cloud-backup-anacron.sh
+sudo APP_USER=$USER ANACRON_PERIOD=1 ANACRON_DELAY=10 ./scripts/setup-cloud-backup-anacron.sh
+```
+
+Test and verify:
+
+```bash
+sudo anacron -fn
+tail -n 50 ~/backups/logs/cloud_backup_anacron.log
+./scripts/cloud-backup-status.sh
+```
+
+Backup assurance signals:
+- Status file: `~/backups/logs/cloud_backup_last_status.txt`
+- Scheduler log: `~/backups/logs/cloud_backup_anacron.log`
+- Optional desktop notification (best effort): shown as "Dental Clinic Backup" when graphical session is available.
+- System log tag: `dental-clinic-cloud-backup`
+
+Step 4 - secret and access hardening:
+
+```bash
+./scripts/harden-db-config-perms.sh
+ADMIN_CONFIG_FILE=~/.dental_clinic/db.properties.bak.YYYYMMDD_HHMMSS NEW_RUNTIME_PASSWORD='new-strong-password' ./scripts/cloud-rotate-runtime-password.sh
+./scripts/cloud-db-health-check.sh
+./scripts/cloud-security-audit.sh
+```
+
+Notes:
+- `harden-db-config-perms.sh` enforces owner-only access (`chmod 600`) on `~/.dental_clinic/db.properties`.
+- `cloud-rotate-runtime-password.sh` rotates runtime user password in DB (using admin config) and updates local app config safely with backup.
+- Set `RUNTIME_DB_USER` explicitly when rotating (example: `RUNTIME_DB_USER=dentalclinicsystem`).
+- Recommended rotation policy: every 30 to 60 days, and immediately after suspected credential exposure.
+
+For a strict one-by-one production checklist, use:
+
+```bash
+cat scripts/cloud-ops-runbook.md
+```
+
+### Why Step 1 Helps (Before vs After)
+
+| Area | Before | After | Why This Matters |
+|------|--------|-------|------------------|
+| Runtime DB account scope | App could run with broad/admin-style privileges | App runs with least-privileged runtime account (`SELECT/INSERT/UPDATE/DELETE` on `dental_clinic_db.*`) | Reduces damage if credentials are leaked or app logic misbehaves |
+| Privilege verification | Security posture was assumed manually | `cloud-security-audit.sh` reports actual grants and risky patterns | You can prove security posture with repeatable checks |
+| Cloud connectivity confidence | App connection status checked ad hoc | `cloud-db-health-check.sh` validates DB reachability, active DB, TLS, and latency | Faster troubleshooting and fewer "works on my machine" issues |
+| Credential changes | Manual edits with higher typo risk | `cloud-switch-app-user.sh` updates config and creates timestamped backup | Safer credential rotation with rollback path |
+| Cloud operations consistency | Local/XAMPP assumptions could leak into cloud workflow | Cloud scripts use JDBC config and standard MySQL clients | Lower operational mistakes in managed MySQL environments |
+
+Expected day-to-day impact:
+- Better uptime because failures are detected early with consistent health checks.
+- Better security because the app identity is intentionally limited.
+- Better recoverability because config changes and backups are scripted, not improvised.
+- Better team handoff because operations are documented and repeatable.
+
 ---
 
 ## 🖥️ Usage

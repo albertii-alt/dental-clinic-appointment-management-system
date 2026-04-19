@@ -8,7 +8,10 @@ import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.awt.datatransfer.StringSelection;
 import java.io.File;
 import java.io.FileWriter;
@@ -16,9 +19,15 @@ import java.io.PrintWriter;
 import java.io.IOException;
 
 public class SystemLogPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "SYSTEM_LOGS";
+    private static final Map<String, CacheEntry> SYSTEM_CACHE = new ConcurrentHashMap<>();
+
     private JTable logTable;
     private DefaultTableModel tableModel;
     private final LogController logController = new LogController();
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
     
     // Session variables
     private int loggedUserId;
@@ -34,6 +43,16 @@ public class SystemLogPanel extends JPanel {
     // Date formatter for timestamps
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+    private static class CacheEntry {
+        private final List<Object[]> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
     public SystemLogPanel(int userId, boolean isSuperAdmin) {
         this.loggedUserId = userId;
         this.isSuper = isSuperAdmin;
@@ -48,7 +67,7 @@ public class SystemLogPanel extends JPanel {
         // --- TABLE SECTION ---
         add(createTableArea(), BorderLayout.CENTER);
 
-        loadSystemLogs();
+        loadSystemLogs(false);
     }
 
     private JPanel createHeader() {
@@ -68,7 +87,7 @@ public class SystemLogPanel extends JPanel {
         
         JButton refreshButton = new JButton("Refresh Logs");
         styleButton(refreshButton, PRIMARY_BLUE);
-        refreshButton.addActionListener(e -> loadSystemLogs());
+        refreshButton.addActionListener(e -> loadSystemLogs(true));
         
         JButton clearButton = new JButton("Clear All Logs");
         styleButton(clearButton, DANGER_RED);
@@ -403,7 +422,7 @@ public class SystemLogPanel extends JPanel {
                     String roleStr = isSuper ? "Super Admin" : "Admin"; 
                     if (logController.clearAllSystemLogs(loggedUserId, roleStr)) {
                         JOptionPane.showMessageDialog(this, "Backup created and logs cleared successfully.");
-                        loadSystemLogs();
+                        loadSystemLogs(true);
                     }
                 } else {
                     JOptionPane.showMessageDialog(this, "Clear cancelled: Backup was not saved.", 
@@ -415,37 +434,64 @@ public class SystemLogPanel extends JPanel {
         }
     }
 
-    private void loadSystemLogs() {
-        try {
-            tableModel.setRowCount(0);
-            List<Object[]> logs = logController.getSystemLogs(); 
-            
-            if (logs.isEmpty()) {   
-                showNoDataScreen();
-            } else {
-                // Restore original panel layout if previously switched to "No Data" screen
-                if (getLayout() instanceof GridBagLayout) {
-                    removeAll();
-                    setLayout(new BorderLayout(20, 20));
-                    add(createHeader(), BorderLayout.NORTH);
-                    add(createTableArea(), BorderLayout.CENTER);
-                }
-                for (Object[] row : logs) {
-                    // row[4] is Timestamp, keep as is (renderer will format)
-                    tableModel.addRow(new Object[]{
-                        row[0], // ID
-                        row[1], // Level
-                        row[2], // Source Class
-                        row[3], // Message
-                        row[4]  // Timestamp (as Timestamp object)
-                    });
-                }
-                revalidate();
-                repaint();
-            } 
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
+    private void loadSystemLogs(boolean forceRefresh) {
+        CacheEntry cached = SYSTEM_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
         }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        logTable.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                List<Object[]> rawLogs = logController.getSystemLogs();
+                List<Object[]> rows = new ArrayList<>();
+                for (Object[] row : rawLogs) {
+                    rows.add(new Object[]{row[0], row[1], row[2], row[3], row[4]});
+                }
+                return rows;
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    SYSTEM_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderRows(rows);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(SystemLogPanel.this,
+                            "Error: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    logTable.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> rows) {
+        tableModel.setRowCount(0);
+        for (Object[] row : rows) {
+            tableModel.addRow(row);
+        }
+        revalidate();
+        repaint();
     }
 
     private void showNoDataScreen() {

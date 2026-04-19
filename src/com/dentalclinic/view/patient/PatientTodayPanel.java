@@ -8,21 +8,40 @@ import javax.swing.border.*;
 import java.awt.*;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import com.dentalclinic.model.Appointment;
 
 public class PatientTodayPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, CacheEntry> TODAY_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
     private List<Appointment> todayList = new ArrayList<>();
+    private final int patientID;
+    private SwingWorker<List<Appointment>, Void> loadWorker;
+    private long loadRequestId = 0;
 
     // UI Constants
     private final Color PRIMARY_COLOR = new Color(41, 128, 185);
     private final Color BG_COLOR = new Color(245, 247, 250);
     private final Color TEXT_DARK = new Color(44, 62, 80);
 
+    private static class CacheEntry {
+        private final List<Appointment> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Appointment> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
     public PatientTodayPanel(int patientID) {
+        this.patientID = patientID;
         // --- PANEL SETUP ---
         setLayout(new BorderLayout(20, 20));
         setBackground(BG_COLOR);
@@ -63,7 +82,7 @@ public class PatientTodayPanel extends JPanel {
                 if (e.getClickCount() == 2) {
                     int row = table.getSelectedRow();
                     if (row != -1) {
-                        showTodayDetails(row, patientID);
+                        showTodayDetails(row, PatientTodayPanel.this.patientID);
                     }
                 }
             }
@@ -74,7 +93,7 @@ public class PatientTodayPanel extends JPanel {
         scrollPane.getViewport().setBackground(Color.WHITE);
         add(scrollPane, BorderLayout.CENTER);
 
-        loadTodayData(patientID);
+        loadTodayData(false);
     }
 
     private void styleTable(JTable table) {
@@ -104,25 +123,68 @@ public class PatientTodayPanel extends JPanel {
         });
     }
 
-    private void loadTodayData(int pID) {
-        try {
-            model.setRowCount(0);
-            todayList = appointmentController.getTodaysAppointmentsByPatient(pID);
-            
-            if (todayList.isEmpty()) {   
-                showNoDataMessage();
-            } else {
-                for (Appointment a : todayList) {
-                    model.addRow(new Object[]{
-                        a.getAppointmentDate(),
-                        a.getAppointmentTime(),
-                        a.getServiceType(),
-                        a.getStatus().toUpperCase()
-                    });
+    private void loadTodayData(boolean forceRefresh) {
+        CacheEntry cached = TODAY_CACHE.get(patientID);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Appointment>, Void>() {
+            @Override
+            protected List<Appointment> doInBackground() throws Exception {
+                return appointmentController.getTodaysAppointmentsByPatient(patientID);
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Appointment> data = get();
+                    TODAY_CACHE.put(patientID, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(PatientTodayPanel.this,
+                            "Error loading today's schedule: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Appointment> data) {
+        model.setRowCount(0);
+        todayList = new ArrayList<>(data);
+
+        if (todayList.isEmpty()) {
+            showNoDataMessage();
+            return;
+        }
+
+        for (Appointment a : todayList) {
+            model.addRow(new Object[]{
+                a.getAppointmentDate(),
+                a.getAppointmentTime(),
+                a.getServiceType(),
+                a.getStatus().toUpperCase()
+            });
         }
     }
 

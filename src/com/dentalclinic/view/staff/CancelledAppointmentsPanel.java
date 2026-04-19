@@ -6,16 +6,36 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import com.dentalclinic.model.Appointment;
 
 public class CancelledAppointmentsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "STAFF_CANCELLED_APPOINTMENTS";
+    private static final Map<String, CacheEntry> CANCELLED_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final LogController logController = new LogController();
     private int currentStaffId;
     private String currentStaffName;
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
+    private JLabel emptyLabel;
+
+    private static class CacheEntry {
+        private final List<Object[]> rows;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> rows, long createdAtMs) {
+            this.rows = rows;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -90,6 +110,12 @@ public class CancelledAppointmentsPanel extends JPanel {
         scrollPane.getViewport().setBackground(Color.WHITE);
         cardContainer.add(scrollPane, BorderLayout.CENTER);
 
+        emptyLabel = new JLabel("No cancelled records found.", SwingConstants.CENTER);
+        emptyLabel.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 16));
+        emptyLabel.setForeground(Color.LIGHT_GRAY);
+        emptyLabel.setVisible(false);
+        cardContainer.add(emptyLabel, BorderLayout.SOUTH);
+
         // Double click just to see details (Read-Only)
         table.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
@@ -101,7 +127,7 @@ public class CancelledAppointmentsPanel extends JPanel {
         });
 
         add(cardContainer, BorderLayout.CENTER);
-        loadCancelledData();
+        loadCancelledData(false);
     }
 
     private void styleTable(JTable table) {
@@ -134,26 +160,65 @@ public class CancelledAppointmentsPanel extends JPanel {
         });
     }
 
-    public void loadCancelledData() {
-        try {
-            model.setRowCount(0);
-            List<Object[]> list = appointmentController.getCancelledRequestsWithNames(); 
-            
-            if (list.isEmpty()) {   
-                // If empty, show a centered label in the table area
-                table.setVisible(false);
-                JLabel noApp = new JLabel("No cancelled records found.", SwingConstants.CENTER);
-                noApp.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 16));
-                noApp.setForeground(Color.LIGHT_GRAY);
-                add(noApp, BorderLayout.SOUTH); // Positioned at bottom or replace center
-            } else {
-                table.setVisible(true);
-                for (Object[] row : list) {
-                    model.addRow(row); 
+    public void loadCancelledData(boolean forceRefresh) {
+        CacheEntry cached = CANCELLED_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.rows);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                return appointmentController.getCancelledRequestsWithNames();
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    CANCELLED_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderRows(rows);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(CancelledAppointmentsPanel.this,
+                            "Failed to load cancelled appointments: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> rows) {
+        model.setRowCount(0);
+        if (rows == null || rows.isEmpty()) {
+            table.setVisible(false);
+            emptyLabel.setVisible(true);
+            return;
+        }
+
+        emptyLabel.setVisible(false);
+        table.setVisible(true);
+        for (Object[] row : rows) {
+            model.addRow(row);
         }
     }
 
@@ -183,7 +248,8 @@ public class CancelledAppointmentsPanel extends JPanel {
                     );
 
                     JOptionPane.showMessageDialog(this, "History cleared successfully.");
-                    loadCancelledData();
+                    CANCELLED_CACHE.remove(CACHE_KEY);
+                    loadCancelledData(true);
                 }else {
     JOptionPane.showMessageDialog(this, "Error: Could not clear database records.", "Database Error", JOptionPane.ERROR_MESSAGE);
                 }

@@ -5,22 +5,43 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
 
 public class PatientCancelledPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, CacheEntry> RECENT_CACHE = new ConcurrentHashMap<>();
+    private static final Map<Integer, CacheEntry> ARCHIVE_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private JCheckBox showArchivedBox;
+    private final int patientID;
+    private SwingWorker<List<Appointment>, Void> loadWorker;
+    private long loadRequestId = 0;
 
     // THEME COLORS
     private final Color BG = new Color(245, 247, 250);
     private final Color DANGER_RED = new Color(192, 57, 43);
     private final Color TEXT_DARK = new Color(44, 62, 80);
 
+    private static class CacheEntry {
+        private final List<Appointment> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Appointment> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
+
     public PatientCancelledPanel(int patientID) {
+        this.patientID = patientID;
         setLayout(new BorderLayout(20, 20));
         setBackground(BG);
         setBorder(new EmptyBorder(30, 40, 30, 40));
@@ -38,7 +59,7 @@ public class PatientCancelledPanel extends JPanel {
         showArchivedBox = new JCheckBox("Show Archived (>30 days)");
         showArchivedBox.setOpaque(false);
         showArchivedBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        showArchivedBox.addActionListener(e -> loadCancelledData(patientID));
+        showArchivedBox.addActionListener(e -> loadCancelledData(false));
         headerPanel.add(showArchivedBox, BorderLayout.EAST);
 
         JLabel subtitle = new JLabel("Records of voided or missed requests");
@@ -74,7 +95,7 @@ public class PatientCancelledPanel extends JPanel {
         
         add(footer, BorderLayout.SOUTH);
 
-        loadCancelledData(patientID);
+        loadCancelledData(false);
     }
 
     private void styleTable(JTable table) {
@@ -104,39 +125,74 @@ public class PatientCancelledPanel extends JPanel {
         });
     }
 
-    private void loadCancelledData(int pID) {
-        try {
-            model.setRowCount(0);
-            List<Appointment> cancelledList;
+    private void loadCancelledData(boolean forceRefresh) {
+        Map<Integer, CacheEntry> targetCache = showArchivedBox.isSelected() ? ARCHIVE_CACHE : RECENT_CACHE;
+        CacheEntry cached = targetCache.get(patientID);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
 
-            if (showArchivedBox.isSelected()) {
-                // Fetch EVERYTHING (Old & New)
-                cancelledList = appointmentController.getAppointmentsByPatient(pID).stream()
-                    .filter(a -> a.getStatus().equalsIgnoreCase("Cancelled"))
-                    .collect(Collectors.toList());
-            } else {
-                // Fetch ONLY last 30 days using our new Service method
-                cancelledList = appointmentController.getAutoArchivedCancelled(pID);
-            }
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
 
-            if (cancelledList.isEmpty()) {   
-                // We don't want to call showEmptyState() here because it 
-                // removes the header/checkbox. Instead, just clear the table.
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Appointment>, Void>() {
+            @Override
+            protected List<Appointment> doInBackground() throws Exception {
                 if (showArchivedBox.isSelected()) {
-                    JOptionPane.showMessageDialog(this, "No archived records found.");
+                    return appointmentController.getAppointmentsByPatient(patientID).stream()
+                        .filter(a -> a.getStatus().equalsIgnoreCase("Cancelled"))
+                        .collect(Collectors.toList());
                 }
-            } else {
-                for (Appointment a : cancelledList) {
-                    model.addRow(new Object[]{
-                        a.getServiceType(),
-                        a.getAppointmentDate(),
-                        a.getAppointmentTime(),
-                        "CANCELLED"
-                    });
+                return appointmentController.getAutoArchivedCancelled(patientID);
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Appointment> data = get();
+                    targetCache.put(patientID, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(PatientCancelledPanel.this,
+                            "Error loading cancelled appointments: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Appointment> cancelledList) {
+        model.setRowCount(0);
+        if (cancelledList.isEmpty()) {
+            if (showArchivedBox.isSelected()) {
+                JOptionPane.showMessageDialog(this, "No archived records found.");
+            }
+            return;
+        }
+
+        for (Appointment a : cancelledList) {
+            model.addRow(new Object[]{
+                a.getServiceType(),
+                a.getAppointmentDate(),
+                a.getAppointmentTime(),
+                "CANCELLED"
+            });
         }
     }
 

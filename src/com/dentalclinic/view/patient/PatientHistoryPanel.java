@@ -5,21 +5,41 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import com.dentalclinic.model.Appointment;
 
 public class PatientHistoryPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, CacheEntry> HISTORY_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
-    private int patientID;
+    private final int patientID;
+    private final JLabel subtitle;
+    private SwingWorker<List<Appointment>, Void> loadWorker;
+    private long loadRequestId = 0;
+    private List<Appointment> completedHistory = new ArrayList<>();
 
     // THEME CONSTANTS
     private final Color BG = new Color(245, 247, 250);
     private final Color SUCCESS = new Color(39, 174, 96);
     private final Color PRIMARY = new Color(41, 128, 185);
     private final Color TEXT_MAIN = new Color(44, 62, 80);
+
+    private static class CacheEntry {
+        private final List<Appointment> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Appointment> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     public PatientHistoryPanel(int patientID) {
         this.patientID = patientID;
@@ -35,7 +55,7 @@ public class PatientHistoryPanel extends JPanel {
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(PRIMARY);
         
-        JLabel subtitle = new JLabel("Double-click any record to view doctor's notes and clinical feedback.");
+        subtitle = new JLabel("Double-click any record to view doctor's notes and clinical feedback.");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(Color.GRAY);
 
@@ -96,38 +116,78 @@ public class PatientHistoryPanel extends JPanel {
     }
 
     private void loadHistoryData() {
-        try {
-            model.setRowCount(0);
-            List<Appointment> all = appointmentController.getAppointmentsByPatient(patientID);
-            
-            List<Appointment> completed = all.stream()
-                .filter(a -> a.getStatus().equalsIgnoreCase("Completed"))
-                .collect(Collectors.toList());
+        CacheEntry cached = HISTORY_CACHE.get(patientID);
+        if (cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderHistory(cached.data);
+            return;
+        }
 
-            if (completed.isEmpty()) {   
-                showEmptyState();
-            } else {
-                for (Appointment a : completed) {
-                    model.addRow(new Object[]{
-                        a.getAppointmentDate(),
-                        a.getServiceType(),
-                        a.getAppointmentTime(),
-                        "COMPLETED"
-                    });
-                }
-            }
-        } catch (Exception e) { e.printStackTrace(); }
+        loadHistoryDataAsync();
     }
 
-    private void showEmptyState() {
-        removeAll();
-        setLayout(new GridBagLayout());
-        JLabel noApp = new JLabel("No completed treatments found in your history.");
-        noApp.setFont(new Font("Segoe UI", Font.BOLD, 18));
-        noApp.setForeground(Color.LIGHT_GRAY);
-        add(noApp);
-        revalidate();
-        repaint();
+    private void loadHistoryDataAsync() {
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        subtitle.setText("Loading treatment history...");
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Appointment>, Void>() {
+            @Override
+            protected List<Appointment> doInBackground() throws Exception {
+                List<Appointment> all = appointmentController.getAppointmentsByPatient(patientID);
+                return all.stream()
+                        .filter(a -> a.getStatus().equalsIgnoreCase("Completed"))
+                        .collect(Collectors.toList());
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Appointment> data = get();
+                    HISTORY_CACHE.put(patientID, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderHistory(data);
+                } catch (Exception ex) {
+                    subtitle.setText("Failed to load treatment history.");
+                    JOptionPane.showMessageDialog(PatientHistoryPanel.this,
+                            "Unable to load treatment history: " + ex.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderHistory(List<Appointment> data) {
+        completedHistory = new ArrayList<>(data);
+        model.setRowCount(0);
+
+        if (completedHistory.isEmpty()) {
+            subtitle.setText("No completed treatments found in your history.");
+            return;
+        }
+
+        subtitle.setText("Double-click any record to view doctor's notes and clinical feedback.");
+        for (Appointment a : completedHistory) {
+            model.addRow(new Object[]{
+                a.getAppointmentDate(),
+                a.getServiceType(),
+                a.getAppointmentTime(),
+                "COMPLETED"
+            });
+        }
     }
 
     private void showHistoryDetail() {
@@ -135,12 +195,10 @@ public class PatientHistoryPanel extends JPanel {
         if (row == -1) return;
 
         try {
-            // Re-fetch exactly what's shown to ensure index matches
-            List<Appointment> completed = appointmentController.getAppointmentsByPatient(patientID).stream()
-                .filter(a -> a.getStatus().equalsIgnoreCase("Completed"))
-                .collect(Collectors.toList());
-            
-            Appointment app = completed.get(row);
+            if (row >= completedHistory.size()) {
+                return;
+            }
+            Appointment app = completedHistory.get(row);
 
             JPanel panel = new JPanel();
             panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));

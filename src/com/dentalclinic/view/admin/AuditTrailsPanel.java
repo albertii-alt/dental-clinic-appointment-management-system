@@ -5,14 +5,33 @@ import javax.swing.*;
 import javax.swing.border.*;
 import javax.swing.table.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class AuditTrailsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "AUDIT_LOGS";
+    private static final Map<String, CacheEntry> AUDIT_CACHE = new ConcurrentHashMap<>();
+
     private JTable logTable;
     private DefaultTableModel tableModel;
     private final LogController logController = new LogController();
     private int currentAdminId;
     private boolean isSuperAdmin;
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
+
+    private static class CacheEntry {
+        private final List<Object[]> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // UI Style Constants
     private final Color PRIMARY_BLUE = new Color(41, 128, 185);
@@ -39,7 +58,7 @@ public class AuditTrailsPanel extends JPanel {
         
         JButton refreshButton = new JButton("Refresh Logs");
         styleHeaderButton(refreshButton);
-        refreshButton.addActionListener(e -> loadLogData());
+        refreshButton.addActionListener(e -> loadLogData(true));
 
         headerPanel.add(titleLabel, BorderLayout.WEST);
         headerPanel.add(refreshButton, BorderLayout.EAST);
@@ -88,7 +107,7 @@ public class AuditTrailsPanel extends JPanel {
         scrollPane.getViewport().setBackground(Color.WHITE);
         add(scrollPane, BorderLayout.CENTER);
 
-        loadLogData();
+        loadLogData(false);
     }
 
     private void styleHeaderButton(JButton btn) {
@@ -148,28 +167,63 @@ public class AuditTrailsPanel extends JPanel {
         table.getColumnModel().getColumn(4).setPreferredWidth(300);
     }
 
-    private void loadLogData() {
-        try {
-            tableModel.setRowCount(0); 
-            List<Object[]> logs = logController.getActivityLogs(); 
-            
-            if (logs.isEmpty()) {   
-                showNoDataScreen();
-            } else {
-                for (Object[] row : logs) {
-                    int performerId = (int) row[1]; 
-                    if (performerId == currentAdminId) {
-                        row[2] = "You"; 
-                    }
+    private void loadLogData(boolean forceRefresh) {
+        CacheEntry cached = AUDIT_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
 
-                    Object[] displayRow = new Object[] {
-                        row[0], row[2], row[3], row[4], row[5], row[6]
-                    };
-                    tableModel.addRow(displayRow);
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        logTable.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                List<Object[]> rawLogs = logController.getActivityLogs();
+                List<Object[]> displayRows = new ArrayList<>();
+                for (Object[] row : rawLogs) {
+                    int performerId = (int) row[1];
+                    Object performer = performerId == currentAdminId ? "You" : row[2];
+                    displayRows.add(new Object[]{row[0], performer, row[3], row[4], row[5], row[6]});
+                }
+                return displayRows;
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    AUDIT_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderRows(rows);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(AuditTrailsPanel.this,
+                            "Error loading logs: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    logTable.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error loading logs: " + e.getMessage());
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> rows) {
+        tableModel.setRowCount(0);
+        for (Object[] row : rows) {
+            tableModel.addRow(row);
         }
     }
 
@@ -415,7 +469,7 @@ public class AuditTrailsPanel extends JPanel {
                     logController.record(currentAdminId, "Super Admin", "Archive Action", "Audit Trail was cleared and archived to CSV.");
                     
                     JOptionPane.showMessageDialog(this, "Audit Trail archived and cleared successfully.");
-                    loadLogData();
+                    loadLogData(true);
                 }
             }
         } else {

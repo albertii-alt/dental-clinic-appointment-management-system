@@ -5,23 +5,58 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.awt.event.*;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.view.PatientDashboard;
 
 public class PatientNotificationPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<Integer, NotificationCacheEntry> NOTIFICATION_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
-    private int patientID;
-    private PatientDashboard dashboard; 
+    private final int patientID;
+    private final PatientDashboard dashboard;
     private JButton clearAllBtn;
+    private SwingWorker<List<NotificationRow>, Void> loadWorker;
+    private long loadRequestId = 0;
     
     private JPanel cards; 
     private CardLayout cardLayout;
     private static final String TABLE_VIEW = "TABLE";
     private static final String EMPTY_VIEW = "EMPTY";
+    private static final String LOADING_VIEW = "LOADING";
     private final AppointmentController appointmentController = new AppointmentController();
+
+    private static class NotificationRow {
+        private final int appointmentId;
+        private final String message;
+        private final String status;
+        private final Object date;
+        private final boolean read;
+
+        private NotificationRow(int appointmentId, String message, String status, Object date, boolean read) {
+            this.appointmentId = appointmentId;
+            this.message = message;
+            this.status = status;
+            this.date = date;
+            this.read = read;
+        }
+    }
+
+    private static class NotificationCacheEntry {
+        private final List<NotificationRow> rows;
+        private final long createdAtMs;
+
+        private NotificationCacheEntry(List<NotificationRow> rows, long createdAtMs) {
+            this.rows = rows;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     public PatientNotificationPanel(int patientID, PatientDashboard dashboard) {
         this.patientID = patientID;
@@ -77,6 +112,15 @@ public class PatientNotificationPanel extends JPanel {
         scrollPane.setBorder(new LineBorder(new Color(230, 230, 230)));
         cards.add(scrollPane, TABLE_VIEW);
 
+        JPanel loadingPanel = new JPanel(new GridBagLayout());
+        loadingPanel.setBackground(Color.WHITE);
+        loadingPanel.setBorder(new LineBorder(new Color(230, 230, 230)));
+        JLabel loadingLabel = new JLabel("Loading notifications...");
+        loadingLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        loadingLabel.setForeground(new Color(127, 140, 141));
+        loadingPanel.add(loadingLabel);
+        cards.add(loadingPanel, LOADING_VIEW);
+
         // 2. EMPTY VIEW
         JPanel emptyPanel = new JPanel(new GridBagLayout());
         emptyPanel.setBackground(Color.WHITE);
@@ -109,20 +153,90 @@ public class PatientNotificationPanel extends JPanel {
     }
 
     private void loadNotifications() {
-        model.setRowCount(0); 
-        try {
-            List<Appointment> list = appointmentController.getAppointmentsByPatient(patientID);
-            int count = 0;
-            for (Appointment a : list) {
-                if (!a.getStatus().equalsIgnoreCase("Pending") && !a.isArchived()) {
-                    count++;
-                    String msg = "Your " + a.getServiceType() + " appointment is " + a.getStatus() + ".";
-                    model.addRow(new Object[]{a.getAppointmentId(), msg, a.getStatus(), a.getAppointmentDate(), a.isRead(), "REMOVE"});
+        loadNotifications(false);
+    }
+
+    private void loadNotifications(boolean forceRefresh) {
+        NotificationCacheEntry cached = NOTIFICATION_CACHE.get(patientID);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderNotifications(cached.rows);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        cardLayout.show(cards, LOADING_VIEW);
+        clearAllBtn.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<NotificationRow>, Void>() {
+            @Override
+            protected List<NotificationRow> doInBackground() throws Exception {
+                List<NotificationRow> rows = new ArrayList<>();
+                List<Appointment> list = appointmentController.getAppointmentsByPatient(patientID);
+                for (Appointment a : list) {
+                    if (!a.getStatus().equalsIgnoreCase("Pending") && !a.isArchived()) {
+                        String msg = "Your " + a.getServiceType() + " appointment is " + a.getStatus() + ".";
+                        rows.add(new NotificationRow(
+                                a.getAppointmentId(),
+                                msg,
+                                a.getStatus(),
+                                a.getAppointmentDate(),
+                                a.isRead()));
+                    }
+                }
+                return rows;
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<NotificationRow> rows = get();
+                    NOTIFICATION_CACHE.put(patientID, new NotificationCacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderNotifications(rows);
+                } catch (Exception ex) {
+                    cardLayout.show(cards, EMPTY_VIEW);
+                    clearAllBtn.setVisible(false);
+                    JOptionPane.showMessageDialog(PatientNotificationPanel.this,
+                            "Unable to load notifications: " + ex.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    clearAllBtn.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-            cardLayout.show(cards, (count == 0) ? EMPTY_VIEW : TABLE_VIEW);
-            clearAllBtn.setVisible(count > 0);
-        } catch (Exception e) { e.printStackTrace(); }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderNotifications(List<NotificationRow> rows) {
+        model.setRowCount(0);
+        for (NotificationRow row : rows) {
+            model.addRow(new Object[]{
+                row.appointmentId,
+                row.message,
+                row.status,
+                row.date,
+                row.read,
+                "REMOVE"
+            });
+        }
+
+        cardLayout.show(cards, rows.isEmpty() ? EMPTY_VIEW : TABLE_VIEW);
+        clearAllBtn.setVisible(!rows.isEmpty());
+    }
+
+    private void invalidateNotificationCache() {
+        NOTIFICATION_CACHE.remove(patientID);
     }
 
     private void handleDoubleClick() {
@@ -137,6 +251,7 @@ public class PatientNotificationPanel extends JPanel {
         try {
             if (appointmentController.markNotificationAsRead(appId)) {
                 model.setValueAt(true, row, 4);
+                invalidateNotificationCache();
                 if (dashboard != null) dashboard.refreshNotificationBadge();
                 table.repaint();
             }
@@ -168,7 +283,8 @@ public class PatientNotificationPanel extends JPanel {
         if (JOptionPane.showConfirmDialog(this, "Dismiss all notifications?", "Confirm", JOptionPane.YES_NO_OPTION) == 0) {
             try {
                 appointmentController.archiveAllNotifications(patientID);
-                loadNotifications();
+                invalidateNotificationCache();
+                loadNotifications(true);
                 if (dashboard != null) dashboard.refreshNotificationBadge();
             } catch (Exception ex) { ex.printStackTrace(); }
         }
@@ -207,7 +323,8 @@ public class PatientNotificationPanel extends JPanel {
                 try {
                     appointmentController.archiveNotification(currentId);
                     fireEditingStopped();
-                    loadNotifications();
+                    invalidateNotificationCache();
+                    loadNotifications(true);
                     if (dashboard != null) dashboard.refreshNotificationBadge();
                 } catch (Exception ex) { ex.printStackTrace(); }
             });

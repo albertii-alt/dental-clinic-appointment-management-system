@@ -6,16 +6,35 @@ import javax.swing.*;
 import javax.swing.table.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import com.dentalclinic.model.Appointment;
 import com.dentalclinic.model.Patient;
 import com.dentalclinic.util.UserSession;
 
 public class PendingRequestsPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "PENDING_REQUESTS";
+    private static final Map<String, CacheEntry> PENDING_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private final AppointmentController appointmentController = new AppointmentController();
     private final PatientController patientController = new PatientController();
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
+
+    private static class CacheEntry {
+        private final List<Object[]> data;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> data, long createdAtMs) {
+            this.data = data;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     // THEME SYNC
     private final Color BG = new Color(245, 247, 250);
@@ -93,7 +112,7 @@ public class PendingRequestsPanel extends JPanel {
         cardContainer.add(scrollPane, BorderLayout.CENTER);
 
         add(cardContainer, BorderLayout.CENTER);
-        loadPendingData();
+        loadPendingData(false);
     }
 
     private void styleTable(JTable table) {
@@ -123,18 +142,64 @@ public class PendingRequestsPanel extends JPanel {
     }
 
     private void loadPendingData() {
-        try {
-            model.setRowCount(0);
-            List<Object[]> data = appointmentController.getPendingRequestsWithNames();
-            
-            if (data.isEmpty()) {   
-                // If empty, the table just stays clear
-            } else {
-                for (Object[] row : data) {
-                    model.addRow(row);
+        loadPendingData(false);
+    }
+
+    private void loadPendingData(boolean forceRefresh) {
+        CacheEntry cached = PENDING_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.data);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                return appointmentController.getPendingRequestsWithNames();
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> data = get();
+                    PENDING_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(data), System.currentTimeMillis()));
+                    renderRows(data);
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(PendingRequestsPanel.this,
+                            "Error loading pending requests: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> data) {
+        model.setRowCount(0);
+        for (Object[] row : data) {
+            model.addRow(row);
+        }
+    }
+
+    private void invalidateCache() {
+        PENDING_CACHE.remove(CACHE_KEY);
     }
 
     private void showDecisionModal(int appId, int pId) {
@@ -187,12 +252,14 @@ public class PendingRequestsPanel extends JPanel {
             if (choice == 0) { // Approve
                 if (appointmentController.updateAppointmentStatus(appId, "Approved", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Request approved. Patient will be notified.");
-                    loadPendingData();
+                    invalidateCache();
+                    loadPendingData(true);
                 }
             } else if (choice == 1) { // Decline
                 if (appointmentController.updateAppointmentStatus(appId, "Declined", actorId, actorRole)) {
                     JOptionPane.showMessageDialog(this, "Request declined.");
-                    loadPendingData();
+                    invalidateCache();
+                    loadPendingData(true);
                 }
             }
         } catch (Exception ex) { ex.printStackTrace(); }

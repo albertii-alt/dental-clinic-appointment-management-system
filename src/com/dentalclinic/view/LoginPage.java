@@ -249,55 +249,92 @@ public class LoginPage extends JFrame {
     private void initActionListeners() {
         loginButton.addActionListener(e -> {
             // FIXED: Sanitize username input
-            String user = Sanitizer.sanitizeUsername(usernameField.getText());
-            String pass = new String(passwordField.getPassword());
-            String role = (String) roleDropdown.getSelectedItem();
+            final String user = Sanitizer.sanitizeUsername(usernameField.getText());
+            final String pass = new String(passwordField.getPassword());
+            final String role = (String) roleDropdown.getSelectedItem();
 
-            try {
-                LoginResult result = authController.login(new LoginRequest(user, pass, role));
+            loginButton.setEnabled(false);
+            setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
 
-                if (result.getStatus() == LoginResult.Status.ACCOUNT_LOCKED) {
-                    String message = "Your account has been locked due to multiple failed login attempts.\n" +
-                                    "Please try again in " + result.getRemainingMinutes() + " minute(s).";
-                    ErrorDialog.show(this, "Account Locked", message);
-                    passwordField.setText("");
-                    return;
+            SwingWorker<Boolean, Void> loginWorker = new SwingWorker<Boolean, Void>() {
+                private LoginResult loginResult;
+                private Exception loginError;
+
+                @Override
+                protected Boolean doInBackground() {
+                    try {
+                        loginResult = authController.login(new LoginRequest(user, pass, role));
+                        return true;
+                    } catch (Exception ex) {
+                        loginError = ex;
+                        return false;
+                    }
                 }
 
-                if (result.getStatus() == LoginResult.Status.RESET_REQUIRED) {
-                    showPasswordResetDialog(result);
-                    return;
+                @Override
+                protected void done() {
+                    try {
+                        boolean completed = get();
+                        if (!completed) {
+                            String errorMessage = loginError != null ? loginError.getMessage() : "Unknown login error";
+                            ErrorDialog.show(LoginPage.this, "Database Error", "Unable to connect to the clinic server: " + errorMessage);
+                            passwordField.setText("");
+                            return;
+                        }
+
+                        if (loginResult.getStatus() == LoginResult.Status.ACCOUNT_LOCKED) {
+                            String message = "Your account has been locked due to multiple failed login attempts.\n" +
+                                            "Please try again in " + loginResult.getRemainingMinutes() + " minute(s).";
+                            ErrorDialog.show(LoginPage.this, "Account Locked", message);
+                            passwordField.setText("");
+                            return;
+                        }
+
+                        if (loginResult.getStatus() == LoginResult.Status.RESET_REQUIRED) {
+                            showPasswordResetDialog(loginResult);
+                            return;
+                        }
+
+                        if (loginResult.getStatus() == LoginResult.Status.SUCCESS_STAFF) {
+                            int id = loginResult.getUserId();
+                            String rStr = loginResult.getRoleName();
+                            boolean isS = loginResult.isSuperAdmin();
+                            String name = loginResult.getFullName();
+                            String email = loginResult.getEmail() != null ? loginResult.getEmail() : "No Email";
+
+                            UserSession.initialize(id, name, isS ? "Super Admin" : rStr, loginResult.getPermissions());
+
+                            SuccessDialog.show(LoginPage.this, "Access Granted", "Welcome back, " + name + "!");
+
+                            if (rStr.equalsIgnoreCase("ADMIN")) new AdminDashboard(id, isS, name, email, user);
+                            else if (rStr.equalsIgnoreCase("DENTIST")) new DentistDashboard(id, name, user, email);
+                            else if (rStr.equalsIgnoreCase("STAFF")) new StaffDashboard(id, name, user, email);
+                            dispose();
+                            return;
+                        }
+
+                        if (loginResult.getStatus() == LoginResult.Status.SUCCESS_PATIENT) {
+                            Patient p = loginResult.getPatient();
+                            UserSession.initialize(p.getPatientId(), p.getFirstName() + " " + p.getLastName(), "PATIENT", null);
+                            SuccessDialog.show(LoginPage.this, "Welcome Back!", "Logging you in, " + p.getFirstName());
+                            new PatientDashboard(p.getPatientId(), p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getBirthDate().toString(), String.valueOf(p.getAge()), p.getAddress(), p.getContactNumber(), p.getUsername());
+                            dispose();
+                            return;
+                        }
+
+                        ErrorDialog.show(LoginPage.this, "Login Failed", "The username or password you entered is incorrect for the selected role.");
+                        passwordField.setText("");
+                    } catch (Exception ex) {
+                        ErrorDialog.show(LoginPage.this, "Database Error", "Unable to connect to the clinic server: " + ex.getMessage());
+                        passwordField.setText("");
+                    } finally {
+                        loginButton.setEnabled(true);
+                        setCursor(Cursor.getDefaultCursor());
+                    }
                 }
+            };
 
-                if (result.getStatus() == LoginResult.Status.SUCCESS_STAFF) {
-                    int id = result.getUserId();
-                    String rStr = result.getRoleName();
-                    boolean isS = result.isSuperAdmin();
-                    String name = result.getFullName();
-                    String email = result.getEmail() != null ? result.getEmail() : "No Email";
-
-                    UserSession.initialize(id, name, isS ? "Super Admin" : rStr, result.getPermissions());
-
-                    SuccessDialog.show(this, "Access Granted", "Welcome back, " + name + "!");
-
-                    if (rStr.equalsIgnoreCase("ADMIN")) new AdminDashboard(id, isS, name, email, user);
-                    else if (rStr.equalsIgnoreCase("DENTIST")) new DentistDashboard(id, name, user, email);
-                    else if (rStr.equalsIgnoreCase("STAFF")) new StaffDashboard(id, name, user, email);
-                    dispose();
-                } else if (result.getStatus() == LoginResult.Status.SUCCESS_PATIENT) {
-                    Patient p = result.getPatient();
-                    UserSession.initialize(p.getPatientId(), p.getFirstName() + " " + p.getLastName(), "PATIENT", null);
-                    SuccessDialog.show(this, "Welcome Back!", "Logging you in, " + p.getFirstName());
-                    new PatientDashboard(p.getPatientId(), p.getFirstName(), p.getMiddleName(), p.getLastName(), p.getBirthDate().toString(), String.valueOf(p.getAge()), p.getAddress(), p.getContactNumber(), p.getUsername());
-                    dispose();
-                } else {
-                    ErrorDialog.show(this, "Login Failed", "The username or password you entered is incorrect for the selected role.");
-                    passwordField.setText("");
-                }
-            } catch (Exception ex) {
-                ErrorDialog.show(this, "Database Error", "Unable to connect to the clinic server: " + ex.getMessage());
-                passwordField.setText("");
-            }
+            loginWorker.execute();
         });
 
         registerButton.addActionListener(e -> {

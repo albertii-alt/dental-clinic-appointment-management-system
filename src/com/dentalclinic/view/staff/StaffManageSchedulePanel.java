@@ -5,11 +5,18 @@ import com.toedter.calendar.JDateChooser;
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class StaffManageSchedulePanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final Map<String, ScheduleCacheEntry> SCHEDULE_CACHE = new ConcurrentHashMap<>();
+
     private final AppointmentController appointmentController = new AppointmentController();
     private String currentStaffName;
     private int currentStaffId;
@@ -18,6 +25,8 @@ public class StaffManageSchedulePanel extends JPanel {
     private JDateChooser datePicker;
     private JPanel slotsContainer;
     private JLabel statusLabel;
+    private SwingWorker<ScheduleSnapshot, Void> scheduleWorker;
+    private long scheduleRequestId = 0;
 
     // THEME SYNC (Matching StaffBookAppointmentPanel)
     private final Color BG = new Color(245, 247, 250);
@@ -27,6 +36,33 @@ public class StaffManageSchedulePanel extends JPanel {
     private final Color DANGER = new Color(231, 76, 60);
     private final Color TEXT = new Color(44, 62, 80);
     private final Color BORDER_COLOR = new Color(220, 220, 220);
+
+    private static class ScheduleSnapshot {
+        private final java.util.Date selectedDate;
+        private final List<String> allSlots;
+        private final Set<String> occupiedSlots;
+        private final Set<String> blockedSlots;
+
+        private ScheduleSnapshot(java.util.Date selectedDate,
+                                 List<String> allSlots,
+                                 Set<String> occupiedSlots,
+                                 Set<String> blockedSlots) {
+            this.selectedDate = selectedDate;
+            this.allSlots = allSlots;
+            this.occupiedSlots = occupiedSlots;
+            this.blockedSlots = blockedSlots;
+        }
+    }
+
+    private static class ScheduleCacheEntry {
+        private final ScheduleSnapshot snapshot;
+        private final long createdAtMs;
+
+        private ScheduleCacheEntry(ScheduleSnapshot snapshot, long createdAtMs) {
+            this.snapshot = snapshot;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     public StaffManageSchedulePanel(int staffId, String staffName, String role) {
         this.currentStaffId = staffId;
@@ -101,7 +137,8 @@ public class StaffManageSchedulePanel extends JPanel {
                 try {
                     String[] allSlots = appointmentController.getTimeSlots();
                     appointmentController.blockAllDay(datePicker.getDate(), allSlots, currentStaffId, currentRole);
-                    refreshSchedule();
+                    invalidateScheduleCache(datePicker.getDate());
+                    refreshSchedule(true);
                 } catch (Exception ex) { ex.printStackTrace(); }
             }
         });
@@ -111,7 +148,8 @@ public class StaffManageSchedulePanel extends JPanel {
             if (confirm == JOptionPane.YES_OPTION) {
                 try {
                     appointmentController.unblockAllDay(datePicker.getDate(), currentStaffId, currentRole);
-                    refreshSchedule();
+                    invalidateScheduleCache(datePicker.getDate());
+                    refreshSchedule(true);
                     JOptionPane.showMessageDialog(this, "All blocks cleared.");
                 } catch (Exception ex) { 
                     ex.printStackTrace(); 
@@ -120,36 +158,87 @@ public class StaffManageSchedulePanel extends JPanel {
             }
         });
 
-        refreshSchedule();
+        refreshSchedule(false);
     }
 
     private void refreshSchedule() {
+        refreshSchedule(false);
+    }
+
+    private void refreshSchedule(boolean forceRefresh) {
         if (datePicker.getDate() == null) return;
-        
-        slotsContainer.removeAll();
+
         java.util.Date selectedDate = datePicker.getDate();
-        
-        try {
-            String[] allSlots = appointmentController.getTimeSlots();
-            List<String> occupied = appointmentController.getOccupiedSlots(selectedDate);
-            Set<String> occupiedSet = new HashSet<>(occupied);
-            List<String> blocked = appointmentController.getBlockedSlotsByDate(selectedDate);
-            Set<String> blockedSet = new HashSet<>(blocked);
-
-            for (String slot : allSlots) {
-                slotsContainer.add(createSlotRow(slot, selectedDate, occupiedSet.contains(slot), blockedSet.contains(slot)));
-                slotsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
-            }
-            
-            statusLabel.setText("Currently managing: " + selectedDate.toString());
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Error loading schedule: " + e.getMessage());
+        String dateKey = buildDateCacheKey(selectedDate);
+        ScheduleCacheEntry cached = SCHEDULE_CACHE.get(dateKey);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderSchedule(cached.snapshot);
+            return;
         }
 
+        if (scheduleWorker != null && !scheduleWorker.isDone()) {
+            scheduleWorker.cancel(true);
+        }
+
+        final long requestId = ++scheduleRequestId;
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+        statusLabel.setText("Loading schedule...");
+
+        scheduleWorker = new SwingWorker<ScheduleSnapshot, Void>() {
+            @Override
+            protected ScheduleSnapshot doInBackground() throws Exception {
+                List<String> all = Arrays.asList(appointmentController.getTimeSlots());
+                Set<String> occupied = new HashSet<>(appointmentController.getOccupiedSlots(selectedDate));
+                Set<String> blocked = new HashSet<>(appointmentController.getBlockedSlotsByDate(selectedDate));
+                return new ScheduleSnapshot(selectedDate, new ArrayList<>(all), occupied, blocked);
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != scheduleRequestId) {
+                    return;
+                }
+
+                try {
+                    ScheduleSnapshot snapshot = get();
+                    SCHEDULE_CACHE.put(dateKey, new ScheduleCacheEntry(snapshot, System.currentTimeMillis()));
+                    renderSchedule(snapshot);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(StaffManageSchedulePanel.this, "Error loading schedule: " + e.getMessage());
+                } finally {
+                    setCursor(Cursor.getDefaultCursor());
+                }
+            }
+        };
+
+        scheduleWorker.execute();
+    }
+
+    private void renderSchedule(ScheduleSnapshot snapshot) {
+        slotsContainer.removeAll();
+        for (String slot : snapshot.allSlots) {
+            slotsContainer.add(createSlotRow(
+                    slot,
+                    snapshot.selectedDate,
+                    snapshot.occupiedSlots.contains(slot),
+                    snapshot.blockedSlots.contains(slot)
+            ));
+            slotsContainer.add(Box.createRigidArea(new Dimension(0, 10)));
+        }
+
+        statusLabel.setText("Currently managing: " + snapshot.selectedDate.toString());
         slotsContainer.revalidate();
         slotsContainer.repaint();
+    }
+
+    private String buildDateCacheKey(java.util.Date date) {
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd");
+        return fmt.format(date);
+    }
+
+    private void invalidateScheduleCache(java.util.Date date) {
+        SCHEDULE_CACHE.remove(buildDateCacheKey(date));
     }
 
     private JPanel createSlotRow(String slot, java.util.Date date, boolean isOccupied, boolean isBlocked) {
@@ -203,7 +292,8 @@ public class StaffManageSchedulePanel extends JPanel {
     private void handleBlock(java.util.Date date, String slot) {
         try {
             if (appointmentController.blockSlot(date, slot, "Staff Manual Block", currentStaffId, currentRole)) {
-                refreshSchedule();
+                invalidateScheduleCache(date);
+                refreshSchedule(true);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -211,7 +301,8 @@ public class StaffManageSchedulePanel extends JPanel {
     private void handleUnblock(java.util.Date date, String slot) {
         try {
             if (appointmentController.unblockSlot(date, slot, currentStaffId, currentRole)) {
-                refreshSchedule();
+                invalidateScheduleCache(date);
+                refreshSchedule(true);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }

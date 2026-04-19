@@ -8,14 +8,23 @@ import javax.swing.border.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PatientHistoryPanel extends JPanel {
+    private static final long CACHE_TTL_MS = 30000;
+    private static final String CACHE_KEY = "STAFF_TREATMENT_HISTORY";
+    private static final Map<String, CacheEntry> HISTORY_CACHE = new ConcurrentHashMap<>();
+
     private JTable table;
     private DefaultTableModel model;
     private JTextField searchField;
     private TableRowSorter<DefaultTableModel> sorter;
     private final AppointmentController appointmentController = new AppointmentController();
+    private SwingWorker<List<Object[]>, Void> loadWorker;
+    private long loadRequestId = 0;
     
     private boolean isDentist;
 
@@ -26,6 +35,16 @@ public class PatientHistoryPanel extends JPanel {
     private final Color SUCCESS = new Color(39, 174, 96);
     private final Color TEXT = new Color(44, 62, 80);
     private final Color BORDER_COLOR = new Color(220, 220, 220);
+
+    private static class CacheEntry {
+        private final List<Object[]> rows;
+        private final long createdAtMs;
+
+        private CacheEntry(List<Object[]> rows, long createdAtMs) {
+            this.rows = rows;
+            this.createdAtMs = createdAtMs;
+        }
+    }
 
     public PatientHistoryPanel(boolean isDentist) {
         this.isDentist = isDentist;
@@ -113,7 +132,7 @@ public class PatientHistoryPanel extends JPanel {
         });
 
         add(cardContainer, BorderLayout.CENTER);
-        loadHistoryData();
+        loadHistoryData(false);
     }
 
     private void styleTable(JTable table) {
@@ -130,18 +149,61 @@ public class PatientHistoryPanel extends JPanel {
         header.setPreferredSize(new Dimension(0, 40));
     }
 
-    public void loadHistoryData() {
-        try {
-            model.setRowCount(0);
-            List<Object[]> data = appointmentController.getTreatmentHistory();
-            if (data.isEmpty()) {   
-                // If empty, the table remains empty; standard behavior
-            } else {
-                for (Object[] row : data) {
-                    model.addRow(row);
+    public void loadHistoryData(boolean forceRefresh) {
+        CacheEntry cached = HISTORY_CACHE.get(CACHE_KEY);
+        if (!forceRefresh && cached != null && System.currentTimeMillis() - cached.createdAtMs <= CACHE_TTL_MS) {
+            renderRows(cached.rows);
+            return;
+        }
+
+        if (loadWorker != null && !loadWorker.isDone()) {
+            loadWorker.cancel(true);
+        }
+
+        final long requestId = ++loadRequestId;
+        table.setEnabled(false);
+        setCursor(Cursor.getPredefinedCursor(Cursor.WAIT_CURSOR));
+
+        loadWorker = new SwingWorker<List<Object[]>, Void>() {
+            @Override
+            protected List<Object[]> doInBackground() throws Exception {
+                return appointmentController.getTreatmentHistory();
+            }
+
+            @Override
+            protected void done() {
+                if (isCancelled() || requestId != loadRequestId) {
+                    return;
+                }
+
+                try {
+                    List<Object[]> rows = get();
+                    HISTORY_CACHE.put(CACHE_KEY, new CacheEntry(new ArrayList<>(rows), System.currentTimeMillis()));
+                    renderRows(rows);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(PatientHistoryPanel.this,
+                            "Failed to load treatment history: " + e.getMessage(),
+                            "Load Error",
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    table.setEnabled(true);
+                    setCursor(Cursor.getDefaultCursor());
                 }
             }
-        } catch (Exception e) { e.printStackTrace(); }
+        };
+
+        loadWorker.execute();
+    }
+
+    private void renderRows(List<Object[]> rows) {
+        model.setRowCount(0);
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        for (Object[] row : rows) {
+            model.addRow(row);
+        }
     }
     
     private void showFullHistoryDetail() {
@@ -260,7 +322,8 @@ public class PatientHistoryPanel extends JPanel {
                     app.setStatus(newStatus);
                     app.setClinicalNotes(newNotes);
                     JOptionPane.showMessageDialog(this, "Record successfully updated.");
-                    loadHistoryData();
+                    HISTORY_CACHE.remove(CACHE_KEY);
+                    loadHistoryData(true);
                 }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(this, "Error saving record: " + ex.getMessage());
