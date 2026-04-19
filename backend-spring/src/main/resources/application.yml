@@ -11,3 +11,8 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 1
       connection-timeout: 10000
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:change-this-jwt-secret-in-production-32chars-min}
+    expires-minutes: ${JWT_EXPIRES_MINUTES:60}
