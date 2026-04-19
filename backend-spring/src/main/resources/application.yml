@@ -1,6 +1,13 @@
 server:
   port: ${SPRING_API_PORT:8081}
 
-legacy:
-  api:
-    base-url: ${LEGACY_API_BASE_URL:http://localhost:8080}
+spring:
+  datasource:
+    url: ${DB_URL:}
+    username: ${DB_USER:}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 1
+      connection-timeout: 10000
