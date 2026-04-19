@@ -5,7 +5,10 @@ import com.dentalclinic.backend.service.AuthLoginResult;
 import com.dentalclinic.backend.service.AuthLoginService;
 import com.dentalclinic.backend.service.JwtTokenService;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,5 +41,24 @@ public class AuthController {
         }
 
         return ResponseEntity.status(result.statusCode()).body(body);
+    }
+
+    @GetMapping("/validate")
+    public ResponseEntity<Map<String, Object>> validateToken(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authorizationHeader
+    ) {
+        String token = jwtTokenService.extractTokenFromHeader(authorizationHeader);
+        if (token == null || !jwtTokenService.isTokenValid(token)) {
+            return ResponseEntity.status(401).body(Map.of(
+                    "valid", false,
+                    "message", "Invalid or missing bearer token"
+            ));
+        }
+
+        Map<String, Object> claims = jwtTokenService.parseTokenClaims(token);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("valid", true);
+        out.put("claims", claims);
+        return ResponseEntity.ok(out);
     }
 }

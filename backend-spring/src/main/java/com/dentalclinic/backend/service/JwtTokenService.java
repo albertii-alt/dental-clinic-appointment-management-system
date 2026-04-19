@@ -1,6 +1,8 @@
 package com.dentalclinic.backend.service;
 
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -12,6 +14,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
@@ -54,12 +57,69 @@ public class JwtTokenService {
         return expiresMinutes;
     }
 
+    public boolean isTokenValid(String token) {
+        try {
+            parseClaims(token);
+            return true;
+        } catch (JwtException | IllegalArgumentException ex) {
+            return false;
+        }
+    }
+
+    public Map<String, Object> parseTokenClaims(String token) {
+        Claims claims = parseClaims(token);
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("subject", claims.getSubject());
+        out.put("issuedAt", claims.getIssuedAt());
+        out.put("expiresAt", claims.getExpiration());
+        out.put("userId", claims.get("userId"));
+        out.put("roleName", claims.get("roleName"));
+        out.put("loginStatus", claims.get("loginStatus"));
+        out.put("superAdmin", claims.get("superAdmin"));
+        out.put("permissions", claims.get("permissions"));
+        return out;
+    }
+
+    public String extractTokenFromHeader(String authorizationHeader) {
+        if (authorizationHeader == null || authorizationHeader.isBlank()) {
+            return null;
+        }
+        String prefix = "Bearer ";
+        if (!authorizationHeader.startsWith(prefix)) {
+            return null;
+        }
+        String token = authorizationHeader.substring(prefix.length()).trim();
+        return token.isEmpty() ? null : token;
+    }
+
+    @SuppressWarnings("unchecked")
+    public List<String> extractPermissions(String token) {
+        Claims claims = parseClaims(token);
+        Object raw = claims.get("permissions");
+        if (raw instanceof List<?> list) {
+            return list.stream().map(String::valueOf).toList();
+        }
+        return List.of();
+    }
+
+    public String extractSubject(String token) {
+        return parseClaims(token).getSubject();
+    }
+
     private SecretKey signingKey() {
         byte[] bytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
             bytes = Arrays.copyOf(bytes, 32);
         }
         return Keys.hmacShaKeyFor(bytes);
+    }
+
+    private Claims parseClaims(String token) {
+        return Jwts.parser()
+                .verifyWith(signingKey())
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
     }
 
     private Integer toInt(Object value) {
