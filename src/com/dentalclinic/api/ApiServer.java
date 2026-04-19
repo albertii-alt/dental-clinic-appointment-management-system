@@ -93,17 +93,30 @@ public class ApiServer {
             switch (status) {
                 case SUCCESS_PATIENT:
                 case SUCCESS_STAFF:
-                    send(exchange, 200,
-                            "{"
-                                    + "\"status\":\"success\","
-                                    + "\"loginStatus\":" + MiniJson.string(status.name()) + ","
-                                    + "\"userId\":" + MiniJson.number(result.getUserId()) + ","
-                                    + "\"roleName\":" + MiniJson.string(result.getRoleName()) + ","
-                                    + "\"fullName\":" + MiniJson.string(result.getFullName()) + ","
-                                    + "\"email\":" + MiniJson.string(result.getEmail()) + ","
-                                    + "\"superAdmin\":" + MiniJson.bool(result.isSuperAdmin()) + ","
-                                    + "\"permissions\":" + MiniJson.stringArray(result.getPermissions())
-                                    + "}");
+                    StringBuilder payload = new StringBuilder()
+                        .append("{")
+                        .append("\"status\":\"success\",")
+                        .append("\"loginStatus\":").append(MiniJson.string(status.name())).append(",")
+                        .append("\"userId\":").append(MiniJson.number(result.getUserId())).append(",")
+                        .append("\"roleName\":").append(MiniJson.string(result.getRoleName())).append(",")
+                        .append("\"fullName\":").append(MiniJson.string(result.getFullName())).append(",")
+                        .append("\"email\":").append(MiniJson.string(result.getEmail())).append(",")
+                        .append("\"superAdmin\":").append(MiniJson.bool(result.isSuperAdmin())).append(",")
+                        .append("\"permissions\":").append(MiniJson.stringArray(result.getPermissions()));
+
+                    if (status == LoginResult.Status.SUCCESS_PATIENT && result.getPatient() != null) {
+                    payload.append(",\"firstName\":").append(MiniJson.string(result.getPatient().getFirstName()))
+                        .append(",\"middleName\":").append(MiniJson.string(result.getPatient().getMiddleName()))
+                        .append(",\"lastName\":").append(MiniJson.string(result.getPatient().getLastName()))
+                        .append(",\"birthDate\":").append(MiniJson.string(result.getPatient().getBirthDate() != null ? result.getPatient().getBirthDate().toString() : null))
+                        .append(",\"age\":").append(MiniJson.number(result.getPatient().getAge()))
+                        .append(",\"address\":").append(MiniJson.string(result.getPatient().getAddress()))
+                        .append(",\"contactNumber\":").append(MiniJson.string(result.getPatient().getContactNumber()))
+                        .append(",\"username\":").append(MiniJson.string(result.getPatient().getUsername()));
+                    }
+
+                    payload.append("}");
+                    send(exchange, 200, payload.toString());
                     break;
                 case ACCOUNT_LOCKED:
                     send(exchange, 423,

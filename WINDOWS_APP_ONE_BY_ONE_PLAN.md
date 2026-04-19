@@ -61,11 +61,16 @@ Implemented in this step:
 
 ## Step 3: Switch desktop login to API mode
 
-Status: NEXT
+Status: IN PROGRESS
 
 Scope:
 - Replace direct DB login call with API call.
 - Keep same login UI behavior.
+
+Progress in this step:
+- [x] Desktop login now calls backend API endpoint POST /auth/login.
+- [x] Startup availability check now validates backend API health endpoint.
+- [ ] Remove remaining desktop direct-DB dependencies beyond login flow.
 
 Definition of done:
 - Login works with backend API.
