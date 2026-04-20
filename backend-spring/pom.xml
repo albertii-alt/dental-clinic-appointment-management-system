@@ -94,6 +94,9 @@
                         </goals>
                     </execution>
                 </executions>
+                <configuration>
+                    <mainClass>com.dentalclinic.backend.BackendSpringApplication</mainClass>
+                </configuration>
             </plugin>
         </plugins>
     </build>
