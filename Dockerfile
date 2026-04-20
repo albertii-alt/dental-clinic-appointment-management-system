@@ -2,8 +2,11 @@
 
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app/backend-spring
-# Copy the entire backend-spring project (preserves structure)
-COPY backend-spring/ ./
+# Copy Maven wrapper and project files
+COPY backend-spring/mvnw ./mvnw
+COPY backend-spring/.mvn ./.mvn
+COPY backend-spring/pom.xml ./pom.xml
+COPY backend-spring/src ./src
 # Debug: list all files after copy
 RUN ls -l /app/backend-spring && ls -l /app/backend-spring/src || true
 # Ensure wrapper is executable
