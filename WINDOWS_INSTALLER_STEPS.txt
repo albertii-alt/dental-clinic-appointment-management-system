@@ -1,0 +1,66 @@
+WINDOWS INSTALLER STEPS (ONE BY ONE)
+
+Goal:
+Create an official Windows installer (.exe or .msi) for the desktop app.
+Target user experience: install and run without manually installing Java.
+
+Current status:
+- API token security: DONE
+- Dashboard endpoint protection: DONE
+- Dashboard role restriction: DONE
+- Installer automation script: DONE
+- GitHub Actions Windows installer workflow: DONE
+
+What you need on Windows machine:
+1) JDK 21 (must include jpackage)
+2) Apache Ant
+3) Project source code
+
+What end users need on Windows machine:
+1) Nothing extra. Java runtime is bundled inside installer.
+
+Build installer:
+1) Open PowerShell in project root
+2) Run:
+   powershell -ExecutionPolicy Bypass -File .\scripts\windows\build-desktop-installer.ps1 -InstallerType exe -AppVersion 1.0.0
+3) Output location:
+   build\windows-installer\output
+
+Build installer on Linux using Wine (available on this laptop):
+1) Build desktop artifacts:
+   ant clean jar
+2) Compile Inno Setup script through Wine:
+   wine "$HOME/.wine/drive_c/Program Files (x86)/Inno Setup 6/ISCC.exe" /DMyAppVersion=1.0.0 /Qp /O"$PWD/build/windows-installer/output" "$PWD/scripts/windows/DentalClinicSystem.iss"
+3) Output location:
+   build/windows-installer/output
+
+One-click rebuild from project root (Linux + Wine):
+1) Run:
+   ./build-windows-installer.sh 1.0.0
+2) This command will:
+   - rebuild app jar and dependencies
+   - download/prepare bundled Windows Java runtime
+   - build Windows installer exe
+   - generate SHA256 checksum file next to exe
+
+Build installer automatically in CI:
+1) Push this project to GitHub
+2) Go to Actions -> Build Windows Installer
+3) Run workflow manually with installer_type and app_version
+4) Download artifact: windows-installer-<version>
+
+Automatic release build by tag:
+1) Create git tag (example): v1.0.0
+2) Push tag
+3) Workflow builds installer and uploads artifact automatically
+
+Before release checklist:
+1) Install the generated installer on a clean Windows test machine
+2) Confirm app opens from Start Menu and Desktop shortcut
+3) Confirm database setup wizard appears when config file is missing
+4) Confirm login and dashboard load correctly
+5) Confirm patient cannot access dashboard summary API route
+6) Confirm backup and health scripts are documented for operations
+
+Release rule:
+Only publish installer after all checklist items pass.

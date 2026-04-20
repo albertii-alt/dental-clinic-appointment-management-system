@@ -75,8 +75,8 @@ Progress in this step:
 Spring Boot migration progress:
 - [x] Created Spring Boot module at `backend-spring/`.
 - [x] Added Spring endpoints `GET /health` and `POST /auth/login`.
-- [x] Implemented login bridge forwarding to legacy temporary API for safe transition.
-- [ ] Replace bridge forwarding with native Spring service and repository implementation.
+- [x] Replaced login bridge with native Spring JDBC + BCrypt authentication.
+- [ ] Add JWT/session token support for production API security.
 
 Definition of done:
 - Login works with backend API.

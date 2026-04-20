@@ -1,0 +1,27 @@
+ONLINE MIGRATION STEPS (ONE BY ONE)
+
+1) Protect the API with token security (JWT).
+Status: DONE
+What this means: The API now checks who is calling before sharing private data.
+
+2) Add one protected business endpoint: dashboard summary.
+Status: DONE
+What this means: Dashboard numbers are now available from Spring backend, but only for authenticated users.
+
+3) Verify access rules.
+Status: DONE
+What this means:
+- Without token: access is blocked.
+- With valid token: access is allowed and data is returned.
+
+4) Add role-based rule for dashboard endpoint.
+Status: DONE
+What this means: Only Admin, Staff, and Dentist can open dashboard summary. Patient is blocked.
+
+5) Next step (recommended): Expand role-based rules to all business endpoints.
+Status: READY WHEN NEW ENDPOINTS ARE ADDED
+What this means: Current Spring API has only one business endpoint and it is already role-protected.
+
+6) Next step (recommended): Prepare official Windows installer flow.
+Status: IN PROGRESS
+What this means: Build a repeatable packaging script and checklist so the app can be installed with a standard Windows installer.

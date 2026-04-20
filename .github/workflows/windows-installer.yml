@@ -1,0 +1,61 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      installer_type:
+        description: Installer type (exe or msi)
+        required: true
+        default: exe
+      app_version:
+        description: Application version (example: 1.0.0)
+        required: true
+        default: 1.0.0
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Apache Ant
+        shell: powershell
+        run: choco install ant -y
+
+      - name: Resolve build version
+        id: version
+        shell: powershell
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart('v')
+          } else {
+            $version = "${{ github.event.inputs.app_version }}"
+          }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build Windows installer
+        shell: powershell
+        run: |
+          $installerType = if ("${{ github.event_name }}" -eq "push") { "exe" } else { "${{ github.event.inputs.installer_type }}" }
+          powershell -ExecutionPolicy Bypass -File .\scripts\windows\build-desktop-installer.ps1 `
+            -InstallerType $installerType `
+            -AppVersion "${{ steps.version.outputs.value }}"
+
+      - name: Upload installer artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-${{ steps.version.outputs.value }}
+          path: build/windows-installer/output/*
+          if-no-files-found: error

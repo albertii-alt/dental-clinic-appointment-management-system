@@ -101,6 +101,26 @@ The script will:
 java -jar dist/DentalClinicAppointment_ManagementSystem.jar
 ```
 
+### 3.1 Build Windows Installer
+
+On a Windows machine with JDK 21 (with `jpackage`) and Ant installed:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\windows\build-desktop-installer.ps1 -InstallerType exe -AppVersion 1.0.0
+```
+
+Installer output:
+
+```text
+build\windows-installer\output
+```
+
+CI automation (GitHub Actions):
+
+- Workflow file: `.github/workflows/windows-installer.yml`
+- Manual run: Actions -> `Build Windows Installer` -> Run workflow
+- Tag run: push tag like `v1.0.0` to auto-build and upload installer artifact
+
 ### 4. Service Health Check & Auto-Repair
 
 Use the health-check script to verify both MySQL and Apache:

@@ -1,0 +1,39 @@
+WINDOWS VM SMOKE TEST CHECKLIST
+
+Purpose:
+Quickly verify installer quality on a clean Windows VM before release.
+
+Pre-check:
+1) Use a clean Windows VM snapshot (no app preinstalled).
+2) Copy installer exe and sha256 file into VM.
+3) Verify checksum in PowerShell:
+   Get-FileHash .\DentalClinicSystem-Setup-1.0.0.exe -Algorithm SHA256
+   Compare with .sha256 file value.
+
+Install check:
+1) Run installer as normal user first.
+2) Confirm installer UI opens with no missing file errors.
+3) Complete install with default location.
+4) Confirm desktop shortcut exists (if selected).
+5) Confirm Start Menu entry exists.
+
+Launch check:
+1) Open app from Start Menu shortcut.
+2) Confirm app window launches without crash.
+3) Confirm Java-missing message appears only if Java is not installed.
+
+Functional smoke:
+1) If DB config missing, confirm setup wizard appears.
+2) After DB setup/login, confirm dashboard opens.
+3) Confirm role behavior sample:
+   - Admin access works.
+   - Patient restricted where expected.
+
+Uninstall check:
+1) Uninstall via Apps & Features (or Control Panel).
+2) Confirm app folder is removed.
+3) Confirm Start Menu/Desktop shortcuts are removed.
+4) Reinstall and relaunch once to confirm clean reinstall path.
+
+Release gate:
+Only release installer if all items pass.

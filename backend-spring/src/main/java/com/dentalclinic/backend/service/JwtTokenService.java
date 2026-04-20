@@ -106,6 +106,12 @@ public class JwtTokenService {
         return parseClaims(token).getSubject();
     }
 
+    public String extractRoleName(String token) {
+        Claims claims = parseClaims(token);
+        Object raw = claims.get("roleName");
+        return raw == null ? null : String.valueOf(raw);
+    }
+
     private SecretKey signingKey() {
         byte[] bytes = jwtSecret.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
