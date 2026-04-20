@@ -1,23 +1,28 @@
-# ---- Build Stage ----
+# Stage 1: Build
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 
-# 1. Copy the project files
-COPY backend-spring/ ./
+# Copy the wrapper and pom first (helps with caching)
+COPY backend-spring/mvnw .
+COPY backend-spring/.mvn .mvn
+COPY backend-spring/pom.xml .
+COPY backend-spring/src src
 
-# 2. Fix permissions for the Maven wrapper
+# Ensure line endings are LF (useful if developing on Windows) 
+# and the wrapper is executable
+RUN tr -d '\r' < mvnw > mvnw_unix && mv mvnw_unix mvnw
 RUN chmod +x mvnw
 
-# 3. Clean build - the plugin in your pom.xml handles the rest
+# Run the build - this should now take much longer than 0.1s
 RUN ./mvnw clean package -DskipTests
 
-# ---- Run Stage ----
+# Stage 2: Run
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 
-# 4. Use a wildcard to copy the executable JAR
-# This ignores the .jar.original file you saw in your logs
-COPY --from=build /app/target/backend-spring-*.jar /app/app.jar
+# Copy the built jar from the build stage
+# Using a wildcard helps if the version number changes
+COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
