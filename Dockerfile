@@ -8,8 +8,10 @@ COPY backend-spring/ ./
 RUN ls -l /app/backend-spring && ls -l /app/backend-spring/src || true
 # Ensure wrapper is executable
 RUN chmod +x mvnw
-# Build and repackage to ensure a runnable JAR (show debug output)
-RUN ./mvnw clean package -DskipTests -X
+# Build and repackage to ensure a runnable JAR (save full log)
+RUN ./mvnw clean package -DskipTests -X | tee build.log
+# Print the full Maven build log for troubleshooting
+RUN cat build.log
 # Debug: show contents of /app/backend-spring/target, fail if missing
 RUN ls -l /app/backend-spring/target || (echo "Maven build failed, target directory missing" && exit 1)
 
