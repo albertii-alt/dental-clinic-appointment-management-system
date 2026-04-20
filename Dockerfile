@@ -5,16 +5,17 @@ WORKDIR /app/backend-spring
 # Copy Maven wrapper and project files
 COPY backend-spring/mvnw ./mvnw
 COPY backend-spring/.mvn ./.mvn
+COPY backend-spring/.mvn/wrapper ./.mvn/wrapper
 COPY backend-spring/pom.xml ./pom.xml
 COPY backend-spring/src ./src
 # Debug: list all files after copy
 RUN ls -l /app/backend-spring && ls -l /app/backend-spring/src || true
 # Ensure wrapper is executable
 RUN chmod +x mvnw
-# Build and repackage to ensure a runnable JAR
+# Build and repackage to ensure a runnable JAR (fail on error, show logs)
 RUN ./mvnw clean package -DskipTests
-# Debug: show contents of /app/backend-spring/target
-RUN ls -l /app/backend-spring/target
+# Debug: show contents of /app/backend-spring/target, fail if missing
+RUN ls -l /app/backend-spring/target || (echo "Maven build failed, target directory missing" && exit 1)
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre
