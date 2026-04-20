@@ -1,14 +1,8 @@
 # ---- Build Stage ----
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
-# Copy Maven project files from backend-spring
-COPY backend-spring/pom.xml ./
-COPY backend-spring/.mvn ./.mvn
-COPY backend-spring/mvnw ./mvnw
-COPY backend-spring/mvnw.cmd ./mvnw.cmd
-# Copy the rest of the source
-COPY backend-spring/src ./src
-COPY backend-spring/src/main/resources ./src/main/resources
+# Copy the entire backend-spring project
+COPY backend-spring/ ./
 RUN ./mvnw clean package -DskipTests
 
 # ---- Run Stage ----
