@@ -7,6 +7,18 @@ dist/
 nbdist/
 .nb-gradle/
 
+# Maven build output
+backend-spring/target/
+
+# IDE specific
+.idea/
+.vscode/
+*.iml
+
+# Runtime files
+.xampp.pid
+*.pid
+
 # Database - NEVER commit (contains real patient data)
 dental_clinic_db.sql
 
@@ -20,15 +32,12 @@ db.properties
 !.env.example
 scripts/windows/db.properties.template
 
+# Duplicate JARs in scripts/windows
+scripts/windows/lib/
+scripts/windows/DentalClinicAppointment_ManagementSystem.jar
+
 # Shell scripts with system-specific paths (not portable across machines)
 run.sh
-
-# scripts/ folder is intentionally tracked in version control
-# Passwords have been removed - credentials read from db.properties instead
-# !scripts/backup-dental.sh
-# !scripts/restore-latest.sh
-# !scripts/mysql-health-check.sh
-# !scripts/mysql-auto-repair.sh
 
 # Java compiled files
 *.class
