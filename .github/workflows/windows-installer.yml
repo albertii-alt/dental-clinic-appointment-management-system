@@ -52,8 +52,13 @@ jobs:
 
           Copy-Item -Path "src\com\dentalclinic\resources" -Destination "$buildDir\com\dentalclinic\resources" -Recurse -Force -ErrorAction SilentlyContinue
 
-          $manifestContent = "Manifest-Version: 1.0`nMain-Class: $mainClass`nClass-Path: lib\$((Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib\' + $_.Name }) -join ' lib\')`n"
-          $manifestContent | Out-File -FilePath "$buildDir\MANIFEST.MF" -Encoding utf8 -NoNewline
+          $manifestLines = @(
+            "Manifest-Version: 1.0",
+            "Main-Class: $mainClass",
+            "Class-Path: $((Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib/' + $_.Name }) -join ' ')",
+            ""
+          )
+          [System.IO.File]::WriteAllLines("$buildDir\MANIFEST.MF", $manifestLines)
 
           jar cfm "$distDir\$jarName" "$buildDir\MANIFEST.MF" -C $buildDir .
           if ($LASTEXITCODE -ne 0) { throw "jar packaging failed" }
