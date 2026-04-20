@@ -33,6 +33,35 @@ jobs:
         shell: powershell
         run: choco install ant -y
 
+      - name: Build Spring backend JAR
+        shell: powershell
+        run: |
+          cd backend-spring
+          .\mvnw.cmd clean package -DskipTests
+          if (-not (Test-Path "target\backend-spring-0.1.0.jar")) {
+            throw "Spring backend JAR not found after build."
+          }
+
+      - name: Create db.properties.template
+        shell: powershell
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          $content = @"
+          db.url=$env:DB_URL
+          db.host=$env:DB_HOST
+          db.port=$env:DB_PORT
+          db.name=$env:DB_NAME
+          db.user=$env:DB_USER
+          db.password=$env:DB_PASSWORD
+          "@
+          $content | Out-File -FilePath scripts\windows\db.properties.template -Encoding utf8 -NoNewline
+
       - name: Resolve build version
         id: version
         shell: powershell

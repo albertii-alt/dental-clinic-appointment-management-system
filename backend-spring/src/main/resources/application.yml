@@ -1,5 +1,5 @@
 server:
-  port: ${SPRING_API_PORT:8081}
+  port: ${PORT:${SPRING_API_PORT:8080}}
 
 spring:
   datasource:
@@ -11,6 +11,7 @@ spring:
       maximum-pool-size: 10
       minimum-idle: 1
       connection-timeout: 10000
+      initialization-fail-timeout: 15000
 
 security:
   jwt:

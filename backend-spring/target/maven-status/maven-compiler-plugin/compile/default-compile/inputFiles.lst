@@ -1,4 +1,11 @@
 /home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/BackendSpringApplication.java
 /home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/controller/AuthController.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/controller/DashboardController.java
 /home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/controller/HealthController.java
 /home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/dto/LoginRequestDto.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/security/JwtAuthenticationFilter.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/security/SecurityConfig.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/service/AuthLoginResult.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/service/AuthLoginService.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/service/DashboardSummaryService.java
+/home/ivylxvie/Applications/DentalClinicSystem/backend-spring/src/main/java/com/dentalclinic/backend/service/JwtTokenService.java

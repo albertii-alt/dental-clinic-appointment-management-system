@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="DentalClinicAppointment_ManagementSystem">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/dist/DentalClinicAppointment_ManagementSystem.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

@@ -49,6 +49,14 @@ New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 Copy-Item $distJar $inputDir
 Copy-Item $distLib (Join-Path $inputDir "lib") -Recurse
 
+$backendJar = Join-Path $repoRoot "backend-spring\target\backend-spring-0.1.0.jar"
+if (-not (Test-Path $backendJar)) {
+    throw "Spring backend JAR not found: $backendJar. Run: cd backend-spring && mvn clean package -DskipTests"
+}
+$backendInputDir = Join-Path $inputDir "backend"
+New-Item -ItemType Directory -Force -Path $backendInputDir | Out-Null
+Copy-Item $backendJar $backendInputDir
+
 Write-Host "[4/5] Creating Windows installer ($InstallerType)..."
 $jpackageArgs = @(
     "--type", $InstallerType,

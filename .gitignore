@@ -15,6 +15,10 @@ dental_clinic_db.sql
 # but this protects against accidentally copying it here
 db.properties
 *.properties
+.env
+.env.*
+!.env.example
+scripts/windows/db.properties.template
 
 # Shell scripts with system-specific paths (not portable across machines)
 run.sh

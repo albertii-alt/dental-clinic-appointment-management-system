@@ -43,9 +43,10 @@ public class AuthController {
 
         String envBaseUrl = System.getenv("API_BASE_URL");
         if (envBaseUrl == null || envBaseUrl.trim().isEmpty()) {
-            this.apiBaseUrl = "http://localhost:8080";
+            // Default to Render backend if not set
+            this.apiBaseUrl = "https://dental-clinic-backend-nf8y.onrender.com";
         } else {
-            this.apiBaseUrl = envBaseUrl.trim().replaceAll("/+$", "");
+            this.apiBaseUrl = envBaseUrl.trim().replaceAll("/+$$", "");
         }
     }
 

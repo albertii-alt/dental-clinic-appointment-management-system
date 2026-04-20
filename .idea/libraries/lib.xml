@@ -1,0 +1,28 @@
+<component name="libraryTable">
+  <library name="lib">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib/jcalendar-1.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/ikonli-swing-12.3.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/poi-ooxml-lite-5.2.5.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-compress-1.25.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-collections4-4.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/curvesapi-1.08.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/ikonli-fontawesome5-pack-12.3.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/javax.activation-1.2.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/javax.mail-1.6.2.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/commons-io-2.15.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/jfreechart-1.5.3.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/bcrypt-0.9.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/mysql-connector-j-8.0.33.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/log4j-api-2.21.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/ikonli-core-12.3.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/poi-ooxml-5.2.5.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/poi-5.2.5.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/bytes-1.5.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/jcommon-1.0.23.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib/xmlbeans-5.2.0.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
