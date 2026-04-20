@@ -37,7 +37,7 @@ jobs:
         shell: powershell
         run: |
           cd backend-spring
-          .\mvnw.cmd clean package -DskipTests
+          mvn clean package -DskipTests
           if (-not (Test-Path "target\backend-spring-0.1.0.jar")) {
             throw "Spring backend JAR not found after build."
           }
