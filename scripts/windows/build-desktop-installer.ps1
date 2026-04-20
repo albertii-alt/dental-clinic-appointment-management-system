@@ -19,11 +19,9 @@ $repoRoot = Resolve-Path (Join-Path $scriptDir "..\..")
 Set-Location $repoRoot
 
 Write-Host "[1/5] Checking tools..."
-Require-Command "ant"
 Require-Command "jpackage"
 
-Write-Host "[2/5] Building desktop jar with Ant..."
-ant clean jar | Out-Null
+Write-Host "[2/5] Verifying desktop jar exists..."
 
 $distJar = Join-Path $repoRoot "dist\DentalClinicAppointment_ManagementSystem.jar"
 $distLib = Join-Path $repoRoot "dist\lib"
