@@ -1,28 +1,21 @@
 # Stage 1: Build
+
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
-
-# Copy the wrapper and pom first (helps with caching)
-COPY backend-spring/mvnw .
-COPY backend-spring/.mvn .mvn
-COPY backend-spring/pom.xml .
-COPY backend-spring/src src
-
-# Ensure line endings are LF (useful if developing on Windows) 
-# and the wrapper is executable
-RUN tr -d '\r' < mvnw > mvnw_unix && mv mvnw_unix mvnw
+# Copy the entire backend-spring project (preserves structure)
+COPY backend-spring/ ./
+# Ensure wrapper is executable
 RUN chmod +x mvnw
-
-# Run the build - this should now take much longer than 0.1s
-RUN ./mvnw clean package -DskipTests
+# Build and repackage to ensure a runnable JAR
+RUN ./mvnw clean package spring-boot:repackage -DskipTests
+# Debug: show contents of /app/target
+RUN ls -l /app/target
 
 # Stage 2: Run
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-
 # Copy the built jar from the build stage
-# Using a wildcard helps if the version number changes
-COPY --from=build /app/target/*.jar app.jar
-
+COPY --from=build /app/target/*.jar /app/app.jar
+RUN ls -l /app
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
