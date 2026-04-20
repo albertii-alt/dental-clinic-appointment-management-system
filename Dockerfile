@@ -11,7 +11,7 @@ RUN ls -l /app/target
 # ---- Run Stage ----
 FROM eclipse-temurin:21-jre
 WORKDIR /app
-COPY --from=build /app/target/*.jar /app/app.jar
+COPY --from=build /app/target/backend-spring-0.1.0.jar /app/app.jar
 RUN printenv && ls -l /app
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
