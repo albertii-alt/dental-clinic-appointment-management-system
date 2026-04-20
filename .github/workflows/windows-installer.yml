@@ -52,12 +52,19 @@ jobs:
 
           Copy-Item -Path "src\com\dentalclinic\resources" -Destination "$buildDir\com\dentalclinic\resources" -Recurse -Force -ErrorAction SilentlyContinue
 
-          $manifestLines = @(
-            "Manifest-Version: 1.0",
-            "Main-Class: $mainClass",
-            "Class-Path: $((Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib/' + $_.Name }) -join ' ')",
-            ""
-          )
+          $cpEntries = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib/' + $_.Name }) -join ' '
+          $manifestLines = New-Object System.Collections.Generic.List[string]
+          $manifestLines.Add("Manifest-Version: 1.0")
+          $manifestLines.Add("Main-Class: $mainClass")
+
+          # Wrap Class-Path at 72 chars per JAR manifest spec
+          $cpLine = "Class-Path: $cpEntries"
+          while ($cpLine.Length -gt 72) {
+            $manifestLines.Add($cpLine.Substring(0, 72))
+            $cpLine = " " + $cpLine.Substring(72)
+          }
+          $manifestLines.Add($cpLine)
+          $manifestLines.Add("")
           [System.IO.File]::WriteAllLines("$buildDir\MANIFEST.MF", $manifestLines)
 
           jar cfm "$distDir\$jarName" "$buildDir\MANIFEST.MF" -C $buildDir .
