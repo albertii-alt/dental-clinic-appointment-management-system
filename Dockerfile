@@ -3,7 +3,8 @@ FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 # Copy the entire backend-spring project
 COPY backend-spring/ ./
-RUN ./mvnw clean package -DskipTests
+# Build and repackage to ensure a runnable JAR
+RUN ./mvnw clean package spring-boot:repackage -DskipTests
 # Debug: list contents of /app/target
 RUN ls -l /app/target
 
