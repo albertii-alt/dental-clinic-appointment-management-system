@@ -7,7 +7,7 @@ COPY backend-spring/ ./
 # Ensure wrapper is executable
 RUN chmod +x mvnw
 # Build and repackage to ensure a runnable JAR
-RUN ./mvnw clean package spring-boot:repackage -DskipTests
+RUN ./mvnw clean package -DskipTests
 # Debug: show contents of /app/target
 	RUN ls -l /app/backend-spring/target
 
