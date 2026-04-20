@@ -28,7 +28,7 @@ run.sh
 
 # Java compiled files
 *.class
-*.jar
+# *.jar
 *.war
 *.ear
 
