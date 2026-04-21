@@ -302,7 +302,7 @@ public class LoginPage extends JFrame {
                             String name = loginResult.getFullName();
                             String email = loginResult.getEmail() != null ? loginResult.getEmail() : "No Email";
 
-                            UserSession.initialize(id, name, isS ? "Super Admin" : rStr, loginResult.getPermissions());
+                            UserSession.initialize(id, name, isS ? "Super Admin" : rStr, isS, loginResult.getPermissions());
 
                             SuccessDialog.show(LoginPage.this, "Access Granted", "Welcome back, " + name + "!");
 
