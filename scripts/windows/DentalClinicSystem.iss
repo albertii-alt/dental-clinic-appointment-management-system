@@ -44,7 +44,7 @@ procedure CopyDbPropertiesIfMissing();
 var
   DestDir, DestFile, SrcFile: String;
 begin
-  DestDir := ExpandConstant('{userdocs}') + '\..\.dental_clinic';
+  DestDir := ExpandConstant('{%USERPROFILE}') + '\.dental_clinic';
   DestFile := DestDir + '\db.properties';
   SrcFile  := ExpandConstant('{app}') + '\db.properties.template';
 

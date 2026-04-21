@@ -54,7 +54,7 @@ jobs:
 
           Copy-Item -Path "src\com\dentalclinic\resources" -Destination "$buildDir\com\dentalclinic\resources" -Recurse -Force -ErrorAction SilentlyContinue
 
-          $cpEntries = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib/' + $_.Name }) -join ' '
+          $cpEntries = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib\' + $_.Name }) -join ' '
           $manifestLines = New-Object System.Collections.Generic.List[string]
           $manifestLines.Add("Manifest-Version: 1.0")
           $manifestLines.Add("Main-Class: $mainClass")
@@ -106,7 +106,7 @@ jobs:
             "db.user=$env:DB_USER",
             "db.password=$env:DB_PASSWORD"
           )
-          $lines -join "`n" | Out-File -FilePath scripts\windows\db.properties.template -Encoding utf8 -NoNewline
+          [System.IO.File]::WriteAllLines("scripts\windows\db.properties.template", $lines)
 
       - name: Resolve build version
         id: version
