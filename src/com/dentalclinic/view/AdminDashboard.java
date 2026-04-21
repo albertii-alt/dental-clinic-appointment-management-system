@@ -64,7 +64,6 @@ public class AdminDashboard extends JFrame {
         this.dashboardStatsPanel = new AdminDashboardPanel();
         
         setTitle("Dental Clinic - Administrator Dashboard");
-        com.dentalclinic.util.AppIcon.apply(this);
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);

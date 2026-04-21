@@ -10,7 +10,6 @@ public class UserSession {
     private static int userId;
     private static String fullName;
     private static String role;
-    private static boolean superAdmin;
     private static Set<String> permissions = new HashSet<>();
     
     // Session timeout tracking
@@ -25,21 +24,18 @@ public class UserSession {
         void onSessionTimeout();
     }
     
-    public static void initialize(int id, String name, String userRole, boolean isSuperAdmin, List<String> userPermissions) {
+    public static void initialize(int id, String name, String userRole, List<String> userPermissions) {
         userId = id;
         fullName = name;
         role = userRole;
-        superAdmin = isSuperAdmin || "Super Admin".equalsIgnoreCase(userRole);
         permissions.clear();
         if (userPermissions != null) {
             permissions.addAll(userPermissions);
         }
+        
+        // Initialize session activity timer
         updateActivity();
         startSessionTimer();
-    }
-
-    public static void initialize(int id, String name, String userRole, List<String> userPermissions) {
-        initialize(id, name, userRole, false, userPermissions);
     }
     
     /**
@@ -110,7 +106,7 @@ public class UserSession {
      */
     public static boolean hasPermission(String permissionName) {
         // Super Admin bypass
-        if (superAdmin || "Super Admin".equalsIgnoreCase(role)) {
+        if ("Super Admin".equalsIgnoreCase(role)) {
             return true;
         }
         
@@ -145,10 +141,6 @@ public class UserSession {
         updateActivity();
         return role; 
     }
-
-    public static boolean isSuperAdmin() {
-        return superAdmin;
-    }
     
     public static Set<String> getPermissions() {
         updateActivity();
@@ -176,7 +168,6 @@ public class UserSession {
         userId = 0;
         fullName = null;
         role = null;
-        superAdmin = false;
         permissions.clear();
         lastActivityTime = 0;
         

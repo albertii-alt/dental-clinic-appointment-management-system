@@ -39,7 +39,6 @@ public class PatientDashboard extends JFrame {
         this.pUsername = user;
         
         setTitle("Dental Clinic - Patient Portal");
-        com.dentalclinic.util.AppIcon.apply(this);
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);

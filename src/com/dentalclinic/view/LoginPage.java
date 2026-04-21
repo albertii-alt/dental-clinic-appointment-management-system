@@ -47,7 +47,6 @@ public class LoginPage extends JFrame {
         authController = new AuthController(true);
         
         setTitle("Vantage Dental - Login");
-        com.dentalclinic.util.AppIcon.apply(this);
         if (!authController.isDatabaseAvailable()) {
             ErrorDialog.show(this, "Backend Unavailable", "Cannot reach the backend API. Please start the API server and try again.");
             return;
@@ -303,7 +302,7 @@ public class LoginPage extends JFrame {
                             String name = loginResult.getFullName();
                             String email = loginResult.getEmail() != null ? loginResult.getEmail() : "No Email";
 
-                            UserSession.initialize(id, name, isS ? "Super Admin" : rStr, isS, loginResult.getPermissions());
+                            UserSession.initialize(id, name, isS ? "Super Admin" : rStr, loginResult.getPermissions());
 
                             SuccessDialog.show(LoginPage.this, "Access Granted", "Welcome back, " + name + "!");
 
