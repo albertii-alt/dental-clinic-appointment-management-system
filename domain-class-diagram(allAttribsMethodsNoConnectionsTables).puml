@@ -1,0 +1,339 @@
+@startuml
+skinparam classAttributeIconSize 0
+
+package "com.dentalclinic.model" {
+
+  class ActivityLogEntry {
+    - logId : int
+    - userId : int
+    - userRole : String
+    - action : String
+    - details : String
+    - timestamp : Date
+
+    + getLogId() : int
+    + getUserId() : int
+    + getUserRole() : String
+    + getAction() : String
+    + getDetails() : String
+    + getTimestamp() : Date
+  }
+
+  class SystemLogEntry {
+    - systemLogId : int
+    - logLevel : String
+    - sourceClass : String
+    - message : String
+    - timestamp : Date
+
+    + getSystemLogId() : int
+    + getLogLevel() : String
+    + getSourceClass() : String
+    + getMessage() : String
+    + getTimestamp() : Date
+  }
+
+  class BlockedSlot {
+    - blockId : int
+    - blockDate : Date
+    - timeSlot : String
+    - reason : String
+
+    + getBlockId() : int
+    + getBlockDate() : Date
+    + getTimeSlot() : String
+    + getReason() : String
+  }
+
+  class ClinicHour {
+    - slotId : int
+    - timeSlot : String
+    - active : boolean
+    - createdAt : Date
+    - updatedAt : Date
+
+    + getSlotId() : int
+    + getTimeSlot() : String
+    + isActive() : boolean
+    + getCreatedAt() : Date
+    + getUpdatedAt() : Date
+  }
+
+  class ClinicScheduleDay {
+    - dayId : int
+    - dayName : String
+    - open : boolean
+    - createdAt : Date
+    - updatedAt : Date
+
+    + getDayId() : int
+    + getDayName() : String
+    + isOpen() : boolean
+    + getCreatedAt() : Date
+    + getUpdatedAt() : Date
+  }
+
+  class ClinicSetting {
+    - settingId : int
+    - settingName : String
+    - settingValue : int
+
+    + getSettingId() : int
+    + getSettingName() : String
+    + getSettingValue() : int
+  }
+
+  class DentalService {
+    - serviceId : int
+    - serviceName : String
+    - description : String
+    - price : BigDecimal
+    - active : boolean
+    - createdAt : Date
+    - updatedAt : Date
+
+    + getServiceId() : int
+    + getServiceName() : String
+    + getDescription() : String
+    + getPrice() : BigDecimal
+    + isActive() : boolean
+    + getCreatedAt() : Date
+    + getUpdatedAt() : Date
+  }
+
+  class PasswordResetCode {
+    - id : int
+    - email : String
+    - code : String
+    - userType : String
+    - username : String
+    - createdAt : Date
+    - expiresAt : Date
+    - used : boolean
+
+    + getId() : int
+    + getEmail() : String
+    + getCode() : String
+    + getUserType() : String
+    + getUsername() : String
+    + getCreatedAt() : Date
+    + getExpiresAt() : Date
+    + isUsed() : boolean
+  }
+
+  class Permission {
+    - permissionId : int
+    - permissionName : String
+    - description : String
+    - createdAt : Date
+    - updatedAt : Date
+
+    + getPermissionId() : int
+    + getPermissionName() : String
+    + getDescription() : String
+    + getCreatedAt() : Date
+    + getUpdatedAt() : Date
+  }
+
+  class Role {
+    - roleId : int
+    - roleName : String
+    - description : String
+    - createdAt : Date
+    - updatedAt : Date
+    - permissions : List<Permission>
+
+    + getRoleId() : int
+    + getRoleName() : String
+    + getDescription() : String
+    + getCreatedAt() : Date
+    + getUpdatedAt() : Date
+    + getPermissions() : List<Permission>
+    + setPermissions(permissions:List<Permission>) : void
+  }
+
+  class RolePermission {
+    - roleId : int
+    - permissionId : int
+    - role : Role
+    - permission : Permission
+
+    + getRoleId() : int
+    + getPermissionId() : int
+    + getRole() : Role
+    + getPermission() : Permission
+    + setRole(role:Role) : void
+    + setPermission(permission:Permission) : void
+  }
+
+  class Staff {
+    - staffId : int
+    - username : String
+    - fullName : String
+    - email : String
+    - roleId : int
+    - specialization : String
+    - contactNumber : String
+    - createdAt : Date
+    - active : boolean
+    - superAdmin : boolean
+    - forcePasswordReset : boolean
+    - failedLoginAttempts : int
+    - accountLocked : boolean
+    - lockoutTime : Date
+    - role : Role
+
+    + getStaffId() : int
+    + getUsername() : String
+    + getFullName() : String
+    + getEmail() : String
+    + getRoleId() : int
+    + getSpecialization() : String
+    + getContactNumber() : String
+    + getCreatedAt() : Date
+    + isActive() : boolean
+    + isSuperAdmin() : boolean
+    + isForcePasswordReset() : boolean
+    + getFailedLoginAttempts() : int
+    + isAccountLocked() : boolean
+    + getLockoutTime() : Date
+    + getRole() : Role
+    + setRole(role:Role) : void
+  }
+
+  class Patient {
+    - patientId : int
+    - firstName : String
+    - middleName : String
+    - lastName : String
+    - birthDate : Date
+    - age : int
+    - address : String
+    - contactNumber : String
+    - email : String
+    - username : String
+    - registrationDate : Date
+    - forcePasswordReset : boolean
+    - failedLoginAttempts : int
+    - accountLocked : boolean
+    - lockoutTime : Date
+
+    + getPatientId() : int
+    + getFullName() : String
+    + getFirstName() : String
+    + getMiddleName() : String
+    + getLastName() : String
+    + getBirthDate() : Date
+    + getAge() : int
+    + getAddress() : String
+    + getContactNumber() : String
+    + getUsername() : String
+    + getEmail() : String
+    + getRegistrationDate() : Date
+    + isForcePasswordReset() : boolean
+    + getFailedLoginAttempts() : int
+    + isAccountLocked() : boolean
+    + getLockoutTime() : Date
+
+    + setFirstName(firstName:String) : void
+    + setMiddleName(middleName:String) : void
+    + setLastName(lastName:String) : void
+    + setBirthDate(birthDate:Date) : void
+    + setAge(age:int) : void
+    + setAddress(address:String) : void
+    + setContactNumber(contactNumber:String) : void
+    + setEmail(email:String) : void
+    + setUsername(username:String) : void
+    + setRegistrationDate(registrationDate:Date) : void
+    + setForcePasswordReset(forcePasswordReset:boolean) : void
+    + setFailedLoginAttempts(failedLoginAttempts:int) : void
+    + setAccountLocked(accountLocked:boolean) : void
+    + setLockoutTime(lockoutTime:Date) : void
+  }
+
+  class Appointment {
+    - appointmentId : int
+    - patientId : int
+    - serviceId : Integer
+    - serviceType : String
+    - appointmentDate : Date
+    - appointmentTimeNew : Date
+    - appointmentTime : String
+    - ageAtVisit : int
+    - contactAtVisit : String
+    - status : String
+    - clinical_notes : String
+    - requestDate : Date
+    - isRead : boolean
+    - isArchived : boolean
+    - reminderSent : boolean
+    - dayOfReminderSent : boolean
+    - service : DentalService
+    - patient : Patient
+
+    + isArchived() : boolean
+    + setArchived(archived:boolean) : void
+
+    + getAppointmentId() : int
+    + getPatientId() : int
+    + getServiceId() : Integer
+    + getServiceType() : String
+    + getAppointmentDate() : Date
+    + getAppointmentTimeNew() : Date
+    + getAppointmentTime() : String
+    + getAgeAtVisit() : int
+    + getContactAtVisit() : String
+    + getStatus() : String
+    + getClinicalNotes() : String
+    + getRequestDate() : Date
+    + isReminderSent() : boolean
+    + isDayOfReminderSent() : boolean
+    + getService() : DentalService
+    + getPatient() : Patient
+    + isRead() : boolean
+
+    + setClinicalNotes(notes:String) : void
+    + setServiceId(serviceId:Integer) : void
+    + setAppointmentTimeNew(appointmentTimeNew:Date) : void
+    + setRequestDate(requestDate:Date) : void
+    + setReminderSent(reminderSent:boolean) : void
+    + setDayOfReminderSent(dayOfReminderSent:boolean) : void
+    + setService(service:DentalService) : void
+    + setPatient(patient:Patient) : void
+
+    + setStatus(status:String) : void
+    + setServiceType(serviceType:String) : void
+    + setRead(read:boolean) : void
+  }
+
+  enum AppointmentStatus {
+    PENDING
+    APPROVED
+    DECLINED
+    RESCHEDULED
+    COMPLETED
+    CANCELLED
+    --
+    + getDbValue() : String
+    + fromDbValue(value:String) : AppointmentStatus
+  }
+
+  enum UserType {
+    PATIENT
+    STAFF
+    --
+    + getDbValue() : String
+    + fromDbValue(value:String) : UserType
+  }
+}
+
+' Relationships
+Patient "1" <-- "0..*" Appointment : patient
+DentalService "1" <-- "0..*" Appointment : service
+Role "1" <-- "0..*" Staff : role
+
+Role "1" o-- "0..*" Permission : permissions
+Role "1" <-- "0..*" RolePermission
+Permission "1" <-- "0..*" RolePermission
+
+@enduml

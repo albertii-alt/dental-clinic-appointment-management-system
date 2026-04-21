@@ -15,16 +15,19 @@ dental_clinic_db.sql
 # but this protects against accidentally copying it here
 db.properties
 *.properties
+.env
+.env.*
+!.env.example
+scripts/windows/db.properties.template
 
-# Shell scripts with system-specific paths (not portable across machines)
-run.sh
+# IDE specific
+.idea/
+.vscode/
+*.iml
 
-# scripts/ folder is intentionally tracked in version control
-# Passwords have been removed - credentials read from db.properties instead
-# !scripts/backup-dental.sh
-# !scripts/restore-latest.sh
-# !scripts/mysql-health-check.sh
-# !scripts/mysql-auto-repair.sh
+# Runtime files
+.xampp.pid
+*.pid
 
 # Java compiled files
 *.class
