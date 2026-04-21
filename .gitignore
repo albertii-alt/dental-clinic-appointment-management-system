@@ -31,9 +31,12 @@ scripts/windows/db.properties.template
 
 # Java compiled files
 *.class
-*.jar
 *.war
 *.ear
+# Allow lib/ JARs since this is an Ant project with manually managed dependencies
+# Only ignore compiled output JARs
+dist/*.jar
+build/
 
 # OS generated files
 .DS_Store
