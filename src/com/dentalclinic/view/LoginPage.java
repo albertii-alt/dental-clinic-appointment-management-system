@@ -44,11 +44,11 @@ public class LoginPage extends JFrame {
     private final Color SUCCESS_GREEN = new Color(46, 204, 113);
 
     public LoginPage() {
-        authController = new AuthController(true);
+        authController = new AuthController();
         
         setTitle("Vantage Dental - Login");
         if (!authController.isDatabaseAvailable()) {
-            ErrorDialog.show(this, "Backend Unavailable", "Cannot reach the backend API. Please start the API server and try again.");
+            com.dentalclinic.view.util.DatabaseSetupWizard.showSetupWizard(this);
             return;
         }
         setSize(950, 600);
