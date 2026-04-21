@@ -70,6 +70,7 @@ public class RegisterPatientForm extends JFrame {
 
     public RegisterPatientForm() {
         setTitle("Dental Clinic - Patient Registration");
+        com.dentalclinic.util.AppIcon.apply(this);
         setSize(1000, 750); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(true);

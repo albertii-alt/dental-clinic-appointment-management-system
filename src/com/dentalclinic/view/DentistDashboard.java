@@ -47,6 +47,7 @@ public class DentistDashboard extends JFrame {
         this.email = mail;
         
         setTitle("Dental Clinic - Dentist Dashboard");
+        com.dentalclinic.util.AppIcon.apply(this);
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);

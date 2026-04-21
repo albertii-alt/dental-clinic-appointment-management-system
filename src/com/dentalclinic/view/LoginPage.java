@@ -47,6 +47,7 @@ public class LoginPage extends JFrame {
         authController = new AuthController(true);
         
         setTitle("Vantage Dental - Login");
+        com.dentalclinic.util.AppIcon.apply(this);
         if (!authController.isDatabaseAvailable()) {
             ErrorDialog.show(this, "Backend Unavailable", "Cannot reach the backend API. Please start the API server and try again.");
             return;
