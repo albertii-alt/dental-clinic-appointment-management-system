@@ -82,7 +82,7 @@ public class PatientHistoryPanel extends JPanel {
         searchIcon.setFont(new Font("Segoe UI", Font.BOLD, 12));
         
         searchField = new JTextField();
-        searchField.setPreferredSize(new Dimension(250, 35));
+        searchField.setPreferredSize(new Dimension(160, 35));
         searchField.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         searchField.setBorder(new CompoundBorder(
                 new LineBorder(BORDER_COLOR, 1),
