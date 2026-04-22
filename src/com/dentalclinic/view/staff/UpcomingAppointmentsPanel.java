@@ -340,19 +340,19 @@ public class UpcomingAppointmentsPanel extends JPanel {
            return;
        } else if (daysUntil == 0) {
            warningLevel = "SAME DAY";
-           warningMessage = "⚠️ This appointment is TODAY.\n" +
+           warningMessage = "[!] This appointment is TODAY.\n" +
                             "The patient may already be on their way.\n\n";
        } else if (daysUntil == 1) {
            warningLevel = "STANDARD";
            // No warning needed - this is the ideal time
        } else if (daysUntil <= 3) {
            warningLevel = "EARLY";
-           warningMessage = "⚠️ This appointment is " + daysUntil + " days away.\n" +
+           warningMessage = "[!] This appointment is " + daysUntil + " days away.\n" +
                             "Sending a reminder this early may be less effective.\n\n" +
                             "Standard practice is to send reminders 1 day before.\n\n";
        } else if (daysUntil <= 7) {
            warningLevel = "VERY EARLY";
-           warningMessage = "⚠️⚠️ This appointment is " + daysUntil + " days away.\n\n" +
+           warningMessage = "⚠️[!] This appointment is " + daysUntil + " days away.\n\n" +
                             "This is VERY early for a reminder.\n" +
                             "The patient may forget again by the appointment date.\n\n" +
                             "Are you sure you want to send this now?\n\n";
@@ -386,19 +386,19 @@ public class UpcomingAppointmentsPanel extends JPanel {
 
        switch (warningLevel) {
            case "TOO EARLY":
-               dialogTitle = "⚠️⚠️⚠️ EXTREME CAUTION ⚠️⚠️⚠️";
+               dialogTitle = "[!!!] EXTREME CAUTION [!!!]";
                optionType = JOptionPane.OK_CANCEL_OPTION;
                break;
            case "VERY EARLY":
-               dialogTitle = "⚠️⚠️ Early Reminder Warning ⚠️⚠️";
+               dialogTitle = "[!!] Early Reminder Warning [!!]";
                optionType = JOptionPane.OK_CANCEL_OPTION;
                break;
            case "EARLY":
-               dialogTitle = "⚠️ Early Reminder Warning";
+               dialogTitle = "[!] Early Reminder Warning";
                optionType = JOptionPane.YES_NO_OPTION;
                break;
            case "SAME DAY":
-               dialogTitle = "⚠️ Same Day Reminder";
+               dialogTitle = "[!] Same Day Reminder";
                optionType = JOptionPane.YES_NO_OPTION;
                break;
            default:

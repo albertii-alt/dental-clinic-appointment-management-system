@@ -268,10 +268,12 @@ public class AdminDashboardPanel extends JPanel {
                 String action = fullText.substring(8);
                 textLabel.setText(action);
                 timeLabel.setText("at " + time);
-                iconLabel.setText(" ● ");
-                if (action.toLowerCase().contains("cancel")) iconLabel.setForeground(new Color(231, 76, 60));
-                else if (action.toLowerCase().contains("approve")) iconLabel.setForeground(new Color(46, 204, 113));
-                else iconLabel.setForeground(new Color(52, 152, 219));
+                iconLabel.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+                    org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CIRCLE, 10,
+                    action.toLowerCase().contains("cancel") ? new Color(231, 76, 60) :
+                    action.toLowerCase().contains("approve") ? new Color(46, 204, 113) :
+                    new Color(52, 152, 219)));
+                iconLabel.setText("");
             }
             p.setBackground(isSelected ? new Color(236, 240, 241) : Color.WHITE);
             return p;

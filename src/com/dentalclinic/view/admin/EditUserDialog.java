@@ -105,7 +105,9 @@ public class EditUserDialog extends JDialog {
             updateBtn.setText("Locked (Super Admin Only)");
             updateBtn.setBackground(WARNING_ORANGE);
             
-            JLabel warning = new JLabel("⚠ This user has Super Admin privileges. Only another Super Admin can edit this account.");
+            JLabel warning = new JLabel(" This user has Super Admin privileges. Only another Super Admin can edit this account.");
+            warning.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+                org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.EXCLAMATION_TRIANGLE, 13, DANGER_RED));
             warning.setForeground(DANGER_RED);
             warning.setFont(new Font("Segoe UI", Font.BOLD, 11));
             // Add warning to dialog (simplified - you might want to add it properly)

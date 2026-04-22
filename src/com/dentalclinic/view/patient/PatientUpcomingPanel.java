@@ -103,9 +103,13 @@ public class PatientUpcomingPanel extends JPanel {
         // --- HINT / FOOTER ---
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.LEFT));
         footer.setOpaque(false);
-        JLabel hint = new JLabel("💡 Double-click an appointment to view details or download your receipt.");
+        JLabel hintIcon = new JLabel();
+        hintIcon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.LIGHTBULB, 13, new Color(127, 140, 141)));
+        JLabel hint = new JLabel(" Double-click an appointment to view details or download your receipt.");
         hint.setFont(new Font("Segoe UI", Font.ITALIC, 13));
         hint.setForeground(new Color(127, 140, 141));
+        footer.add(hintIcon);
         footer.add(hint);
         add(footer, BorderLayout.SOUTH);
 
