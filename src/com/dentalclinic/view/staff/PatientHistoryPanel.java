@@ -97,7 +97,7 @@ public class PatientHistoryPanel extends JPanel {
         cardContainer.add(headerArea, BorderLayout.NORTH);
 
         // --- TABLE AREA ---
-        String[] columns = {"ID", "Patient Name", "Service Performed", "Date", "Time"};
+        String[] columns = {"ID", "Patient Name", "Service Performed", "Date", "Time", "Status"};
         model = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) { return false; }
@@ -105,6 +105,10 @@ public class PatientHistoryPanel extends JPanel {
 
         table = new JTable(model);
         styleTable(table);
+        
+        // Hide ID column
+        table.getColumnModel().getColumn(0).setMinWidth(0);
+        table.getColumnModel().getColumn(0).setMaxWidth(0);
         
         sorter = new TableRowSorter<>(model);
         table.setRowSorter(sorter);
@@ -147,6 +151,23 @@ public class PatientHistoryPanel extends JPanel {
         header.setForeground(Color.WHITE);
         header.setFont(new Font("Segoe UI", Font.BOLD, 14));
         header.setPreferredSize(new Dimension(0, 40));
+
+        // Color-code Status column
+        table.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable t, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
+                Component c = super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, col);
+                String status = value != null ? value.toString() : "";
+                if (status.equalsIgnoreCase("Expired")) {
+                    setForeground(new Color(192, 57, 43));
+                } else {
+                    setForeground(SUCCESS);
+                }
+                setFont(getFont().deriveFont(Font.BOLD));
+                setHorizontalAlignment(SwingConstants.CENTER);
+                return c;
+            }
+        });
     }
 
     public void loadHistoryData(boolean forceRefresh) {
@@ -261,7 +282,21 @@ public class PatientHistoryPanel extends JPanel {
                 footer.setBackground(Color.WHITE);
                 footer.setBorder(new EmptyBorder(10, 0, 0, 0));
 
-                if (isDentist) {
+                boolean isExpired = app.getStatus().equalsIgnoreCase("Expired");
+
+                if (isExpired) {
+                    JButton correctBtn = new JButton("Correct This Record");
+                    correctBtn.setBackground(new Color(230, 126, 34));
+                    correctBtn.setForeground(Color.WHITE);
+                    correctBtn.setFocusPainted(false);
+                    correctBtn.setToolTipText("This appointment was auto-expired. Correct it to Completed or No Show.");
+                    correctBtn.addActionListener(e -> {
+                        Window w = SwingUtilities.getWindowAncestor(panel);
+                        if (w != null) w.dispose();
+                        openUpdateDialog(app);
+                    });
+                    footer.add(correctBtn, BorderLayout.CENTER);
+                } else if (isDentist) {
                     JButton updateBtn = new JButton("Modify Record");
                     updateBtn.setBackground(SUCCESS);
                     updateBtn.setForeground(Color.WHITE);
@@ -290,9 +325,9 @@ public class PatientHistoryPanel extends JPanel {
         JPanel editPanel = new JPanel(new BorderLayout(10, 10));
         editPanel.setPreferredSize(new Dimension(400, 300));
 
-        String[] statuses = {"Completed", "Cancelled", "Follow-up Required"};
+        String[] statuses = {"Completed", "No Show", "Cancelled"};
         JComboBox<String> statusBox = new JComboBox<>(statuses);
-        statusBox.setSelectedItem(app.getStatus());
+        statusBox.setSelectedItem(app.getStatus().equalsIgnoreCase("Expired") ? "Completed" : app.getStatus());
 
         JTextArea notesArea = new JTextArea(app.getClinicalNotes());
         notesArea.setLineWrap(true);
@@ -302,6 +337,10 @@ public class PatientHistoryPanel extends JPanel {
         JScrollPane scrollPane = new JScrollPane(notesArea);
 
         JPanel top = new JPanel(new GridLayout(0, 1, 5, 5));
+        if (app.getStatus().equalsIgnoreCase("Expired")) {
+            JLabel warningLbl = new JLabel("<html><font color='#c0392b'>⚠ This appointment was auto-expired.<br>Please correct the status.</font></html>");
+            top.add(warningLbl);
+        }
         top.add(new JLabel("Update Record Status:"));
         top.add(statusBox);
         top.add(new JLabel("Clinical Notes & Observations:"));

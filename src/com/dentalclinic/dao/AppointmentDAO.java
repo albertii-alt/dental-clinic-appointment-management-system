@@ -420,12 +420,12 @@ public class AppointmentDAO {
 
     public List<Object[]> getCompletedAppointmentsWithNames() throws SQLException {
         List<Object[]> list = new ArrayList<>();
-        String query = "SELECT a.appointment_id, p.first_name, p.last_name, COALESCE(s.service_name, 'Unknown') AS service_type, a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.clinical_notes " +
+        String query = "SELECT a.appointment_id, p.first_name, p.last_name, COALESCE(s.service_name, 'Unknown') AS service_type, a.appointment_date, DATE_FORMAT(a.appointment_time_new, '%h:%i %p') AS appointment_time, a.clinical_notes, a.status " +
                    "FROM appointments a JOIN patients p ON a.patient_id = p.patient_id LEFT JOIN services s ON a.service_id = s.service_id " +
-                       "WHERE a.status = 'Completed' ORDER BY a.appointment_date DESC";
+                       "WHERE a.status IN ('Completed', 'Expired') ORDER BY a.appointment_date DESC";
         try (Connection conn = DBConnection.getConnection(); Statement st = conn.createStatement(); ResultSet rs = st.executeQuery(query)) {
             while (rs.next()) {
-                list.add(new Object[]{ rs.getInt(1), rs.getString(2) + " " + rs.getString(3), rs.getString(4), rs.getDate(5), rs.getString(6), rs.getString(7) });
+                list.add(new Object[]{ rs.getInt(1), rs.getString(2) + " " + rs.getString(3), rs.getString(4), rs.getDate(5), rs.getString(6), rs.getString(7), rs.getString(8) });
             }
         }
         return list;
