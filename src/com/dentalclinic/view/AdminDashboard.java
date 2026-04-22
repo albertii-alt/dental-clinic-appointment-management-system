@@ -71,7 +71,7 @@ public class AdminDashboard extends JFrame {
         
         // Create sidebar
         sidebar = new Sidebar();
-        sidebar.addLogo("Admin Panel", () -> {
+        sidebar.addLogo("Admin Panel", isSuperAdmin ? "Super Admin" : currentAdminName, isSuperAdmin ? "Super Admin" : "Admin", () -> {
             showPanel(dashboardStatsPanel);
             sidebar.clearActiveButton();
             dashboardStatsPanel.refreshStats();

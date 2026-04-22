@@ -62,7 +62,7 @@ public class DentistDashboard extends JFrame {
         });
         
         sidebar = new Sidebar();
-        sidebar.addLogo("Dentist Portal", () -> {
+        sidebar.addLogo("Dentist Portal", staffName, "Dentist", () -> {
             switchPanel(new WelcomePanel(staffName, "See your Appointments for today, Doc!"));
             sidebar.clearActiveButton();
             UserSession.updateActivity();

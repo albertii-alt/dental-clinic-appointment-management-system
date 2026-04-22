@@ -51,18 +51,94 @@ public class Sidebar extends JPanel {
     }
     
     public void addLogo(String title, Runnable onClick) {
-        JLabel logoLabel = new JLabel(title);
-        logoLabel.setForeground(Color.WHITE);
-        logoLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        logoLabel.setBounds(50, 30, 150, 30);
-        logoLabel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        logoLabel.addMouseListener(new java.awt.event.MouseAdapter() {
+        addLogo(title, null, null, onClick);
+    }
+
+    public void addLogo(String title, String userName, String userRole, Runnable onClick) {
+        JPanel logoPanel = new JPanel();
+        logoPanel.setLayout(new BoxLayout(logoPanel, BoxLayout.Y_AXIS));
+        logoPanel.setOpaque(false);
+        logoPanel.setBounds(0, 10, 250, 90);
+        logoPanel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        logoPanel.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (onClick != null) onClick.run();
             }
         });
-        add(logoLabel);
-        allComponents.add(logoLabel);
+
+        // --- Clinic name row: logo icon + name ---
+        JPanel clinicRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        clinicRow.setOpaque(false);
+
+        // Logo image
+        try {
+            java.io.InputStream is = getClass().getResourceAsStream("/com/dentalclinic/resources/VantageLogo.png");
+            if (is != null) {
+                java.awt.image.BufferedImage img = javax.imageio.ImageIO.read(is);
+                java.awt.Image scaled = img.getScaledInstance(32, 32, java.awt.Image.SCALE_SMOOTH);
+                JLabel logoImg = new JLabel(new javax.swing.ImageIcon(scaled));
+                clinicRow.add(logoImg);
+            }
+        } catch (Exception ignored) {}
+
+        JLabel clinicName = new JLabel("Vantage Dental");
+        clinicName.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        clinicName.setForeground(Color.WHITE);
+        clinicRow.add(clinicName);
+
+        logoPanel.add(Box.createVerticalStrut(8));
+        logoPanel.add(clinicRow);
+
+        // --- Divider ---
+        JSeparator sep = new JSeparator();
+        sep.setForeground(new Color(255, 255, 255, 50));
+        sep.setMaximumSize(new Dimension(210, 1));
+        logoPanel.add(Box.createVerticalStrut(6));
+        logoPanel.add(sep);
+        logoPanel.add(Box.createVerticalStrut(6));
+
+        // --- User info row ---
+        if (userName != null && userRole != null) {
+            JPanel userRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            userRow.setOpaque(false);
+
+            // User icon
+            JLabel userIcon = new JLabel();
+            userIcon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+                org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.USER_CIRCLE, 18, Color.WHITE));
+            userRow.add(userIcon);
+
+            // Name + role badge stacked
+            JPanel nameRolePanel = new JPanel();
+            nameRolePanel.setLayout(new BoxLayout(nameRolePanel, BoxLayout.Y_AXIS));
+            nameRolePanel.setOpaque(false);
+
+            JLabel nameLabel = new JLabel(userName);
+            nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            nameLabel.setForeground(Color.WHITE);
+
+            JLabel roleLabel = new JLabel(userRole.toUpperCase());
+            roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 10));
+            roleLabel.setForeground(new Color(174, 214, 241));
+
+            nameRolePanel.add(nameLabel);
+            nameRolePanel.add(roleLabel);
+            userRow.add(nameRolePanel);
+            logoPanel.add(userRow);
+        } else {
+            // Fallback: just show the title
+            JLabel titleLabel = new JLabel(title);
+            titleLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            titleLabel.setForeground(new Color(174, 214, 241));
+            JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+            titleRow.setOpaque(false);
+            titleRow.add(titleLabel);
+            logoPanel.add(titleRow);
+        }
+
+        add(logoPanel);
+        allComponents.add(logoPanel);
+        nextY = 110;
     }
     
     public SidebarButton addButton(String text, Ikon icon, Runnable onClick) {

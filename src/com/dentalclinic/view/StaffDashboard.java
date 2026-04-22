@@ -53,7 +53,7 @@ public class StaffDashboard extends JFrame {
         });
         
         sidebar = new Sidebar();
-        sidebar.addLogo("Staff Portal", () -> {
+        sidebar.addLogo("Staff Portal", staffName, "Staff", () -> {
             switchPanel(new WelcomePanel(staffName, "Select an appointment category to manage the clinic flow"));
             sidebar.clearActiveButton();
             UserSession.updateActivity();

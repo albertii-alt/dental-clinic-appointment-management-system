@@ -45,7 +45,7 @@ public class PatientDashboard extends JFrame {
         setLayout(new BorderLayout());
 
         sidebar = new Sidebar();
-        sidebar.addLogo("Patient Portal", () -> {
+        sidebar.addLogo("Patient Portal", pfName + " " + plName, "Patient", () -> {
             switchPanel(new WelcomePanel(pfName, "Select a category from the sidebar to manage your dental records"));
             sidebar.clearActiveButton();
             UserSession.updateActivity();
