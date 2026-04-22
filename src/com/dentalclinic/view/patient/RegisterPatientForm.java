@@ -70,6 +70,12 @@ public class RegisterPatientForm extends JFrame {
 
     public RegisterPatientForm() {
         setTitle("Dental Clinic - Patient Registration");
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/com/dentalclinic/resources/VantageLogo.png");
+            if (iconStream != null) {
+                setIconImage(javax.imageio.ImageIO.read(iconStream));
+            }
+        } catch (Exception ignored) {}
         setSize(1000, 750); 
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setResizable(true);

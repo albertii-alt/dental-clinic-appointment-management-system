@@ -22,6 +22,12 @@ public class SplashScreen extends JWindow {
     public SplashScreen() {
         setSize(480, 300);
         setLocationRelativeTo(null);
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/com/dentalclinic/resources/VantageLogo.png");
+            if (iconStream != null) {
+                setIconImage(javax.imageio.ImageIO.read(iconStream));
+            }
+        } catch (Exception ignored) {}
         initUI();
     }
 

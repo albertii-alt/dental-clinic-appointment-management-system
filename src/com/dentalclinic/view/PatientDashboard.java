@@ -39,6 +39,12 @@ public class PatientDashboard extends JFrame {
         this.pUsername = user;
         
         setTitle("Dental Clinic - Patient Portal");
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/com/dentalclinic/resources/VantageLogo.png");
+            if (iconStream != null) {
+                setIconImage(javax.imageio.ImageIO.read(iconStream));
+            }
+        } catch (Exception ignored) {}
         setSize(1100, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);

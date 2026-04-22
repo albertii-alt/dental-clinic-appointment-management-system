@@ -47,6 +47,12 @@ public class LoginPage extends JFrame {
         authController = new AuthController();
         
         setTitle("Vantage Dental - Login");
+        try {
+            java.io.InputStream iconStream = getClass().getResourceAsStream("/com/dentalclinic/resources/VantageLogo.png");
+            if (iconStream != null) {
+                setIconImage(javax.imageio.ImageIO.read(iconStream));
+            }
+        } catch (Exception ignored) {}
         setSize(950, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
