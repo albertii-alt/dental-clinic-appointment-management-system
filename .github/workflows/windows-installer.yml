@@ -1,0 +1,166 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_version:
+        description: "Application version (example: 1.0.0)"
+        required: true
+        default: "1.0.0"
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-windows-installer:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Resolve build version
+        id: version
+        shell: powershell
+        run: |
+          if ("${{ github.event_name }}" -eq "push") {
+            $tag = "${{ github.ref_name }}"
+            $version = $tag.TrimStart('v')
+          } else {
+            $version = "${{ github.event.inputs.app_version }}"
+          }
+          "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
+      - name: Build desktop JAR
+        shell: powershell
+        run: |
+          $srcDir = "src"
+          $libDir = "lib"
+          $buildDir = "build\classes"
+          $distDir = "dist"
+          $jarName = "DentalClinicAppointment_ManagementSystem.jar"
+          $mainClass = "com.dentalclinic.main.Main"
+
+          New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
+          New-Item -ItemType Directory -Force -Path $distDir | Out-Null
+
+          $classpath = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object { $_.FullName }) -join ";"
+          $sources = Get-ChildItem -Path $srcDir -Recurse -Filter *.java | ForEach-Object { $_.FullName }
+          [System.IO.File]::WriteAllLines("sources.txt", $sources)
+
+          javac -encoding UTF-8 -cp $classpath -d $buildDir "@sources.txt"
+          if ($LASTEXITCODE -ne 0) { throw "javac compilation failed" }
+
+          Copy-Item -Path "src\com\dentalclinic\resources" -Destination "$buildDir\com\dentalclinic\resources" -Recurse -Force -ErrorAction SilentlyContinue
+
+          $cpEntries = (Get-ChildItem $libDir -Filter *.jar | ForEach-Object { 'lib\' + $_.Name }) -join ' '
+          $manifestLines = New-Object System.Collections.Generic.List[string]
+          $manifestLines.Add("Manifest-Version: 1.0")
+          $manifestLines.Add("Main-Class: $mainClass")
+
+          $cpLine = "Class-Path: $cpEntries"
+          while ($cpLine.Length -gt 72) {
+            $manifestLines.Add($cpLine.Substring(0, 72))
+            $cpLine = " " + $cpLine.Substring(72)
+          }
+          $manifestLines.Add($cpLine)
+          $manifestLines.Add("")
+          [System.IO.File]::WriteAllLines("$buildDir\MANIFEST.MF", $manifestLines)
+
+          jar cfm "$distDir\$jarName" "$buildDir\MANIFEST.MF" -C $buildDir .
+          if ($LASTEXITCODE -ne 0) { throw "jar packaging failed" }
+
+          New-Item -ItemType Directory -Force -Path "$distDir\lib" | Out-Null
+          Copy-Item "$libDir\*" "$distDir\lib\" -Force
+
+          if (-not (Test-Path "$distDir\$jarName")) {
+            throw "Desktop JAR not found after build."
+          }
+          Write-Host "Desktop JAR built successfully."
+
+      - name: Bundle JRE with jlink
+        shell: powershell
+        run: |
+          $runtimeDir = "build\windows-runtime\runtime"
+          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+
+          jlink `
+            --add-modules java.base,java.desktop,java.sql,java.naming,java.management,java.security.jgss,java.xml,jdk.crypto.ec `
+            --output $runtimeDir `
+            --strip-debug `
+            --no-man-pages `
+            --no-header-files `
+            --compress=2
+
+          if ($LASTEXITCODE -ne 0) { throw "jlink failed" }
+          Write-Host "JRE bundled successfully."
+
+      - name: Create db.properties.template
+        shell: powershell
+        env:
+          DB_URL: ${{ secrets.DB_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          $lines = @(
+            "db.url=$env:DB_URL",
+            "db.host=$env:DB_HOST",
+            "db.port=$env:DB_PORT",
+            "db.name=$env:DB_NAME",
+            "db.user=$env:DB_USER",
+            "db.password=$env:DB_PASSWORD"
+          )
+          [System.IO.File]::WriteAllLines("scripts\windows\db.properties.template", $lines)
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y
+
+      - name: Build Windows installer
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          $issFile = "scripts\windows\DentalClinicSystem.iss"
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" `
+            /DMyAppVersion=$version `
+            /O"build\windows-installer\output" `
+            $issFile
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed" }
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-${{ steps.version.outputs.value }}
+          path: build/windows-installer/output/*.exe
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Dental Clinic System ${{ github.ref_name }}
+          body: |
+            ## Dental Clinic System ${{ github.ref_name }}
+
+            ### Installation
+            1. Download `DentalClinicSystem-Setup-${{ steps.version.outputs.value }}.exe`
+            2. Run the installer and follow the setup wizard
+            3. Launch from your desktop shortcut — no additional setup needed
+
+            ### Requirements
+            - Windows 10 or later (64-bit)
+            - Internet connection (connects to Vantage Dental cloud database)
+          files: build/windows-installer/output/*.exe
+          fail_on_unmatched_files: true
