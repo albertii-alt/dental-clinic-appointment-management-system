@@ -42,6 +42,10 @@ public class AppointmentController {
         return appointmentService.canPatientBook(patientId);
     }
 
+    public int expirePastApprovedAppointments() throws SQLException {
+        return appointmentService.expirePastApprovedAppointments();
+    }
+
     public List<Object[]> searchPatientsByName(String query) throws SQLException {
         return patientService.searchPatientsByName(query);
     }

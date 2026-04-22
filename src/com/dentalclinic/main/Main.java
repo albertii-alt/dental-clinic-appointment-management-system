@@ -9,6 +9,12 @@ public class Main {
         new Thread(() -> {
             try {
                 AppointmentController appointmentController = new AppointmentController();
+
+                int expired = appointmentController.expirePastApprovedAppointments();
+                if (expired > 0) {
+                    System.out.println("Auto-expired " + expired + " past approved appointment(s)");
+                }
+
                 int tomorrowSent = appointmentController.sendAllRemindersForTomorrow();
                 if (tomorrowSent > 0) {
                     System.out.println("Sent " + tomorrowSent + " appointment reminders for tomorrow");
@@ -19,7 +25,7 @@ public class Main {
                     System.out.println("Sent " + todaySent + " day-of appointment reminders");
                 }
             } catch (Exception e) {
-                System.err.println("Failed to send reminders: " + e.getMessage());
+                System.err.println("Failed to run startup tasks: " + e.getMessage());
             }
         }).start();
 

@@ -364,6 +364,15 @@ public class AppointmentDAO {
         return false;
     }
 
+    public int expirePastApprovedAppointments() throws SQLException {
+        String query = "UPDATE appointments SET status = 'Expired' " +
+                       "WHERE status = 'Approved' AND appointment_date < CURDATE()";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement pstmt = conn.prepareStatement(query)) {
+            return pstmt.executeUpdate();
+        }
+    }
+
     public boolean updateDateTime(int appId, java.sql.Date newDate, String newTime) throws SQLException {
         String query = "UPDATE appointments SET appointment_date = ?, appointment_time_new = STR_TO_DATE(?, '%h:%i %p') WHERE appointment_id = ?";
         try (Connection conn = DBConnection.getConnection();

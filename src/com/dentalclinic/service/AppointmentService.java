@@ -186,7 +186,12 @@ public class AppointmentService {
     }
 
     public boolean canPatientBook(int pId) throws SQLException {
+        expirePastApprovedAppointments();
         return !appointmentDAO.hasActiveAppointment(pId);
+    }
+
+    public int expirePastApprovedAppointments() throws SQLException {
+        return appointmentDAO.expirePastApprovedAppointments();
     }
     
     public List<Appointment> getPendingRequests() throws SQLException {
