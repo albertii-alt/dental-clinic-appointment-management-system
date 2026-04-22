@@ -233,6 +233,7 @@ public class PatientHistoryPanel extends JPanel {
                 infoPanel.add(new JLabel("Patient: " + patientName));
                 infoPanel.add(new JLabel("Service: " + app.getServiceType()));
                 infoPanel.add(new JLabel("Date: " + app.getAppointmentDate()));
+                infoPanel.add(new JLabel("Time: " + (app.getAppointmentTime() != null ? app.getAppointmentTime() : "N/A")));
                 infoPanel.add(new JLabel("Status: " + app.getStatus()));
                 infoPanel.add(new JSeparator());
                 infoPanel.add(new JLabel("<html><b>Clinical Notes:</b></html>"));
