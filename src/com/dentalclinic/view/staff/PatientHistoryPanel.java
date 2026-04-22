@@ -296,7 +296,7 @@ public class PatientHistoryPanel extends JPanel {
                         openUpdateDialog(app);
                     });
                     footer.add(correctBtn, BorderLayout.CENTER);
-                } else if (isDentist) {
+                } else {
                     JButton updateBtn = new JButton("Modify Record");
                     updateBtn.setBackground(SUCCESS);
                     updateBtn.setForeground(Color.WHITE);
@@ -307,11 +307,6 @@ public class PatientHistoryPanel extends JPanel {
                         openUpdateDialog(app);
                     });
                     footer.add(updateBtn, BorderLayout.CENTER);
-                } else {
-                    JLabel readOnly = new JLabel("Administrator View (Read-Only)", SwingConstants.CENTER);
-                    readOnly.setForeground(Color.GRAY);
-                    readOnly.setFont(new Font("Segoe UI", Font.ITALIC, 11));
-                    footer.add(readOnly, BorderLayout.CENTER);
                 }
 
                 panel.add(footer, BorderLayout.SOUTH);
