@@ -59,7 +59,7 @@ public class Sidebar extends JPanel {
         logoPanel.setOpaque(false);
         logoPanel.setBounds(0, 0, 250, 100);
         logoPanel.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        logoPanel.setBorder(new javax.swing.border.EmptyBorder(15, 15, 10, 15));
+        logoPanel.setBorder(new javax.swing.border.EmptyBorder(15, 20, 10, 15));
         logoPanel.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseClicked(java.awt.event.MouseEvent e) {
                 if (onClick != null) onClick.run();
