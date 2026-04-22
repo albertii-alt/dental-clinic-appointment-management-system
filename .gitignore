@@ -30,6 +30,14 @@ scripts/windows/db.properties.template
 .xampp.pid
 *.pid
 
+# Shell scripts with system-specific paths
+run.sh
+
+# Windows installer duplicates
+scripts/windows/lib/
+scripts/windows/DentalClinicAppointment_ManagementSystem.jar
+scripts/windows/Output/
+
 # Java compiled files
 *.class
 *.war
