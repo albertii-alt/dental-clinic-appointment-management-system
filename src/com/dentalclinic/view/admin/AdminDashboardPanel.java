@@ -66,13 +66,14 @@ public class AdminDashboardPanel extends JPanel {
         titleRow.setOpaque(false);
         titleRow.add(title, BorderLayout.WEST);
 
-        JButton refreshBtn = new JButton();
-        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, new Color(41, 128, 185)));
-        refreshBtn.setToolTipText("Refresh");
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
+        refreshBtn.setBackground(new Color(41, 128, 185));
+        refreshBtn.setForeground(Color.WHITE);
         refreshBtn.setFocusPainted(false);
-        refreshBtn.setBorderPainted(false);
-        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setFont(new Font("SansSerif", Font.BOLD, 12));
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { statsLoaded = false; refreshStats(); });
         titleRow.add(refreshBtn, BorderLayout.EAST);
 

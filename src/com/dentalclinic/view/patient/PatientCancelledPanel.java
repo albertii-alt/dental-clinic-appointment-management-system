@@ -61,13 +61,14 @@ public class PatientCancelledPanel extends JPanel {
         showArchivedBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         showArchivedBox.addActionListener(e -> loadCancelledData(false));
 
-        JButton refreshBtn = new JButton();
-        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, DANGER_RED));
-        refreshBtn.setToolTipText("Refresh");
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
+        refreshBtn.setBackground(DANGER_RED);
+        refreshBtn.setForeground(Color.WHITE);
         refreshBtn.setFocusPainted(false);
-        refreshBtn.setBorderPainted(false);
-        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { RECENT_CACHE.remove(patientID); ARCHIVE_CACHE.remove(patientID); loadCancelledData(true); });
 
         JPanel eastPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));

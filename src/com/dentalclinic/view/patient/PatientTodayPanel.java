@@ -60,13 +60,14 @@ public class PatientTodayPanel extends JPanel {
         subTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subTitle.setForeground(new Color(127, 140, 141));
 
-        JButton refreshBtn = new JButton();
-        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY_COLOR));
-        refreshBtn.setToolTipText("Refresh");
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
+        refreshBtn.setBackground(PRIMARY_COLOR);
+        refreshBtn.setForeground(Color.WHITE);
         refreshBtn.setFocusPainted(false);
-        refreshBtn.setBorderPainted(false);
-        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { TODAY_CACHE.remove(patientID); loadTodayData(true); });
 
         JPanel headerTop = new JPanel(new BorderLayout());

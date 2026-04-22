@@ -57,6 +57,7 @@ public class AuditTrailsPanel extends JPanel {
         titleLabel.setForeground(TEXT_DARK);
         
         JButton refreshButton = new JButton("Refresh Logs");
+        refreshButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
         styleHeaderButton(refreshButton);
         refreshButton.addActionListener(e -> loadLogData(true));
 
@@ -71,8 +72,9 @@ public class AuditTrailsPanel extends JPanel {
         // ONLY add the archive button if they are a Super Admin
         if (isSuperAdmin) {
             JButton archiveButton = new JButton("Archive & Clear");
+            archiveButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.ARCHIVE, 13, Color.WHITE));
             styleHeaderButton(archiveButton);
-            archiveButton.setBackground(new Color(230, 126, 34)); // Orange color for "Warning" action
+            archiveButton.setBackground(new Color(230, 126, 34));
             archiveButton.addActionListener(e -> handleArchiveLogs());
             buttonPanel.add(archiveButton);
         }

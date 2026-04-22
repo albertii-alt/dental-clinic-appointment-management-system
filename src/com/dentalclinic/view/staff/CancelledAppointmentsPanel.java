@@ -69,6 +69,7 @@ public class CancelledAppointmentsPanel extends JPanel {
         rightPanel.setBackground(CARD);
 
         JButton clearButton = new JButton("Clear History");
+        clearButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TRASH_ALT, 13, Color.WHITE));
         clearButton.setBackground(DANGER);
         clearButton.setForeground(Color.WHITE);
         clearButton.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -78,13 +79,14 @@ public class CancelledAppointmentsPanel extends JPanel {
 
         rightPanel.add(clearButton);
 
-        JButton refreshBtn = new JButton();
-        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY));
-        refreshBtn.setToolTipText("Refresh");
+        JButton refreshBtn = new JButton("Refresh");
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
+        refreshBtn.setBackground(PRIMARY);
+        refreshBtn.setForeground(Color.WHITE);
         refreshBtn.setFocusPainted(false);
-        refreshBtn.setBorderPainted(false);
-        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setFont(new Font("Segoe UI", Font.BOLD, 12));
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { CANCELLED_CACHE.remove(CACHE_KEY); loadCancelledData(true); });
         rightPanel.add(refreshBtn);
 

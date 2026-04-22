@@ -82,14 +82,17 @@ public class SystemLogPanel extends JPanel {
         buttonPanel.setOpaque(false);
         
         JButton exportButton = new JButton("Backup to CSV");
+        exportButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.FILE_DOWNLOAD, 13, Color.WHITE));
         styleButton(exportButton, new Color(52, 152, 219));
         exportButton.addActionListener(e -> exportToCSV());
         
         JButton refreshButton = new JButton("Refresh Logs");
+        refreshButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
         styleButton(refreshButton, PRIMARY_BLUE);
         refreshButton.addActionListener(e -> loadSystemLogs(true));
         
         JButton clearButton = new JButton("Clear All Logs");
+        clearButton.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TRASH_ALT, 13, Color.WHITE));
         styleButton(clearButton, DANGER_RED);
         clearButton.addActionListener(e -> handleClearLogs());
 
