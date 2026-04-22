@@ -231,7 +231,7 @@ public class AppointmentDAO {
 
     public List<Appointment> getUpcomingScheduleByPatient(int pId) throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? AND a.appointment_date >= CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.patient_id = ? AND a.appointment_date > CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);
@@ -514,7 +514,7 @@ public class AppointmentDAO {
     
     public List<Appointment> getApprovedUpcomingAppointments() throws SQLException {
         List<Appointment> list = new ArrayList<>();
-        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date >= CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
+        String query = APPOINTMENT_SELECT + APPOINTMENT_FROM + "WHERE a.appointment_date > CURDATE() AND a.status = 'Approved' ORDER BY a.appointment_date ASC";
         try (Connection conn = DBConnection.getConnection(); 
              Statement st = conn.createStatement(); 
              ResultSet rs = st.executeQuery(query)) {
