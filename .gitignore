@@ -9,6 +9,7 @@ nbdist/
 
 # Database - NEVER commit (contains real patient data)
 dental_clinic_db.sql
+dental_clinic_schema.sql
 
 # Credentials - NEVER commit (contains passwords)
 # db.properties lives at ~/.dental_clinic/db.properties (outside project)
