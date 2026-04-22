@@ -16,13 +16,8 @@ public class SplashScreen extends JWindow {
     private static final Color TEXT_WHITE     = Color.WHITE;
     private static final Color TEXT_MUTED     = new Color(174, 214, 241);
 
-    // Total splash duration in ms
-    private static final int SPLASH_DURATION_MS = 2500;
-    private static final int TIMER_INTERVAL_MS  = 20;
-
     private JProgressBar progressBar;
-    private int currentProgress = 0;
-    private Timer animationTimer;
+    private JLabel statusLabel;
 
     public SplashScreen() {
         setSize(480, 300);
@@ -51,6 +46,7 @@ public class SplashScreen extends JWindow {
         centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
         centerPanel.setOpaque(false);
 
+        // Logo
         JLabel logoLabel = new JLabel();
         logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         try {
@@ -64,6 +60,7 @@ public class SplashScreen extends JWindow {
         centerPanel.add(logoLabel);
         centerPanel.add(Box.createVerticalStrut(14));
 
+        // Clinic name
         JLabel clinicName = new JLabel("Vantage Dental");
         clinicName.setFont(new Font("Segoe UI", Font.BOLD, 26));
         clinicName.setForeground(TEXT_WHITE);
@@ -71,6 +68,7 @@ public class SplashScreen extends JWindow {
         centerPanel.add(clinicName);
         centerPanel.add(Box.createVerticalStrut(4));
 
+        // Subtitle
         JLabel subtitle = new JLabel("Appointment Management System");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(TEXT_MUTED);
@@ -79,10 +77,17 @@ public class SplashScreen extends JWindow {
 
         root.add(centerPanel, BorderLayout.CENTER);
 
-        // --- BOTTOM: progress bar + version ---
+        // --- BOTTOM: progress bar + status + version ---
         JPanel bottomPanel = new JPanel();
         bottomPanel.setLayout(new BoxLayout(bottomPanel, BoxLayout.Y_AXIS));
         bottomPanel.setOpaque(false);
+
+        statusLabel = new JLabel("Starting up...");
+        statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        statusLabel.setForeground(TEXT_MUTED);
+        statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        bottomPanel.add(statusLabel);
+        bottomPanel.add(Box.createVerticalStrut(5));
 
         progressBar = new JProgressBar(0, 100);
         progressBar.setValue(0);
@@ -94,8 +99,10 @@ public class SplashScreen extends JWindow {
         progressBar.setForeground(ACCENT);
         progressBar.setBorderPainted(false);
         progressBar.setUI(new javax.swing.plaf.basic.BasicProgressBarUI() {
-            @Override protected Color getSelectionBackground() { return ACCENT; }
-            @Override protected Color getSelectionForeground() { return ACCENT; }
+            @Override
+            protected Color getSelectionBackground() { return ACCENT; }
+            @Override
+            protected Color getSelectionForeground() { return ACCENT; }
         });
         bottomPanel.add(progressBar);
         bottomPanel.add(Box.createVerticalStrut(10));
@@ -107,46 +114,53 @@ public class SplashScreen extends JWindow {
         bottomPanel.add(version);
 
         root.add(bottomPanel, BorderLayout.SOUTH);
+
         setContentPane(root);
+    }
+
+    private void setProgress(int value, String status) {
+        SwingUtilities.invokeLater(() -> {
+            progressBar.setValue(value);
+            statusLabel.setText(status);
+        });
     }
 
     public void runStartupAndLaunch() {
         setVisible(true);
 
-        // Run startup tasks silently in background
         new Thread(() -> {
             try {
+                setProgress(10, "Initializing...");
+                Thread.sleep(300);
+
                 AppointmentController ac = new AppointmentController();
-                ac.expirePastApprovedAppointments();
-                ac.sendAllRemindersForTomorrow();
-                ac.sendAllDayOfReminders();
+
+                setProgress(30, "Checking appointments...");
+                int expired = ac.expirePastApprovedAppointments();
+                if (expired > 0) System.out.println("Auto-expired " + expired + " appointment(s)");
+
+                setProgress(55, "Sending reminders...");
+                int tomorrowSent = ac.sendAllRemindersForTomorrow();
+                if (tomorrowSent > 0) System.out.println("Sent " + tomorrowSent + " reminder(s) for tomorrow");
+
+                setProgress(75, "Sending day-of reminders...");
+                int todaySent = ac.sendAllDayOfReminders();
+                if (todaySent > 0) System.out.println("Sent " + todaySent + " day-of reminder(s)");
+
+                setProgress(90, "Loading login screen...");
+                Thread.sleep(400);
+
+                setProgress(100, "Ready!");
+                Thread.sleep(300);
+
             } catch (Exception e) {
                 System.err.println("Startup task failed: " + e.getMessage());
             }
+
+            SwingUtilities.invokeLater(() -> {
+                dispose();
+                new LoginPage();
+            });
         }).start();
-
-        // Smooth progress animation over SPLASH_DURATION_MS
-        int totalSteps = SPLASH_DURATION_MS / TIMER_INTERVAL_MS;
-        double increment = 100.0 / totalSteps;
-
-        animationTimer = new Timer(TIMER_INTERVAL_MS, null);
-        animationTimer.addActionListener(e -> {
-            currentProgress += increment;
-            if (currentProgress >= 100) {
-                currentProgress = 100;
-                progressBar.setValue(100);
-                animationTimer.stop();
-                // Small pause at 100% then launch
-                Timer launchTimer = new Timer(200, ev -> {
-                    dispose();
-                    new LoginPage();
-                });
-                launchTimer.setRepeats(false);
-                launchTimer.start();
-            } else {
-                progressBar.setValue(currentProgress);
-            }
-        });
-        animationTimer.start();
     }
 }
