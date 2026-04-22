@@ -47,7 +47,6 @@ public class LoginPage extends JFrame {
         authController = new AuthController();
         
         setTitle("Vantage Dental - Login");
-        com.dentalclinic.util.AppIcon.apply(this);
         setSize(950, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
