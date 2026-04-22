@@ -197,6 +197,24 @@ public class Sidebar extends JPanel {
         btn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(FontAwesomeSolid.SIGN_OUT_ALT, 14, Color.WHITE));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
         btn.setIconTextGap(10);
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                btn.setBackground(bgColor.darker());
+            }
+            @Override
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                btn.setBackground(bgColor);
+            }
+            @Override
+            public void mousePressed(java.awt.event.MouseEvent e) {
+                btn.setBackground(bgColor.darker().darker());
+            }
+            @Override
+            public void mouseReleased(java.awt.event.MouseEvent e) {
+                btn.setBackground(bgColor.darker());
+            }
+        });
         btn.addActionListener(e -> {
             if (onClick != null) onClick.run();
         });
