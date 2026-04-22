@@ -30,6 +30,7 @@ NC='\033[0m'
 OUTPUT_FILE="${OUTPUT_FILE:-$PROJECT_ROOT/dental_clinic_schema.sql}"
 ADMIN_USER="${ADMIN_USER:-}"
 ADMIN_PASSWORD="${ADMIN_PASSWORD:-}"
+SOURCE_DB="${SOURCE_DB:-}"
 
 # Seed tables — structure + data preserved
 SEED_TABLES=(
@@ -54,11 +55,30 @@ echo ""
 # Load db config (reads from ~/.dental_clinic/db.properties)
 load_db_config
 
-# Use admin credentials if provided, otherwise use configured user
+# Use admin credentials if provided, otherwise prompt
 if [[ -n "$ADMIN_USER" ]]; then
     DB_USER="$ADMIN_USER"
     DB_PASSWORD="$ADMIN_PASSWORD"
+else
+    read -r -p "Enter admin database user (e.g. avnadmin): " DB_USER
+    read -r -s -p "Enter password for '$DB_USER': " DB_PASSWORD
+    echo
 fi
+
+# Override source database if provided, otherwise prompt
+if [[ -n "$SOURCE_DB" ]]; then
+    DB_NAME="$SOURCE_DB"
+else
+    read -r -p "Enter source database name (default: dental_clinic_db): " SOURCE_DB_INPUT
+    if [[ -n "$SOURCE_DB_INPUT" ]]; then
+        DB_NAME="$SOURCE_DB_INPUT"
+    else
+        DB_NAME="dental_clinic_db"
+    fi
+fi
+
+# Re-export so mysql_base_args picks up the overridden values
+export DB_USER DB_PASSWORD DB_NAME
 
 mapfile -t BASE_ARGS < <(mysql_base_args)
 mapfile -t SSL_ARGS < <(mysql_ssl_args)

@@ -117,7 +117,7 @@ mysql_ssl_args() {
         if [[ -n "$DB_SSL_MODE" ]]; then
             printf '%s\n' "--ssl-mode=$DB_SSL_MODE"
         else
-            printf '%s\n' "--ssl"
+            printf '%s\n' "--ssl-mode=REQUIRED"
         fi
     fi
 }
