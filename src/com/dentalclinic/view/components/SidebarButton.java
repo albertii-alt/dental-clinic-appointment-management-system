@@ -20,6 +20,7 @@ public class SidebarButton extends JButton {
     private boolean isHovering = false;
     private int notificationCount = 0;
     private Ikon icon;
+    private Ikon trailingIkon;
     
     public SidebarButton(String text) {
         super(text);
@@ -54,6 +55,11 @@ public class SidebarButton extends JButton {
     public void setIcon(Ikon ikon) {
         this.icon = ikon;
         updateIcon();
+    }
+
+    public void setTrailingIcon(Ikon ikon) {
+        this.trailingIkon = ikon;
+        repaint();
     }
     
     private void updateIcon() {
@@ -96,6 +102,17 @@ public class SidebarButton extends JButton {
         
         g2.dispose();
         super.paintComponent(g);
+        
+        // Draw trailing icon on the right side
+        if (trailingIkon != null) {
+            Graphics2D g2t = (Graphics2D) g.create();
+            g2t.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            FontIcon trailingIcon = FontIcon.of(trailingIkon, 12, Color.WHITE);
+            int iconX = getWidth() - trailingIcon.getIconWidth() - 10;
+            int iconY = (getHeight() - trailingIcon.getIconHeight()) / 2;
+            trailingIcon.paintIcon(this, g2t, iconX, iconY);
+            g2t.dispose();
+        }
         
         // Draw notification badge
         if (notificationCount > 0) {

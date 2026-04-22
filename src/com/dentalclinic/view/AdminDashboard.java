@@ -118,8 +118,9 @@ public class AdminDashboard extends JFrame {
         // ==========================================================
         
         if (UserSession.hasPermission("MANAGE_USERS") || UserSession.hasPermission("MANAGE_ROLES")) {
-            accessControlBtn = new SidebarButton("Access Control  ⌄");
+            accessControlBtn = new SidebarButton("Access Control");
             accessControlBtn.setIcon(FontAwesomeSolid.LOCK);
+            accessControlBtn.setTrailingIcon(FontAwesomeSolid.CHEVRON_DOWN);
             accessControlBtn.setBounds(20, 250, 210, 40);
             accessControlBtn.addActionListener(e -> toggleSubMenu());
             sidebar.add(accessControlBtn);
@@ -255,7 +256,7 @@ public class AdminDashboard extends JFrame {
     private void toggleSubMenu() {
         isSubMenuOpen = !isSubMenuOpen;
         subMenuPanel.setVisible(isSubMenuOpen);
-        accessControlBtn.setText(isSubMenuOpen ? "Access Control  ⌃" : "Access Control  ⌄");
+        accessControlBtn.setTrailingIcon(isSubMenuOpen ? FontAwesomeSolid.CHEVRON_UP : FontAwesomeSolid.CHEVRON_DOWN);
         
         int shift = isSubMenuOpen ? shiftAmount : -shiftAmount;
         
