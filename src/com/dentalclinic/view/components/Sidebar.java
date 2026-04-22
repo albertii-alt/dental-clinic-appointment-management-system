@@ -194,6 +194,9 @@ public class Sidebar extends JPanel {
         btn.setBorderPainted(false);
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(FontAwesomeSolid.SIGN_OUT_ALT, 14, Color.WHITE));
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setIconTextGap(10);
         btn.addActionListener(e -> {
             if (onClick != null) onClick.run();
         });
