@@ -52,8 +52,10 @@ public class AppointmentService {
             return new BookingResult(false, "Please enter a valid contact number.", -1);
         }
 
-        if (!autoApprove && appointmentDAO.hasPendingAppointment(request.getPatientId())) {
-            return new BookingResult(false, "You currently have a request pending approval.", -1);
+        if (appointmentDAO.hasActiveAppointment(request.getPatientId())) {
+            return new BookingResult(false,
+                "This patient already has a Pending or Approved appointment. " +
+                "A new appointment can only be booked once the current one is Completed or marked as No Show.", -1);
         }
 
         java.time.LocalDate selectedDate = request.getAppointmentDate().toLocalDate();
@@ -184,7 +186,7 @@ public class AppointmentService {
     }
 
     public boolean canPatientBook(int pId) throws SQLException {
-        return !appointmentDAO.hasPendingAppointment(pId);
+        return !appointmentDAO.hasActiveAppointment(pId);
     }
     
     public List<Appointment> getPendingRequests() throws SQLException {

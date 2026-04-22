@@ -38,6 +38,10 @@ public class AppointmentController {
         return appointmentService.bookAppointment(request, true);
     }
 
+    public boolean canPatientBook(int patientId) throws SQLException {
+        return appointmentService.canPatientBook(patientId);
+    }
+
     public List<Object[]> searchPatientsByName(String query) throws SQLException {
         return patientService.searchPatientsByName(query);
     }

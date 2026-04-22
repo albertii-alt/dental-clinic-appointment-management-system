@@ -352,8 +352,8 @@ public class AppointmentDAO {
         }
     }
     
-    public boolean hasPendingAppointment(int pId) throws SQLException {
-        String query = "SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND status = 'Pending'";
+    public boolean hasActiveAppointment(int pId) throws SQLException {
+        String query = "SELECT COUNT(*) FROM appointments WHERE patient_id = ? AND status IN ('Pending', 'Approved')";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setInt(1, pId);

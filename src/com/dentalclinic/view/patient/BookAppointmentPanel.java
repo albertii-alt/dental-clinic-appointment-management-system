@@ -154,6 +154,22 @@ public class BookAppointmentPanel extends JPanel {
         confirmBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         confirmBtn.addActionListener(e -> handleBooking());
         add(confirmBtn);
+
+        // Guard: disable form if patient already has an active appointment
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (!appointmentController.canPatientBook(patientID)) {
+                    serviceTypeCombo.setEnabled(false);
+                    appointmentDatePicker.setEnabled(false);
+                    timeSlotCombo.setEnabled(false);
+                    confirmBtn.setEnabled(false);
+                    confirmBtn.setText("You already have an active appointment");
+                    confirmBtn.setBackground(new Color(189, 195, 199));
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        });
     }
 
     // ==========================================================

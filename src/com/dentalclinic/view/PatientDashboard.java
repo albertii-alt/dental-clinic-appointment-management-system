@@ -52,9 +52,26 @@ public class PatientDashboard extends JFrame {
         });
         
         sidebar.addButton("Book Appointment", FontAwesomeSolid.CALENDAR_PLUS, () -> {
-            switchPanel(new com.dentalclinic.view.patient.BookAppointmentPanel(
-                pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
-            ));
+            try {
+                com.dentalclinic.controller.AppointmentController ac = new com.dentalclinic.controller.AppointmentController();
+                if (!ac.canPatientBook(pID)) {
+                    com.dentalclinic.view.components.ErrorDialog.show(
+                        PatientDashboard.this,
+                        "Booking Not Allowed",
+                        "You already have a Pending or Approved appointment.\n\n" +
+                        "You can only book a new appointment once your current one is\n" +
+                        "marked as Completed or No Show by the clinic staff."
+                    );
+                    return;
+                }
+                switchPanel(new com.dentalclinic.view.patient.BookAppointmentPanel(
+                    pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
+                ));
+            } catch (Exception ex) {
+                switchPanel(new com.dentalclinic.view.patient.BookAppointmentPanel(
+                    pID, pfName, pmName, plName, pdob, pAge, pAddress, pContact
+                ));
+            }
             UserSession.updateActivity();
         });
         
