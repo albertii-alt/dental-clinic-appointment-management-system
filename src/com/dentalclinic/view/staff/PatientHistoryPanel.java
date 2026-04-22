@@ -223,7 +223,8 @@ public class PatientHistoryPanel extends JPanel {
             return;
         }
         for (Object[] row : rows) {
-            model.addRow(row);
+            // row: [0]=id, [1]=name, [2]=service, [3]=date, [4]=time, [5]=notes, [6]=status
+            model.addRow(new Object[]{ row[0], row[1], row[2], row[3], row[4], row[6] });
         }
     }
     
