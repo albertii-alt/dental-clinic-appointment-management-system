@@ -108,7 +108,6 @@ public class PatientHistoryPanel extends JPanel {
 
         headerArea.add(titlePanel, BorderLayout.WEST);
         headerArea.add(headerRight, BorderLayout.EAST);
-        headerArea.add(searchBox, BorderLayout.EAST);
         cardContainer.add(headerArea, BorderLayout.NORTH);
 
         // --- TABLE AREA ---
