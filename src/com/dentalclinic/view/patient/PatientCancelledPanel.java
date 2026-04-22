@@ -60,7 +60,21 @@ public class PatientCancelledPanel extends JPanel {
         showArchivedBox.setOpaque(false);
         showArchivedBox.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         showArchivedBox.addActionListener(e -> loadCancelledData(false));
-        headerPanel.add(showArchivedBox, BorderLayout.EAST);
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, DANGER_RED));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { RECENT_CACHE.remove(patientID); ARCHIVE_CACHE.remove(patientID); loadCancelledData(true); });
+
+        JPanel eastPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        eastPanel.setOpaque(false);
+        eastPanel.add(showArchivedBox);
+        eastPanel.add(refreshBtn);
+        headerPanel.add(eastPanel, BorderLayout.EAST);
 
         JLabel subtitle = new JLabel("Records of voided or missed requests");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));

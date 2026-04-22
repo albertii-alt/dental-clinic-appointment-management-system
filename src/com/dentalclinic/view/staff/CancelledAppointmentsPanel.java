@@ -77,6 +77,17 @@ public class CancelledAppointmentsPanel extends JPanel {
         clearButton.addActionListener(e -> handleClearHistory());
 
         rightPanel.add(clearButton);
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { CANCELLED_CACHE.remove(CACHE_KEY); loadCancelledData(true); });
+        rightPanel.add(refreshBtn);
+
         header.add(rightPanel, BorderLayout.EAST);
         
         JLabel title = new JLabel("Cancellation History");

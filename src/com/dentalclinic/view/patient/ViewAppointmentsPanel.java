@@ -51,10 +51,22 @@ public class ViewAppointmentsPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(25, 40, 25, 40));
 
         // --- TITLE ---
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
         JLabel title = new JLabel("My Appointment Requests");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(new Color(44, 62, 80));
-        add(title, BorderLayout.NORTH);
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY_BLUE));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { invalidateCache(); loadData(true); });
+        titleRow.add(title, BorderLayout.WEST);
+        titleRow.add(refreshBtn, BorderLayout.EAST);
+        add(titleRow, BorderLayout.NORTH);
 
         // --- TABLE SETUP ---
         String[] columns = {"Service", "Date", "Time", "Status"};

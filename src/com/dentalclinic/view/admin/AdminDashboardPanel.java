@@ -61,7 +61,22 @@ public class AdminDashboardPanel extends JPanel {
         JLabel title = new JLabel("System Overview");
         title.setFont(new Font("SansSerif", Font.BOLD, 24));
         title.setForeground(new Color(44, 62, 80));
-        add(title, BorderLayout.NORTH);
+
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
+        titleRow.add(title, BorderLayout.WEST);
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, new Color(41, 128, 185)));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { statsLoaded = false; refreshStats(); });
+        titleRow.add(refreshBtn, BorderLayout.EAST);
+
+        add(titleRow, BorderLayout.NORTH);
 
         // --- CENTER CONTENT (KPI Cards) ---
         JPanel cardContainer = new JPanel(new GridLayout(1, 4, 20, 0));

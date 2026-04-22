@@ -59,8 +59,22 @@ public class PatientTodayPanel extends JPanel {
         JLabel subTitle = new JLabel("Please arrive 15 minutes before your scheduled time.");
         subTitle.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         subTitle.setForeground(new Color(127, 140, 141));
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY_COLOR));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { TODAY_CACHE.remove(patientID); loadTodayData(true); });
+
+        JPanel headerTop = new JPanel(new BorderLayout());
+        headerTop.setOpaque(false);
+        headerTop.add(title, BorderLayout.WEST);
+        headerTop.add(refreshBtn, BorderLayout.EAST);
         
-        header.add(title);
+        header.add(headerTop);
         header.add(Box.createVerticalStrut(5));
         header.add(subTitle);
         add(header, BorderLayout.NORTH);

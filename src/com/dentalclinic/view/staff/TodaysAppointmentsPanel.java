@@ -68,9 +68,23 @@ public class TodaysAppointmentsPanel extends JPanel {
         JLabel dateLabel = new JLabel("Operating Date: " + java.time.LocalDate.now().toString());
         dateLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
         dateLabel.setForeground(Color.GRAY);
-        
-        header.add(title, BorderLayout.NORTH);
-        header.add(dateLabel, BorderLayout.SOUTH);
+
+        JPanel titleBox = new JPanel(new GridLayout(2, 1));
+        titleBox.setBackground(CARD);
+        titleBox.add(title);
+        titleBox.add(dateLabel);
+        header.add(titleBox, BorderLayout.WEST);
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { invalidateCache(); loadData(true); });
+        header.add(refreshBtn, BorderLayout.EAST);
+
         mainCard.add(header, BorderLayout.NORTH);
 
         // --- TABLE ---

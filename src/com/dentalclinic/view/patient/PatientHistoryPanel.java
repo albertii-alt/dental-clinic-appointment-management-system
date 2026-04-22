@@ -54,12 +54,25 @@ public class PatientHistoryPanel extends JPanel {
         JLabel title = new JLabel("My Treatment History");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(PRIMARY);
-        
+
         subtitle = new JLabel("Double-click any record to view doctor's notes and clinical feedback.");
         subtitle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         subtitle.setForeground(Color.GRAY);
 
-        headerPanel.add(title, BorderLayout.NORTH);
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { HISTORY_CACHE.remove(patientID); loadHistoryDataAsync(); });
+
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
+        titleRow.add(title, BorderLayout.WEST);
+        titleRow.add(refreshBtn, BorderLayout.EAST);
+        headerPanel.add(titleRow, BorderLayout.NORTH);
         headerPanel.add(subtitle, BorderLayout.SOUTH);
         add(headerPanel, BorderLayout.NORTH);
 

@@ -80,6 +80,16 @@ public class UpcomingAppointmentsPanel extends JPanel {
         titleBox.add(subtitle);
         header.add(titleBox, BorderLayout.WEST);
 
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { invalidateCache(); loadUpcomingData(true); });
+        header.add(refreshBtn, BorderLayout.EAST);
+
         cardContainer.add(header, BorderLayout.NORTH);
 
         // --- TABLE SETUP (Added Action Column) ---

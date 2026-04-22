@@ -131,6 +131,24 @@ public class ManageUsersPanel extends JPanel {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
 
+        JPanel tableHeader = new JPanel(new BorderLayout());
+        tableHeader.setOpaque(false);
+        tableHeader.setBorder(new EmptyBorder(0, 0, 8, 0));
+        JLabel tableTitle = new JLabel("Staff Accounts");
+        tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        tableTitle.setForeground(new Color(52, 73, 94));
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY_BLUE));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> refreshTable());
+        tableHeader.add(tableTitle, BorderLayout.WEST);
+        tableHeader.add(refreshBtn, BorderLayout.EAST);
+        panel.add(tableHeader, BorderLayout.NORTH);
+
         String[] columns = {"ID", "Full Name", "Username", "Email", "Role", "Status", "Actions"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override

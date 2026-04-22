@@ -55,7 +55,21 @@ public class PatientUpcomingPanel extends JPanel {
         JLabel title = new JLabel("My Upcoming Appointments");
         title.setFont(new Font("Segoe UI", Font.BOLD, 26));
         title.setForeground(new Color(44, 62, 80));
-        add(title, BorderLayout.NORTH);
+
+        JButton refreshBtn = new JButton();
+        refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 14, PRIMARY_BLUE));
+        refreshBtn.setToolTipText("Refresh");
+        refreshBtn.setFocusPainted(false);
+        refreshBtn.setBorderPainted(false);
+        refreshBtn.setContentAreaFilled(false);
+        refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        refreshBtn.addActionListener(e -> { UPCOMING_CACHE.remove(patientID); loadData(true); });
+
+        JPanel titleRow = new JPanel(new BorderLayout());
+        titleRow.setOpaque(false);
+        titleRow.add(title, BorderLayout.WEST);
+        titleRow.add(refreshBtn, BorderLayout.EAST);
+        add(titleRow, BorderLayout.NORTH);
 
         // --- TABLE SETUP ---
         String[] columns = {"Service", "Date", "Time", "Status"};
