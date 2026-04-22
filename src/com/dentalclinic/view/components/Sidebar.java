@@ -67,8 +67,7 @@ public class Sidebar extends JPanel {
         });
 
         // --- TOP: logo image + clinic name side by side ---
-        JPanel topRow = new JPanel();
-        topRow.setLayout(new BoxLayout(topRow, BoxLayout.X_AXIS));
+        JPanel topRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
         topRow.setOpaque(false);
 
         try {
@@ -78,7 +77,6 @@ public class Sidebar extends JPanel {
                 java.awt.Image scaled = img.getScaledInstance(30, 30, java.awt.Image.SCALE_SMOOTH);
                 JLabel logoImg = new JLabel(new javax.swing.ImageIcon(scaled));
                 topRow.add(logoImg);
-                topRow.add(Box.createHorizontalStrut(8));
             }
         } catch (Exception ignored) {}
 
@@ -91,15 +89,13 @@ public class Sidebar extends JPanel {
 
         // --- BOTTOM: user icon + name + role ---
         if (userName != null && userRole != null) {
-            JPanel userRow = new JPanel();
-            userRow.setLayout(new BoxLayout(userRow, BoxLayout.X_AXIS));
+            JPanel userRow = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
             userRow.setOpaque(false);
 
             JLabel userIcon = new JLabel();
             userIcon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
                 org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.USER_CIRCLE, 20, new Color(174, 214, 241)));
             userRow.add(userIcon);
-            userRow.add(Box.createHorizontalStrut(8));
 
             JPanel nameRolePanel = new JPanel();
             nameRolePanel.setLayout(new BoxLayout(nameRolePanel, BoxLayout.Y_AXIS));
