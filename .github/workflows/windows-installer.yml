@@ -90,18 +90,18 @@ jobs:
         shell: powershell
         run: |
           $runtimeDir = "build\windows-runtime\runtime"
-          New-Item -ItemType Directory -Force -Path $runtimeDir | Out-Null
+          if (Test-Path $runtimeDir) { Remove-Item -Recurse -Force $runtimeDir }
+          New-Item -ItemType Directory -Force -Path (Split-Path $runtimeDir) | Out-Null
 
           jlink `
             --add-modules java.base,java.desktop,java.sql,java.naming,java.management,java.security.jgss,java.xml,jdk.crypto.ec `
             --output $runtimeDir `
             --strip-debug `
             --no-man-pages `
-            --no-header-files `
-            --compress=2
+            --no-header-files
 
           if ($LASTEXITCODE -ne 0) { throw "jlink failed" }
-          Write-Host "JRE bundled successfully."
+          Write-Host "JRE bundled successfully. Size: $((Get-ChildItem $runtimeDir -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB) MB"
 
       - name: Create db.properties.template
         shell: powershell
