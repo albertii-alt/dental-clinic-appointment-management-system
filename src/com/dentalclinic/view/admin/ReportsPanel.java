@@ -161,9 +161,11 @@ public class ReportsPanel extends JPanel {
         buttonPanel.setOpaque(false);
         JButton generateBtn = new JButton("Generate Report");
         styleButton(generateBtn, PRIMARY_BLUE);
+        generateBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CHART_BAR, 13, java.awt.Color.WHITE));
         generateBtn.addActionListener(e -> loadReport((String) reportTypeCombo.getSelectedItem()));
         JButton exportBtn = new JButton("Export to Excel");
         styleButton(exportBtn, SUCCESS_GREEN);
+        exportBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.FILE_EXCEL, 13, java.awt.Color.WHITE));
         exportBtn.addActionListener(e -> exportToExcel());
         buttonPanel.add(generateBtn);
         buttonPanel.add(exportBtn);

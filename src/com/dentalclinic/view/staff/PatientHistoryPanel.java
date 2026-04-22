@@ -92,6 +92,8 @@ public class PatientHistoryPanel extends JPanel {
         searchBox.add(searchIcon);
         searchBox.add(searchField);
 
+        JPanel headerRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        headerRight.setBackground(CARD);
         JButton refreshBtn = new JButton("Refresh");
         refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
         refreshBtn.setBackground(PRIMARY);
@@ -101,9 +103,11 @@ public class PatientHistoryPanel extends JPanel {
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { HISTORY_CACHE.remove(CACHE_KEY); loadHistoryData(true); });
-        searchBox.add(refreshBtn);
+        headerRight.add(searchBox);
+        headerRight.add(refreshBtn);
 
         headerArea.add(titlePanel, BorderLayout.WEST);
+        headerArea.add(headerRight, BorderLayout.EAST);
         headerArea.add(searchBox, BorderLayout.EAST);
         cardContainer.add(headerArea, BorderLayout.NORTH);
 

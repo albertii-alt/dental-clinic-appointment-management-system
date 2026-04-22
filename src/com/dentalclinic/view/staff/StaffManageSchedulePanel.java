@@ -106,9 +106,11 @@ public class StaffManageSchedulePanel extends JPanel {
         
         JButton blockAllBtn = new JButton("Block All Day");
         styleButton(blockAllBtn, DANGER);
+        blockAllBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.LOCK, 13, java.awt.Color.WHITE));
         
         JButton clearAllBtn = new JButton("Clear All Blocks");
         styleButton(clearAllBtn, SUCCESS);
+        clearAllBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.LOCK_OPEN, 13, java.awt.Color.WHITE));
 
         controls.add(new JLabel("Date:"));
         controls.add(datePicker);

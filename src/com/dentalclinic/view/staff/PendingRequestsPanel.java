@@ -75,6 +75,8 @@ public class PendingRequestsPanel extends JPanel {
         titleBox.add(subtitle);
         header.add(titleBox, BorderLayout.WEST);
 
+        JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        btnWrapper.setBackground(CARD);
         JButton refreshBtn = new JButton("Refresh");
         refreshBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
         refreshBtn.setBackground(PRIMARY);
@@ -84,7 +86,8 @@ public class PendingRequestsPanel extends JPanel {
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { PENDING_CACHE.remove(CACHE_KEY); loadPendingData(true); });
-        header.add(refreshBtn, BorderLayout.EAST);
+        btnWrapper.add(refreshBtn);
+        header.add(btnWrapper, BorderLayout.EAST);
 
         cardContainer.add(header, BorderLayout.NORTH);
 

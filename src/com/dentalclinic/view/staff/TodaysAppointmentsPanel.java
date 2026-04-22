@@ -84,7 +84,10 @@ public class TodaysAppointmentsPanel extends JPanel {
         refreshBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         refreshBtn.setBorder(new EmptyBorder(6, 12, 6, 12));
         refreshBtn.addActionListener(e -> { invalidateCache(); loadData(true); });
-        header.add(refreshBtn, BorderLayout.EAST);
+        JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        btnWrapper.setBackground(CARD);
+        btnWrapper.add(refreshBtn);
+        header.add(btnWrapper, BorderLayout.EAST);
 
         mainCard.add(header, BorderLayout.NORTH);
 
