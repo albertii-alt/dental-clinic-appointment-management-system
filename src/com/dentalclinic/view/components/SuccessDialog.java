@@ -31,10 +31,10 @@ public class SuccessDialog extends JDialog {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.insets = new Insets(10, 40, 10, 40);
 
-        // 1. Success Icon (Using a large Unicode checkmark or a simple drawing)
-        JLabel iconLabel = new JLabel("✓");
-        iconLabel.setFont(new Font("Segoe UI", Font.BOLD, 70));
-        iconLabel.setForeground(SUCCESS_GREEN);
+        // 1. Success Icon - using ikonli for cross-platform rendering
+        JLabel iconLabel = new JLabel();
+        iconLabel.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CHECK_CIRCLE, 70, SUCCESS_GREEN));
         iconLabel.setHorizontalAlignment(JLabel.CENTER);
         gbc.gridy = 0;
         content.add(iconLabel, gbc);
