@@ -158,10 +158,11 @@ public class PatientHistoryPanel extends JPanel {
             public Component getTableCellRendererComponent(JTable t, Object value, boolean isSelected, boolean hasFocus, int row, int col) {
                 Component c = super.getTableCellRendererComponent(t, value, isSelected, hasFocus, row, col);
                 String status = value != null ? value.toString() : "";
-                if (status.equalsIgnoreCase("Expired")) {
-                    setForeground(new Color(192, 57, 43));
-                } else {
-                    setForeground(SUCCESS);
+                switch (status) {
+                    case "Completed": setForeground(SUCCESS); break;
+                    case "Expired":   setForeground(new Color(192, 57, 43)); break;
+                    case "No Show":   setForeground(new Color(127, 140, 141)); break;
+                    default:          setForeground(TEXT); break;
                 }
                 setFont(getFont().deriveFont(Font.BOLD));
                 setHorizontalAlignment(SwingConstants.CENTER);
