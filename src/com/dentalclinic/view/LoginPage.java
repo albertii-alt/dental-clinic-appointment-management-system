@@ -47,13 +47,15 @@ public class LoginPage extends JFrame {
         authController = new AuthController();
         
         setTitle("Vantage Dental - Login");
-        if (!authController.isDatabaseAvailable()) {
-            com.dentalclinic.view.util.DatabaseSetupWizard.showSetupWizard(this);
-            return;
-        }
+        com.dentalclinic.util.AppIcon.apply(this);
         setSize(950, 600);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
+
+        if (!authController.isDatabaseAvailable()) {
+            showNoConnectionDialog();
+            return;
+        }
 
         JPanel masterPanel = new JPanel(new GridLayout(1, 2));
         add(masterPanel);
@@ -206,6 +208,59 @@ public class LoginPage extends JFrame {
 
         masterPanel.add(formArea);
         initActionListeners();
+        setVisible(true);
+    }
+
+    private void showNoConnectionDialog() {
+        setSize(420, 280);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null);
+        setLayout(new BorderLayout());
+        setResizable(false);
+
+        JPanel panel = new JPanel();
+        panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(new EmptyBorder(35, 40, 30, 40));
+
+        JLabel icon = new JLabel();
+        icon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.WIFI, 48, new Color(189, 195, 199)));
+        icon.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(icon);
+        panel.add(Box.createVerticalStrut(15));
+
+        JLabel title = new JLabel("No Connection");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        title.setForeground(new Color(44, 62, 80));
+        title.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(title);
+        panel.add(Box.createVerticalStrut(8));
+
+        JLabel msg = new JLabel("<html><div style='text-align:center;'>Unable to connect to the clinic server.<br>Please check your internet connection<br>and try again.</div></html>");
+        msg.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        msg.setForeground(new Color(127, 140, 141));
+        msg.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panel.add(msg);
+        panel.add(Box.createVerticalStrut(25));
+
+        JButton retryBtn = new JButton("Retry");
+        retryBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
+        retryBtn.setBackground(PRIMARY_BLUE);
+        retryBtn.setForeground(Color.WHITE);
+        retryBtn.setFocusPainted(false);
+        retryBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        retryBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        retryBtn.setBorder(new EmptyBorder(10, 30, 10, 30));
+        retryBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        retryBtn.addActionListener(e -> {
+            dispose();
+            new LoginPage();
+        });
+        panel.add(retryBtn);
+
+        add(panel, BorderLayout.CENTER);
         setVisible(true);
     }
 

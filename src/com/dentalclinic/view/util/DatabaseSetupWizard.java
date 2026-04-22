@@ -166,23 +166,33 @@ public class DatabaseSetupWizard {
     
     private static boolean saveConfig(String host, String port, String dbName, String user, String pass) {
         try {
-            // Create directory if it doesn't exist
             File configDir = new File(CONFIG_DIR);
             if (!configDir.exists()) {
                 configDir.mkdirs();
             }
-            
-            Properties props = new Properties();
-            String url = String.format("jdbc:mysql://%s:%s/%s?useSSL=true&serverTimezone=UTC", 
-                host, port, dbName);
-            props.setProperty("db.url", url);
-            props.setProperty("db.user", user);
-            props.setProperty("db.password", pass);
-            
-            try (FileOutputStream out = new FileOutputStream(CONFIG_FILE)) {
-                props.store(out, "Dental Clinic Database Configuration - DO NOT SHARE");
+
+            // Load existing properties to preserve non-DB settings (e.g. email config)
+            Properties existing = new Properties();
+            File configFile = new File(CONFIG_FILE);
+            if (configFile.exists()) {
+                try (java.io.FileInputStream in = new java.io.FileInputStream(configFile)) {
+                    existing.load(in);
+                } catch (IOException ignored) {}
             }
-            
+
+            // Only overwrite DB-related keys
+            String url = String.format("jdbc:mysql://%s:%s/%s?useSSL=true&serverTimezone=UTC", host, port, dbName);
+            existing.setProperty("db.url", url);
+            existing.setProperty("db.host", host);
+            existing.setProperty("db.port", port);
+            existing.setProperty("db.name", dbName);
+            existing.setProperty("db.user", user);
+            existing.setProperty("db.password", pass);
+
+            try (FileOutputStream out = new FileOutputStream(CONFIG_FILE)) {
+                existing.store(out, "Dental Clinic Database Configuration - DO NOT SHARE");
+            }
+
             return true;
         } catch (IOException e) {
             e.printStackTrace();
