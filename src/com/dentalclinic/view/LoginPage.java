@@ -211,7 +211,7 @@ public class LoginPage extends JFrame {
     }
 
     private void showNoConnectionDialog() {
-        setSize(420, 280);
+        setSize(420, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
