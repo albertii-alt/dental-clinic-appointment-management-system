@@ -69,8 +69,9 @@ public class DentistDashboard extends JFrame {
         });
         // View Appointments Dropdown
         if (UserSession.hasPermission("MANAGE_APPOINTMENTS")) {
-            viewAppBtn = new SidebarButton("View Appointments  ⌄");
+            viewAppBtn = new SidebarButton("View Appointments");
             viewAppBtn.setIcon(FontAwesomeSolid.CALENDAR_ALT);
+            viewAppBtn.setTrailingIcon(FontAwesomeSolid.CHEVRON_DOWN);
             viewAppBtn.setBounds(20, 100, 210, 40);
             viewAppBtn.addActionListener(e -> toggleAppMenu());
             sidebar.add(viewAppBtn);
@@ -170,7 +171,7 @@ public class DentistDashboard extends JFrame {
         
         isAppMenuOpen = !isAppMenuOpen;
         appointmentsSubMenu.setVisible(isAppMenuOpen);
-        viewAppBtn.setText(isAppMenuOpen ? "View Appointments  ⌃" : "View Appointments  ⌄");
+        viewAppBtn.setTrailingIcon(isAppMenuOpen ? FontAwesomeSolid.CHEVRON_UP : FontAwesomeSolid.CHEVRON_DOWN);
         
         int shift = isAppMenuOpen ? shiftAmount : -shiftAmount;
         
