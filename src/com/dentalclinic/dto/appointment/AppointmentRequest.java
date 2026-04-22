@@ -9,6 +9,8 @@ public class AppointmentRequest {
     private final String appointmentTime;
     private final int ageAtVisit;
     private final String contactNumber;
+    private int actorId;
+    private String actorRole;
 
     public AppointmentRequest(int patientId, String serviceType, Date appointmentDate, String appointmentTime, int ageAtVisit, String contactNumber) {
         this.patientId = patientId;
@@ -30,27 +32,18 @@ public class AppointmentRequest {
         );
     }
 
-    public int getPatientId() {
-        return patientId;
+    public AppointmentRequest withActor(int actorId, String actorRole) {
+        this.actorId = actorId;
+        this.actorRole = actorRole;
+        return this;
     }
 
-    public String getServiceType() {
-        return serviceType;
-    }
-
-    public Date getAppointmentDate() {
-        return appointmentDate;
-    }
-
-    public String getAppointmentTime() {
-        return appointmentTime;
-    }
-
-    public int getAgeAtVisit() {
-        return ageAtVisit;
-    }
-
-    public String getContactNumber() {
-        return contactNumber;
-    }
+    public int getPatientId() { return patientId; }
+    public String getServiceType() { return serviceType; }
+    public Date getAppointmentDate() { return appointmentDate; }
+    public String getAppointmentTime() { return appointmentTime; }
+    public int getAgeAtVisit() { return ageAtVisit; }
+    public String getContactNumber() { return contactNumber; }
+    public int getActorId() { return actorId; }
+    public String getActorRole() { return actorRole; }
 }

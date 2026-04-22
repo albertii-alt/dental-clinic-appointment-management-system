@@ -626,6 +626,9 @@ public class StaffBookAppointmentPanel extends JPanel {
                 (String) timeSlotCombo.getSelectedItem(),
                 ageValue,
                 contact
+            ).withActor(
+                com.dentalclinic.util.UserSession.getUserId(),
+                com.dentalclinic.util.UserSession.getUserRole()
             );
             BookingResult result = appointmentController.bookAndApproveByStaff(request);
             if (result.isSuccess()) {

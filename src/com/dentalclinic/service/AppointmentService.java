@@ -98,6 +98,21 @@ public class AppointmentService {
         if (generatedId == -1) {
             return new BookingResult(false, "Failed to save appointment.", -1);
         }
+
+        if (autoApprove && request.getActorId() > 0) {
+            String patientName = "";
+            try {
+                com.dentalclinic.model.Patient patient = patientDAO.getPatientById(request.getPatientId());
+                if (patient != null) patientName = patient.getFirstName() + " " + patient.getLastName();
+            } catch (Exception ignored) {}
+            String details = "Booked & Approved Appt #" + generatedId +
+                    " for patient: " + patientName +
+                    " | Service: " + request.getServiceType() +
+                    " | Date: " + request.getAppointmentDate() +
+                    " | Time: " + request.getAppointmentTime();
+            logService.record(request.getActorId(), request.getActorRole(), "Staff Booking", details);
+        }
+
         return new BookingResult(true, autoApprove ? "Appointment booked and approved." : "Appointment request submitted.", generatedId);
     }
     
@@ -262,15 +277,18 @@ public class AppointmentService {
     }
     
     public boolean updateTreatmentRecord(int appId, String status, String notes) throws SQLException {
-        return appointmentDAO.updateTreatmentRecord(appId, status, notes);
+        int actorId = com.dentalclinic.util.UserSession.getUserId();
+        String actorRole = com.dentalclinic.util.UserSession.getUserRole();
+        return updateTreatmentRecord(appId, status, notes, actorId, actorRole);
     }
 
     public boolean updateTreatmentRecord(int appId, String status, String notes, int actorId, String actorRole) throws SQLException {
         String serviceName = appointmentDAO.getServiceNameByAppId(appId);
         boolean success = appointmentDAO.updateTreatmentRecord(appId, status, notes);
         if (success) {
-            String details = "Service: " + serviceName + " | Appt #" + appId + " completed. Notes: " + notes;
-            logService.record(actorId, actorRole, "Treatment Recorded", details);
+            String details = "Service: " + serviceName + " | Appt #" + appId + " record updated to: " + status +
+                    (notes != null && !notes.trim().isEmpty() ? " | Notes: " + notes : "");
+            logService.record(actorId, actorRole, "Treatment Record Updated", details);
         }
         return success;
     }
