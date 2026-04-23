@@ -118,7 +118,7 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          $dbUrl = "jdbc:mysql://" + $env:DB_HOST + ":" + $env:DB_PORT + "/" + $env:DB_NAME + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+          $dbUrl = "jdbc:mysql://" + $env:DB_HOST + ":" + $env:DB_PORT + "/" + $env:DB_NAME + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&enabledTLSProtocols=TLSv1.2"
           $lines = @(
             "db.url=$dbUrl",
             "db.host=$env:DB_HOST",

@@ -230,7 +230,7 @@ public class LoginPage extends JFrame {
 
         JLabel icon = new JLabel();
         icon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
-            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.WIFI, 48, new Color(189, 195, 199)));
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.EXCLAMATION_CIRCLE, 48, new Color(189, 195, 199)));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(icon);
         panel.add(Box.createVerticalStrut(15));
