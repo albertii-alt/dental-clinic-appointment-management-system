@@ -124,7 +124,7 @@ jobs:
           $pw = $env:DB_PASSWORD.Trim()
           $url = "jdbc:mysql://" + $h + ":" + $p + "/" + $n + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&enabledTLSProtocols=TLSv1.2"
           $text = "db.url=" + $url + "`r`ndb.host=" + $h + "`r`ndb.port=" + $p + "`r`ndb.name=" + $n + "`r`ndb.user=" + $u + "`r`ndb.password=" + $pw
-          [System.IO.File]::WriteAllText("scripts\windows\db.properties.template", $text, [System.Text.Encoding]::UTF8)
+          [System.IO.File]::WriteAllText("scripts\windows\db.properties.template", $text, (New-Object System.Text.UTF8Encoding $false))
           Write-Host "Template created. URL: $url"
 
       - name: Install Inno Setup
