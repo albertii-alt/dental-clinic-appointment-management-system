@@ -125,6 +125,18 @@ public class PatientCancelledPanel extends JPanel {
         header.setBackground(DANGER_RED);
         header.setForeground(Color.WHITE);
         header.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setDefaultRenderer(new javax.swing.table.DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(javax.swing.JTable t, Object val, boolean sel, boolean foc, int row, int col) {
+                super.getTableCellRendererComponent(t, val, sel, foc, row, col);
+                setBackground(header.getBackground());
+                setForeground(header.getForeground());
+                setFont(header.getFont());
+                setHorizontalAlignment(javax.swing.SwingConstants.CENTER);
+                setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 5, 0, 5));
+                return this;
+            }
+        });
         header.setPreferredSize(new Dimension(0, 45));
 
         // Red text for the Status column
