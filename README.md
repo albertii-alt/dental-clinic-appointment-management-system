@@ -1,254 +1,300 @@
-# 🦷 Dental Clinic Appointment Management System
+# Vantage Dental Clinic — Appointment Management System
 
-A Java-based desktop application for managing dental clinic operations — patient records, appointment scheduling, and role-based access control.
-
-![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Java](https://img.shields.io/badge/language-Java-orange.svg)
-![Database](https://img.shields.io/badge/database-MySQL-blue.svg)
+A Java Swing desktop application for managing dental clinic operations, including patient records, appointment scheduling, role-based access control, and automated email notifications.
 
 ---
 
-## 🚀 Features
+## Table of Contents
 
-### 👤 Role-Based Access Control
-| Role | Capabilities |
-|------|-------------|
-| **Admin** | Full system management, user accounts, clinic settings, audit logs |
-| **Dentist** | Clinical management, medical history, schedule coordination |
-| **Staff** | Patient registration, appointment handling, receptionist duties |
-| **Patient** | Self-registration, appointment requests, view history |
-
-### 📅 Appointment Management
-- Schedule, approve, decline, and reschedule appointments
-- Status tracking: `Pending → Approved / Declined / Rescheduled`
-- Automated age calculation and visit contact tracking
-
-### 📋 Patient & Clinical Records
-- Comprehensive patient profiles and medical history
-- Clinical notes restricted to authorized medical staff
-
-### ⚙️ Clinic Coordination
-- Block/unblock time slots for breaks or maintenance
-- Configure operating hours and appointment lead times
-- Detailed audit trails for all user actions
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Database Setup](#database-setup)
+- [Configuration](#configuration)
+- [Build & Run](#build--run)
+- [Roles & Permissions](#roles--permissions)
+- [Security](#security)
+- [License](#license)
 
 ---
 
-## 🛠️ Technology Stack
+## Features
 
-| Component | Technology |
-|-----------|-----------|
-| Language | Java (JDK 8+) |
-| UI | Java Swing |
-| Database | MySQL / MariaDB via JDBC |
-| Build | Apache Ant |
-| Runtime | XAMPP (MySQL via `/opt/lampp`) |
+### Appointment Management
+- Book, approve, decline, reschedule, and cancel appointments
+- One active appointment per patient enforced (Pending or Approved)
+- Booking lead time validation against clinic settings
+- Closed-day and blocked time slot enforcement
+- Automatic expiry of past approved appointments on login
+- Status lifecycle: `Pending → Approved / Declined / Rescheduled / Completed / Cancelled / Expired / No Show`
+
+### Email Notifications (via JavaMail / SMTP)
+- Welcome email on patient self-registration
+- Appointment confirmation, cancellation, decline, and reschedule notifications
+- Day-before reminder sent automatically on application startup
+- Day-of reminder sent automatically on application startup
+- Password reset code (6-digit, 15-minute expiry)
+- All emails sent asynchronously (non-blocking thread pool, max 5 concurrent)
+
+### Patient Portal
+- Self-registration with cross-table username uniqueness check
+- View today's appointments, upcoming schedule, history, and cancelled appointments
+- In-app notification panel (unread badge, mark as read, archive)
+- Profile management with password change
+
+### Staff Portal
+- Manage pending requests (approve / decline / reschedule)
+- View today's schedule and upcoming appointments
+- Treatment history with clinical notes
+- Block / unblock individual time slots or entire days
+- Register patients on behalf of walk-ins
+
+### Admin Portal
+- Full user management: create, edit, activate/deactivate, delete staff accounts
+- Role and permission management (granular per-role permission assignment)
+- Clinic settings: operating hours, time slots, services, booking lead time, closed days
+- Audit trail (activity log per user action)
+- System log (INFO / WARNING / ERROR events)
+- Reports: Patient, Appointment, Pending Approvals, Completed Treatments, Cancelled, Service Popularity
+- Excel export for all report types
+
+### Dentist Portal
+- View today's schedule and upcoming appointments
+- Update treatment records and clinical notes
+- View patient history
+
+### Security
+- BCrypt password hashing (cost factor 10) for all accounts
+- Account lockout after 5 failed login attempts (30-minute auto-unlock using database time)
+- Session timeout after 30 minutes of inactivity
+- Force password reset flag for new or admin-reset accounts
+- Cross-table username uniqueness (patients and staff share no usernames)
+- Input sanitization (XSS prevention) on all user-facing fields
+- Forgot password via username-based 6-digit email code (1-minute rate limit on requests)
+- Credentials stored outside the project directory (`~/.dental_clinic/db.properties`)
+- Database connection error messages sanitized (no IP/credential leakage in UI)
 
 ---
 
-## 📦 Installation & Setup
+## Tech Stack
 
-### Prerequisites
-- Java Development Kit (JDK) 8+
-- XAMPP (for MySQL via `/opt/lampp`) or any MySQL server
+| Component        | Technology                              |
+|------------------|-----------------------------------------|
+| Language         | Java 21 (Temurin)                       |
+| UI Framework     | Java Swing (Metal L&F, Segoe UI fonts)  |
+| Database         | MySQL / MariaDB                         |
+| JDBC Driver      | mysql-connector-j 8.0.33                |
+| Connection Pool  | HikariCP 5.1.0                          |
+| Password Hashing | bcrypt-0.9.0 (favre)                    |
+| Email            | javax.mail 1.6.2                        |
+| Icons            | Ikonli 12.3.1 (FontAwesome 5)           |
+| Charts           | JFreeChart 1.5.3                        |
+| Excel Export     | Apache POI 5.2.5                        |
+| Date Picker      | JCalendar 1.4                           |
+| Build Tool       | Apache Ant (NetBeans build.xml)         |
+| Logging          | SLF4J 2.0.13 + Log4j API 2.21.1        |
 
-### 1. Database Setup
+---
+
+## Project Structure
+
+```
+src/com/dentalclinic/
+├── controller/       # Request handling between view and service
+│   ├── AdminController.java
+│   ├── AppointmentController.java
+│   ├── AuthController.java
+│   ├── ClinicSettingsController.java
+│   ├── DashboardController.java
+│   ├── LogController.java
+│   ├── PatientController.java
+│   ├── ReportsController.java
+│   └── RolesController.java
+├── dao/              # Database access (raw SQL via JDBC)
+│   ├── AppointmentDAO.java
+│   ├── ClinicConfigDAO.java
+│   ├── DashboardDAO.java
+│   ├── LogDAO.java
+│   ├── PasswordResetDAO.java
+│   ├── PatientDAO.java
+│   ├── ReportsDAO.java
+│   ├── RolesPermissionDAO.java
+│   └── StaffDAO.java
+├── dto/              # Data transfer objects
+│   ├── appointment/  # AppointmentRequest, BookingResult
+│   ├── auth/         # LoginRequest, LoginResult
+│   └── report/       # ReportData, ReportRequest
+├── main/             # Application entry point (Main.java)
+├── model/            # Domain models
+│   ├── Appointment.java / AppointmentStatus.java
+│   ├── Patient.java / Staff.java / Role.java
+│   ├── BlockedSlot.java / ClinicHour.java
+│   ├── ClinicScheduleDay.java / ClinicSetting.java
+│   ├── DentalService.java / Permission.java
+│   ├── ActivityLogEntry.java / SystemLogEntry.java
+│   ├── PasswordResetCode.java / UserType.java
+│   └── RolePermission.java
+├── service/          # Business logic layer
+│   ├── AppointmentService.java
+│   ├── AuthService.java
+│   ├── ClinicConfigService.java
+│   ├── DashboardService.java
+│   ├── LogService.java
+│   ├── PatientService.java
+│   ├── ReportsService.java
+│   ├── RolesService.java
+│   └── StaffService.java
+├── util/             # Shared utilities
+│   ├── DBConnection.java      # HikariCP pool + config loading
+│   ├── EmailUtil.java         # Async SMTP email sender
+│   ├── PasswordUtil.java      # BCrypt hash/verify
+│   ├── PasswordValidator.java # Complexity rules
+│   ├── PasswordMigration.java # Plaintext → BCrypt migration helper
+│   ├── Sanitizer.java         # XSS prevention + input validation
+│   └── UserSession.java       # Session state + timeout timer
+└── view/             # Swing UI panels and dialogs
+    ├── admin/        # Admin dashboard panels
+    ├── components/   # Shared UI components (Sidebar, Dialogs)
+    ├── patient/      # Patient dashboard panels
+    ├── staff/        # Staff dashboard panels
+    ├── util/         # AppointmentUIUtils
+    ├── AdminDashboard.java / DentistDashboard.java
+    ├── StaffDashboard.java / PatientDashboard.java
+    ├── LoginPage.java
+    └── SplashScreen.java
+```
+
+---
+
+## Prerequisites
+
+- Java 21 (Temurin recommended — see `.sdkmanrc`)
+- MySQL 5.7+ or MariaDB 10.4+
+- Apache Ant (for building from source)
+
+---
+
+## Database Setup
+
 1. Start your MySQL server.
-2. Create a database named `dental_clinic_db`.
+
+2. Create the database:
+   ```sql
+   CREATE DATABASE dental_clinic_db;
+   ```
+
 3. Import the schema:
    ```bash
    mysql -u root -p dental_clinic_db < dental_clinic_db.sql
    ```
-4. Create the application user:
+
+4. Create a least-privileged application user:
    ```sql
    CREATE USER 'dental_user'@'localhost' IDENTIFIED BY 'your_password';
    GRANT SELECT, INSERT, UPDATE, DELETE ON dental_clinic_db.* TO 'dental_user'@'localhost';
    FLUSH PRIVILEGES;
    ```
 
-### 2. Database Configuration
-On first launch, a **Database Setup Wizard** will appear automatically if no configuration is found.
+---
 
-Alternatively, create the config file manually at `~/.dental_clinic/db.properties`:
+## Configuration
+
+All credentials are stored **outside the project directory** and are never committed to version control.
+
+### Option 1 — Config file (recommended)
+
+Create `~/.dental_clinic/db.properties`:
+
 ```properties
+# Database
 db.url=jdbc:mysql://localhost:3306/dental_clinic_db?useSSL=true&serverTimezone=UTC
 db.user=dental_user
 db.password=your_password
+
+# Email (optional — disabling email is safe, notifications are skipped)
+email.user=your_gmail@gmail.com
+email.password=your_app_password
+email.smtp.host=smtp.gmail.com
+email.smtp.port=587
 ```
 
-You can also use environment variables instead:
+> For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833), not your account password.
+
+### Option 2 — Environment variables
+
 ```bash
 export DB_URL=jdbc:mysql://localhost:3306/dental_clinic_db?useSSL=true&serverTimezone=UTC
 export DB_USER=dental_user
 export DB_PASSWORD=your_password
 ```
 
-### 3. Build & Run
+### Option 3 — Setup Wizard
 
-**Linux (with XAMPP):**
+On first launch, if no config file is found, a **Database Setup Wizard** dialog appears automatically.
+
+---
+
+## Build & Run
+
+### Build with Ant
+
 ```bash
-chmod +x run.sh
-./run.sh
+ant clean build
 ```
-The script will:
-- Prompt for your `sudo` password to start XAMPP
-- Auto-start MySQL and verify the database exists
-- Restore from backup (`~/backups/dental_clinic/`) if the database is missing
-- Launch the application JAR
 
-**Manual launch (if MySQL is already running):**
+### Run the JAR
+
 ```bash
 java -jar dist/DentalClinicAppointment_ManagementSystem.jar
 ```
 
-### 4. Service Health Check & Auto-Repair
+### Windows launcher
 
-Use the health-check script to verify both MySQL and Apache:
-
-```bash
-./scripts/mysql-health-check.sh
+```bat
+scripts\windows\run-dental-clinic.bat
 ```
 
-Run with auto-repair enabled to trigger repair tools only when needed:
+### First login
 
-```bash
-./scripts/mysql-health-check.sh --repair
-```
+Use the default `superAdmin` credentials created by the schema. **Change the password immediately after first login.**
 
-Direct repair tools:
-
-```bash
-./scripts/mysql-auto-repair.sh
-./scripts/apache-auto-repair.sh
-```
-
-### 5. Cloud-Safe DB Operations (No Local XAMPP Assumptions)
-
-When running against a managed cloud MySQL provider (Aiven, RDS, etc.), use these scripts:
-
-```bash
-./scripts/cloud-db-health-check.sh
-./scripts/cloud-backup-dental.sh
-./scripts/cloud-restore-latest.sh
-./scripts/cloud-security-audit.sh
-RUNTIME_DB_USER=dc_app RUNTIME_DB_PASSWORD='strong-pass' ./scripts/cloud-create-runtime-user.sh
-NEW_DB_USER=dc_app NEW_DB_PASSWORD='strong-pass' ./scripts/cloud-switch-app-user.sh
-```
-
-Notes:
-- These scripts read `db.url`, `db.user`, and `db.password` from `~/.dental_clinic/db.properties`.
-- They use standard `mysql`, `mysqldump`, and `mysqladmin` clients from `PATH` (with `/opt/lampp/bin` fallback).
-- `cloud-db-health-check.sh` verifies connectivity, active database, TLS session (when SSL is enabled in `db.url`), and round-trip latency.
-- `cloud-backup-dental.sh` includes dump integrity checks and retention cleanup.
-- `cloud-restore-latest.sh` restores the newest backup after explicit confirmation.
-- `cloud-security-audit.sh` inspects runtime user grants and flags risky privilege patterns.
-- `cloud-create-runtime-user.sh` provisions a least-privileged runtime account with SSL requirement.
-- `cloud-switch-app-user.sh` updates `~/.dental_clinic/db.properties` runtime credentials with automatic backup.
-
-Automatic backups for laptops (anacron):
-
-```bash
-sudo ./scripts/setup-cloud-backup-anacron.sh
-```
-
-What this configures:
-- Creates a runner at `/usr/local/bin/dental-clinic-cloud-backup`.
-- Adds/updates one idempotent entry in `/etc/anacrontab`.
-- Runs `cloud-backup-dental.sh` daily even if the laptop was off at the scheduled hour (anacron executes missed jobs after boot).
-
-Optional tuning examples:
-
-```bash
-sudo ANACRON_DELAY=5 ./scripts/setup-cloud-backup-anacron.sh
-sudo APP_USER=$USER ANACRON_PERIOD=1 ANACRON_DELAY=10 ./scripts/setup-cloud-backup-anacron.sh
-```
-
-Test and verify:
-
-```bash
-sudo anacron -fn
-tail -n 50 ~/backups/logs/cloud_backup_anacron.log
-./scripts/cloud-backup-status.sh
-```
-
-Backup assurance signals:
-- Status file: `~/backups/logs/cloud_backup_last_status.txt`
-- Scheduler log: `~/backups/logs/cloud_backup_anacron.log`
-- Optional desktop notification (best effort): shown as "Dental Clinic Backup" when graphical session is available.
-- System log tag: `dental-clinic-cloud-backup`
-
-Step 4 - secret and access hardening:
-
-```bash
-./scripts/harden-db-config-perms.sh
-ADMIN_CONFIG_FILE=~/.dental_clinic/db.properties.bak.YYYYMMDD_HHMMSS NEW_RUNTIME_PASSWORD='new-strong-password' ./scripts/cloud-rotate-runtime-password.sh
-./scripts/cloud-db-health-check.sh
-./scripts/cloud-security-audit.sh
-```
-
-Notes:
-- `harden-db-config-perms.sh` enforces owner-only access (`chmod 600`) on `~/.dental_clinic/db.properties`.
-- `cloud-rotate-runtime-password.sh` rotates runtime user password in DB (using admin config) and updates local app config safely with backup.
-- Set `RUNTIME_DB_USER` explicitly when rotating (example: `RUNTIME_DB_USER=dentalclinicsystem`).
-- Recommended rotation policy: every 30 to 60 days, and immediately after suspected credential exposure.
-
-For a strict one-by-one production checklist, use:
-
-```bash
-cat scripts/cloud-ops-runbook.md
-```
-
-### Why Step 1 Helps (Before vs After)
-
-| Area | Before | After | Why This Matters |
-|------|--------|-------|------------------|
-| Runtime DB account scope | App could run with broad/admin-style privileges | App runs with least-privileged runtime account (`SELECT/INSERT/UPDATE/DELETE` on `dental_clinic_db.*`) | Reduces damage if credentials are leaked or app logic misbehaves |
-| Privilege verification | Security posture was assumed manually | `cloud-security-audit.sh` reports actual grants and risky patterns | You can prove security posture with repeatable checks |
-| Cloud connectivity confidence | App connection status checked ad hoc | `cloud-db-health-check.sh` validates DB reachability, active DB, TLS, and latency | Faster troubleshooting and fewer "works on my machine" issues |
-| Credential changes | Manual edits with higher typo risk | `cloud-switch-app-user.sh` updates config and creates timestamped backup | Safer credential rotation with rollback path |
-| Cloud operations consistency | Local/XAMPP assumptions could leak into cloud workflow | Cloud scripts use JDBC config and standard MySQL clients | Lower operational mistakes in managed MySQL environments |
-
-Expected day-to-day impact:
-- Better uptime because failures are detected early with consistent health checks.
-- Better security because the app identity is intentionally limited.
-- Better recoverability because config changes and backups are scripted, not improvised.
-- Better team handoff because operations are documented and repeatable.
+The superAdmin account bypasses all permission checks and has full system access.
 
 ---
 
-## 🖥️ Usage
+## Roles & Permissions
 
-1. **Login** — Use the default `superAdmin` credentials on first launch. Change them immediately.
-2. **Dashboard** — Navigate based on your assigned role.
-3. **Patient Registration** — Patients can self-register from the login screen.
+| Role           | Key Capabilities                                                                 |
+|----------------|----------------------------------------------------------------------------------|
+| **Super Admin**| Full access, bypasses all permission checks                                      |
+| **Admin**      | User management, roles, clinic settings, audit logs, reports                     |
+| **Dentist**    | Today's schedule, upcoming appointments, treatment records, clinical notes       |
+| **Staff**      | Pending requests, patient registration, booking, schedule management, reminders  |
+| **Patient**    | Self-registration, book appointments, view history, notifications, profile       |
 
----
-
-## 📁 Project Structure
-
-```
-src/com/dentalclinic/
-├── admin/       # Admin panels (users, roles, audit, settings)
-├── dao/         # Data access objects (DB queries)
-├── main/        # Application entry point
-├── model/       # Data models (Appointment, Patient)
-├── patient/     # Patient-facing panels
-├── service/     # Business logic layer
-├── staff/       # Staff-facing panels
-├── ui/          # Dashboards, login, shared UI components
-└── util/        # DB connection, auth, email, sanitization
-```
+Permissions are stored in the database and assigned per role. Admins can configure which permissions each role holds via the **Manage Roles** panel.
 
 ---
 
-## 🔒 Security Notes
+## Security
 
-- **Passwords** — The default schema uses plaintext for demonstration. Use `PasswordUtil` / BCrypt hashing before deploying to production.
-- **DB Credentials** — Stored in `~/.dental_clinic/db.properties` (outside the project directory). Never commit this file.
-- **`.sql` files** — Do not push `dental_clinic_db.sql` with real patient data to version control.
+| Concern                  | Implementation                                                              |
+|--------------------------|-----------------------------------------------------------------------------|
+| Password storage         | BCrypt (cost 10) via `PasswordUtil`                                         |
+| Password complexity      | Min 8 chars, uppercase, lowercase, digit, special char — `PasswordValidator`|
+| Account lockout          | 5 failed attempts → 30-minute lockout (database-time based)                 |
+| Session timeout          | 30-minute inactivity timeout via `UserSession` timer                        |
+| Input sanitization       | XSS patterns, HTML tags, null bytes stripped via `Sanitizer`                |
+| SQL injection            | All queries use `PreparedStatement`                                         |
+| Credential storage       | `~/.dental_clinic/db.properties` (outside project, never committed)         |
+| Password reset           | Username-based, 6-digit code, 15-minute expiry, 1-minute request rate limit |
+| Email privacy            | Passwords never sent via email; email addresses masked in logs              |
+| Error messages           | DB errors sanitized before display (no IP/credential leakage)               |
+| Cross-table uniqueness   | Usernames checked across both `patients` and `staff` tables on registration |
 
 ---
 
-## 📄 License
+## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
