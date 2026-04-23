@@ -111,23 +111,21 @@ jobs:
       - name: Create db.properties.template
         shell: powershell
         env:
-          DB_URL: ${{ secrets.DB_URL }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
-          $dbUrl = "jdbc:mysql://" + $env:DB_HOST + ":" + $env:DB_PORT + "/" + $env:DB_NAME + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&enabledTLSProtocols=TLSv1.2"
-          $lines = @(
-            "db.url=$dbUrl",
-            "db.host=$env:DB_HOST",
-            "db.port=$env:DB_PORT",
-            "db.name=$env:DB_NAME",
-            "db.user=$env:DB_USER",
-            "db.password=$env:DB_PASSWORD"
-          )
-          [System.IO.File]::WriteAllLines("scripts\windows\db.properties.template", $lines)
+          $h = $env:DB_HOST.Trim()
+          $p = $env:DB_PORT.Trim()
+          $n = $env:DB_NAME.Trim()
+          $u = $env:DB_USER.Trim()
+          $pw = $env:DB_PASSWORD.Trim()
+          $url = "jdbc:mysql://" + $h + ":" + $p + "/" + $n + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&enabledTLSProtocols=TLSv1.2"
+          $text = "db.url=" + $url + "`r`ndb.host=" + $h + "`r`ndb.port=" + $p + "`r`ndb.name=" + $n + "`r`ndb.user=" + $u + "`r`ndb.password=" + $pw
+          [System.IO.File]::WriteAllText("scripts\windows\db.properties.template", $text, [System.Text.Encoding]::UTF8)
+          Write-Host "Template created. URL: $url"
 
       - name: Install Inno Setup
         shell: powershell
