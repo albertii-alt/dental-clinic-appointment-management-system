@@ -116,7 +116,7 @@ public class PatientDashboard extends JFrame {
             UserSession.updateActivity();
         });
         
-        sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
+        sidebar.addSpecialButton("Logout", 0, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
                 if (sessionCheckTimer != null) sessionCheckTimer.stop();

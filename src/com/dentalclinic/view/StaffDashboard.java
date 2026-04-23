@@ -127,16 +127,16 @@ public class StaffDashboard extends JFrame {
             });
         }
         
-        // My Settings
-        sidebar.addButtonAt("My Settings", FontAwesomeSolid.SLIDERS_H, 540, () -> {
+        // My Settings - bottom pinned
+        sidebar.addBottomButton("My Settings", FontAwesomeSolid.SLIDERS_H, () -> {
             switchPanel(new com.dentalclinic.view.admin.AccountSettingsPanel(
                 staffId, "STAFF", staffName, username, email
             ));
             UserSession.updateActivity();
         });
         
-        // Logout
-        sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
+        // Logout - bottom pinned
+        sidebar.addSpecialButton("Logout", 0, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
                 if (sessionCheckTimer != null) sessionCheckTimer.stop();

@@ -118,16 +118,16 @@ public class DentistDashboard extends JFrame {
             componentsToShift.add(blockBtn);
         }
         
-        // My Account Settings
-        sidebar.addButtonAt("My Account Settings", FontAwesomeSolid.USER_COG, 550, () -> {
+        // My Account Settings - bottom pinned
+        sidebar.addBottomButton("My Account Settings", FontAwesomeSolid.USER_COG, () -> {
             switchPanel(new com.dentalclinic.view.admin.AccountSettingsPanel(
                 staffId, role, staffName, username, email
             ));
             UserSession.updateActivity();
         });
         
-        // Logout
-        sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
+        // Logout - bottom pinned
+        sidebar.addSpecialButton("Logout", 0, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
                 if (sessionCheckTimer != null) sessionCheckTimer.stop();

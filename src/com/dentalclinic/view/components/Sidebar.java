@@ -16,6 +16,7 @@ public class Sidebar extends JPanel {
     
     private List<SidebarButton> allButtons = new ArrayList<>();
     private List<JComponent> allComponents = new ArrayList<>();
+    private List<JComponent> bottomComponents = new ArrayList<>(); // Bottom-pinned components
     private SidebarButton currentActiveButton;
     private JPanel subMenuPanel;
     private int nextY = 100;
@@ -24,9 +25,23 @@ public class Sidebar extends JPanel {
     
     public Sidebar() {
         setLayout(null);
-        // setOpaque(false) tells Swing we will handle the background painting ourselves
         setOpaque(false);
         setPreferredSize(new Dimension(250, 700));
+    }
+
+    @Override
+    public void doLayout() {
+        super.doLayout();
+        // Dynamically position bottom components at the actual bottom of the sidebar
+        if (!bottomComponents.isEmpty()) {
+            int h = getHeight();
+            int totalBottomHeight = bottomComponents.stream().mapToInt(c -> c.getHeight() + 10).sum();
+            int startY = h - totalBottomHeight - 10;
+            for (JComponent comp : bottomComponents) {
+                comp.setBounds(20, startY, 210, comp.getHeight());
+                startY += comp.getHeight() + 10;
+            }
+        }
     }
     
     @Override
@@ -288,6 +303,22 @@ public class Sidebar extends JPanel {
         });
         add(btn);
         allComponents.add(btn);
+        bottomComponents.add(btn); // Always pin logout to bottom
+    }
+
+    public SidebarButton addBottomButton(String text, Ikon icon, Runnable onClick) {
+        SidebarButton btn = new SidebarButton(text);
+        btn.setIcon(icon);
+        btn.setBounds(20, 0, 210, 40); // y will be set by doLayout
+        btn.addActionListener(e -> {
+            setActiveButton(btn);
+            if (onClick != null) onClick.run();
+        });
+        add(btn);
+        allButtons.add(btn);
+        allComponents.add(btn);
+        bottomComponents.add(btn);
+        return btn;
     }
     
     public int getCurrentY() {

@@ -193,11 +193,8 @@ public class AdminDashboard extends JFrame {
         // BOTTOM SECTION (NEVER shifts - grouped with Logout)
         // ==========================================================
         
-        // 6. My Account Settings (Moved to bottom section - DOES NOT SHIFT)
-        SidebarButton myAccountBtn = new SidebarButton("My Account Settings");
-        myAccountBtn.setIcon(FontAwesomeSolid.USER_COG);
-        myAccountBtn.setBounds(20, 550, 210, 40);
-        myAccountBtn.addActionListener(e -> {
+        // 6. My Account Settings - bottom pinned
+        SidebarButton myAccountBtn = sidebar.addBottomButton("My Account Settings", FontAwesomeSolid.USER_COG, () -> {
             String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
             showPanel(new com.dentalclinic.view.admin.AccountSettingsPanel(
                 currentAdminId, roleStr, currentAdminName, currentAdminUsername, currentAdminEmail
@@ -205,10 +202,9 @@ public class AdminDashboard extends JFrame {
             sidebar.setActiveButton(myAccountBtn);
             UserSession.updateActivity();
         });
-        sidebar.add(myAccountBtn);
         
-        // 7. Logout (Bottom - NEVER shifts)
-        sidebar.addSpecialButton("Logout", 600, new Color(192, 57, 43), () -> {
+        // 7. Logout - bottom pinned
+        sidebar.addSpecialButton("Logout", 0, new Color(192, 57, 43), () -> {
             boolean confirm = LogoutDialog.show(this);
             if (confirm) {
                 if (sessionCheckTimer != null) sessionCheckTimer.stop();
