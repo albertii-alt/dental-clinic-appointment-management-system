@@ -194,14 +194,16 @@ public class AdminDashboard extends JFrame {
         // ==========================================================
         
         // 6. My Account Settings - bottom pinned
-        SidebarButton myAccountBtn = sidebar.addBottomButton("My Account Settings", FontAwesomeSolid.USER_COG, () -> {
+        final SidebarButton[] myAccountBtnRef = new SidebarButton[1];
+        myAccountBtnRef[0] = sidebar.addBottomButton("My Account Settings", FontAwesomeSolid.USER_COG, () -> {
             String roleStr = isSuperAdmin ? "Super Admin" : "Admin";
             showPanel(new com.dentalclinic.view.admin.AccountSettingsPanel(
                 currentAdminId, roleStr, currentAdminName, currentAdminUsername, currentAdminEmail
             ));
-            sidebar.setActiveButton(myAccountBtn);
+            sidebar.setActiveButton(myAccountBtnRef[0]);
             UserSession.updateActivity();
         });
+        SidebarButton myAccountBtn = myAccountBtnRef[0];
         
         // 7. Logout - bottom pinned
         sidebar.addSpecialButton("Logout", 0, new Color(192, 57, 43), () -> {
