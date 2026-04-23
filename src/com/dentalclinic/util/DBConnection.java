@@ -108,8 +108,9 @@ public class DBConnection {
             config.setUsername(USER);
             config.setPassword(PASSWORD);
             config.setMaximumPoolSize(10);
-            config.setConnectionTimeout(10000);
+            config.setConnectionTimeout(30000);
             config.setIdleTimeout(300000);
+            config.setInitializationFailTimeout(-1); // Don't fail on startup - connect lazily
             config.setPoolName("DentalClinicHikariPool");
 
             config.addDataSourceProperty("cachePrepStmts", "true");
@@ -190,6 +191,10 @@ public class DBConnection {
         return message;
     }
     
+    public static boolean isConfigLoaded() {
+        return configLoaded && dataSource != null;
+    }
+
     public static boolean testConnection() {
         try (Connection conn = getConnection()) {
             boolean valid = conn != null && !conn.isClosed();
