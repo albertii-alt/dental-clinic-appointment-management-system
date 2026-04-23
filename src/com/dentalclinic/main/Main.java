@@ -7,9 +7,6 @@ import javax.swing.UIManager;
 public class Main {
 
     public static void main(String[] args) {
-        // Fix DPI scaling on Windows - prevents UI from being too large/small
-        System.setProperty("sun.java2d.uiScale", "1.0");
-
         // Enable anti-aliased font rendering on all platforms
         System.setProperty("awt.useSystemAAFontSettings", "on");
         System.setProperty("swing.aatext", "true");
