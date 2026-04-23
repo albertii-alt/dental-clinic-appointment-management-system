@@ -94,7 +94,7 @@ jobs:
           New-Item -ItemType Directory -Force -Path (Split-Path $runtimeDir) | Out-Null
 
           jlink `
-            --add-modules java.base,java.desktop,java.sql,java.naming,java.management,java.security.jgss,java.xml,jdk.crypto.ec `
+            --add-modules java.base,java.desktop,java.sql,java.naming,java.management,java.security.jgss,java.xml,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.security.auth,java.security.sasl `
             --output $runtimeDir `
             --strip-debug `
             --no-man-pages `
@@ -114,7 +114,7 @@ jobs:
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           $lines = @(
-            "db.url=$env:DB_URL",
+            "db.url=jdbc:mysql://$env:DB_HOST`:$env:DB_PORT/$env:DB_NAME`?sslMode=REQUIRED&allowPublicKeyRetrieval=true&serverTimezone=UTC",
             "db.host=$env:DB_HOST",
             "db.port=$env:DB_PORT",
             "db.name=$env:DB_NAME",
