@@ -28,6 +28,12 @@ public class Main {
         System.setProperty("awt.useSystemAAFontSettings", "on");
         System.setProperty("swing.aatext", "true");
 
+        // Fix Nimbus selected row text color - prevent white text on light selection
+        UIManager.put("Table.selectionForeground", new java.awt.Color(44, 62, 80));
+        UIManager.put("Table.selectionBackground", new java.awt.Color(232, 241, 249));
+        UIManager.put("List.selectionForeground", new java.awt.Color(44, 62, 80));
+        UIManager.put("List.selectionBackground", new java.awt.Color(232, 241, 249));
+
         SwingUtilities.invokeLater(() -> {
             SplashScreen splash = new SplashScreen();
             splash.runStartupAndLaunch();

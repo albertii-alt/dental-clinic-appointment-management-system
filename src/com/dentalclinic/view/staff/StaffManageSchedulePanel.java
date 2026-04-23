@@ -268,7 +268,7 @@ public class StaffManageSchedulePanel extends JPanel {
             actionPanel.add(bookedLbl);
         } else {
             JButton toggleBtn = new JButton(isBlocked ? "Unblock Slot" : "Block Slot");
-            styleButton(toggleBtn, isBlocked ? PRIMARY : new Color(160, 170, 180));
+            styleButton(toggleBtn, isBlocked ? PRIMARY : new Color(100, 110, 120));
             
             if (isBlocked) {
                 toggleBtn.addActionListener(e -> handleUnblock(date, slot));
