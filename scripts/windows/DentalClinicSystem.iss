@@ -3,7 +3,7 @@
   #define MyAppVersion "1.0.0"
 #endif
 #define MyAppPublisher "Vantage Dental Clinic"
-#define MyAppExeName "run-dental-clinic.bat"
+#define MyAppExeName "launch.vbs"
 
 [Setup]
 AppId={{B28C88D2-E6F0-4A4D-8E2A-8B3FCF8CB8E6}
@@ -34,16 +34,17 @@ Source: "..\..\dist\DentalClinicAppointment_ManagementSystem.jar"; DestDir: "{ap
 Source: "..\..\dist\lib\*"; DestDir: "{app}\app\lib"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Bundled JRE
 Source: "..\..\build\windows-runtime\runtime\*"; DestDir: "{app}\runtime"; Flags: ignoreversion recursesubdirs createallsubdirs
-; Launcher
+; Launchers
 Source: "run-dental-clinic.bat"; DestDir: "{app}"; Flags: ignoreversion
+Source: "launch.vbs"; DestDir: "{app}"; Flags: ignoreversion
 ; App icon
 Source: "app-icon.ico"; DestDir: "{app}"; Flags: ignoreversion
 ; DB config template
 Source: "db.properties.template"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: "//B ""{app}\{#MyAppExeName}"""; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"
-Name: "{autodesktop}\{#MyAppName}"; Filename: "{sys}\wscript.exe"; Parameters: "//B ""{app}\{#MyAppExeName}"""; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Tasks: desktopicon
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"
+Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; IconFilename: "{app}\app-icon.ico"; Tasks: desktopicon
 
 [Code]
 procedure WriteDbPropertiesIfMissing();
@@ -68,4 +69,4 @@ begin
 end;
 
 [Run]
-Filename: "{sys}\wscript.exe"; Parameters: "//B ""{app}\{#MyAppExeName}"""; WorkingDir: "{app}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\{#MyAppExeName}"; WorkingDir: "{app}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
