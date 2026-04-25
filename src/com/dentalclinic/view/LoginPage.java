@@ -217,7 +217,7 @@ public class LoginPage extends JFrame {
     }
 
     private void showNoConnectionDialog() {
-        setSize(420, 300);
+        setSize(380, 280);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout());
@@ -228,8 +228,7 @@ public class LoginPage extends JFrame {
         panel.setBackground(Color.WHITE);
         panel.setBorder(new EmptyBorder(35, 40, 30, 40));
 
-        JLabel icon = new JLabel();
-        icon.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+        JLabel icon = new JLabel(org.kordamp.ikonli.swing.FontIcon.of(
             org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.WIFI, 48, new Color(189, 195, 199)));
         icon.setAlignmentX(Component.CENTER_ALIGNMENT);
         panel.add(icon);
@@ -242,14 +241,17 @@ public class LoginPage extends JFrame {
         panel.add(title);
         panel.add(Box.createVerticalStrut(8));
 
-        JLabel msg = new JLabel("<html><div style='text-align:center;'>Unable to connect to the clinic server.<br>Please check your internet connection<br>and try again.</div></html>");
+        JLabel msg = new JLabel("<html><div style='text-align:center;width:220px;'>Unable to connect to the clinic server. Please check your internet connection and try again.</div></html>");
         msg.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         msg.setForeground(new Color(127, 140, 141));
         msg.setAlignmentX(Component.CENTER_ALIGNMENT);
+        msg.setHorizontalAlignment(SwingConstants.CENTER);
         panel.add(msg);
         panel.add(Box.createVerticalStrut(25));
 
-        JButton retryBtn = new JButton("Retry");
+        JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        btnWrapper.setOpaque(false);
+        JButton retryBtn = new JButton("  Retry  ");
         retryBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
             org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.SYNC_ALT, 13, Color.WHITE));
         retryBtn.setBackground(PRIMARY_BLUE);
@@ -258,12 +260,9 @@ public class LoginPage extends JFrame {
         retryBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         retryBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         retryBtn.setBorder(new EmptyBorder(10, 30, 10, 30));
-        retryBtn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        retryBtn.addActionListener(e -> {
-            dispose();
-            new LoginPage();
-        });
-        panel.add(retryBtn);
+        retryBtn.addActionListener(e -> { dispose(); new LoginPage(); });
+        btnWrapper.add(retryBtn);
+        panel.add(btnWrapper);
 
         add(panel, BorderLayout.CENTER);
         setVisible(true);

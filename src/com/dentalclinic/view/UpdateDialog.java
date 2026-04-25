@@ -158,6 +158,8 @@ public class UpdateDialog extends JDialog {
         add(footer, BorderLayout.SOUTH);
     }
 
+    private javax.swing.Timer progressTimer;
+
     private void startDownload() {
         if (info.downloadUrl == null || info.downloadUrl.isBlank()) {
             JOptionPane.showMessageDialog(this,
@@ -168,9 +170,18 @@ public class UpdateDialog extends JDialog {
 
         updateBtn.setEnabled(false);
         laterBtn.setEnabled(false);
-        progressBar.setIndeterminate(true);
+        progressBar.setIndeterminate(false);
+        progressBar.setValue(0);
         progressBar.setVisible(true);
         progressLabel.setText("Downloading update...");
+
+        // Animate progress bar from 0 to 90 while downloading
+        progressTimer = new javax.swing.Timer(80, null);
+        progressTimer.addActionListener(e -> {
+            int val = progressBar.getValue();
+            if (val < 90) progressBar.setValue(val + 1);
+        });
+        progressTimer.start();
 
         new Thread(() -> {
             try {
@@ -192,7 +203,7 @@ public class UpdateDialog extends JDialog {
                 }
 
                 SwingUtilities.invokeLater(() -> {
-                    progressBar.setIndeterminate(false);
+                    progressTimer.stop();
                     progressBar.setValue(100);
                     progressLabel.setForeground(SUCCESS);
                     progressLabel.setText("Download complete! Launching installer...");
@@ -208,6 +219,7 @@ public class UpdateDialog extends JDialog {
 
             } catch (Exception ex) {
                 SwingUtilities.invokeLater(() -> {
+                    if (progressTimer != null) progressTimer.stop();
                     progressBar.setVisible(false);
                     progressLabel.setForeground(Color.RED);
                     progressLabel.setText("Download failed: " + ex.getMessage());

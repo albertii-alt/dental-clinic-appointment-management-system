@@ -3,71 +3,68 @@ package com.dentalclinic.view.components;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
-import java.awt.geom.RoundRectangle2D;
 
 public class ErrorDialog extends JDialog {
 
-    private final Color ERROR_RED = new Color(231, 76, 60);
-    private final Color TEXT_DARK = new Color(44, 62, 80);
-    private final Color TEXT_GRAY = new Color(127, 140, 141);
+    private static final Color ERROR_RED = new Color(231, 76, 60);
+    private static final Color TEXT_DARK = new Color(44, 62, 80);
+    private static final Color TEXT_GRAY = new Color(127, 140, 141);
 
     public ErrorDialog(Frame parent, String title, String message) {
         super(parent, true);
-        setUndecorated(true);
-        setSize(500, 500);
-        setLocationRelativeTo(parent);
-        setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 20, 20));
+        setUndecorated(false);
+        setResizable(false);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
 
-        JPanel content = new JPanel(new GridBagLayout());
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
         content.setBackground(Color.WHITE);
-        content.setBorder(BorderFactory.createLineBorder(new Color(245, 245, 245), 1));
-        add(content);
+        content.setBorder(new EmptyBorder(30, 40, 25, 40));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.gridx = 0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
+        // Icon
+        JLabel iconLabel = new JLabel(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TIMES_CIRCLE, 52, ERROR_RED));
+        iconLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(iconLabel);
+        content.add(Box.createVerticalStrut(14));
 
-        // 1. Error Icon
-        JLabel iconLabel = new JLabel();
-        iconLabel.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
-            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TIMES_CIRCLE, 60, ERROR_RED));
-        iconLabel.setHorizontalAlignment(JLabel.CENTER);
-        gbc.gridy = 0;
-        gbc.insets = new Insets(10, 0, 10, 0);
-        content.add(iconLabel, gbc);
-
-        // 2. Title
+        // Title
         JLabel titleLabel = new JLabel(title);
-        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
+        titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         titleLabel.setForeground(TEXT_DARK);
-        titleLabel.setHorizontalAlignment(JLabel.CENTER);
-        gbc.gridy = 1;
-        gbc.insets = new Insets(0, 40, 5, 40);
-        content.add(titleLabel, gbc);
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        content.add(titleLabel);
+        content.add(Box.createVerticalStrut(8));
 
-        // 3. Message
-        JLabel msgLabel = new JLabel("<html><center>" + message + "</center></html>");
-        msgLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        // Message
+        JLabel msgLabel = new JLabel("<html><div style='text-align:center;width:260px;'>"
+            + message.replace("\n", "<br>") + "</div></html>");
+        msgLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         msgLabel.setForeground(TEXT_GRAY);
-        msgLabel.setHorizontalAlignment(JLabel.CENTER);
-        gbc.gridy = 2;
-        gbc.insets = new Insets(0, 40, 25, 40);
-        content.add(msgLabel, gbc);
+        msgLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        msgLabel.setHorizontalAlignment(SwingConstants.CENTER);
+        content.add(msgLabel);
+        content.add(Box.createVerticalStrut(22));
 
-        // 4. Close Button
+        // Button
+        JPanel btnWrapper = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        btnWrapper.setOpaque(false);
         JButton closeBtn = new JButton("Try Again");
-        closeBtn.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
+        closeBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         closeBtn.setBackground(ERROR_RED);
         closeBtn.setForeground(Color.WHITE);
-        closeBtn.setPreferredSize(new Dimension(0, 45));
         closeBtn.setFocusPainted(false);
-        closeBtn.setBorder(null);
+        closeBtn.setBorderPainted(false);
+        closeBtn.setOpaque(true);
         closeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        closeBtn.setBorder(new EmptyBorder(10, 35, 10, 35));
         closeBtn.addActionListener(e -> dispose());
+        btnWrapper.add(closeBtn);
+        content.add(btnWrapper);
 
-        gbc.gridy = 3;
-        gbc.insets = new Insets(0, 80, 20, 80);
-        content.add(closeBtn, gbc);
+        setContentPane(content);
+        pack();
+        setLocationRelativeTo(parent);
     }
 
     public static void show(Frame parent, String title, String message) {
