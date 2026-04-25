@@ -27,10 +27,10 @@ public class ErrorDialog extends JDialog {
         gbc.gridx = 0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // 1. Error Icon (X)
-        JLabel iconLabel = new JLabel("✕");
-        iconLabel.setFont(new Font("Segoe UI", Font.BOLD, 60));
-        iconLabel.setForeground(ERROR_RED);
+        // 1. Error Icon
+        JLabel iconLabel = new JLabel();
+        iconLabel.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.TIMES_CIRCLE, 60, ERROR_RED));
         iconLabel.setHorizontalAlignment(JLabel.CENTER);
         gbc.gridy = 0;
         gbc.insets = new Insets(10, 0, 10, 0);

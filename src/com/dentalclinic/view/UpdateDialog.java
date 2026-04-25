@@ -119,6 +119,8 @@ public class UpdateDialog extends JDialog {
         progressBar.setForeground(ACCENT);
         progressBar.setBorderPainted(false);
         progressBar.setVisible(false);
+        progressBar.setPreferredSize(new Dimension(460, 14));
+        progressBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 14));
         body.add(progressBar);
 
         add(body, BorderLayout.CENTER);
