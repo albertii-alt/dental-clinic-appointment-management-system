@@ -141,6 +141,16 @@ public class SplashScreen extends JWindow {
                 setProgress(10, "Initializing...");
                 Thread.sleep(300);
 
+                setProgress(20, "Connecting to database...");
+                com.dentalclinic.controller.AuthController authController = new com.dentalclinic.controller.AuthController();
+                if (!authController.isDatabaseAvailable()) {
+                    SwingUtilities.invokeLater(() -> {
+                        dispose();
+                        new LoginPage();
+                    });
+                    return;
+                }
+
                 AppointmentController ac = new AppointmentController();
 
                 setProgress(30, "Checking appointments...");
@@ -164,7 +174,6 @@ public class SplashScreen extends JWindow {
                 System.err.println("Startup task failed: " + e.getMessage());
             }
 
-            // Re-check update result on EDT
             UpdateInfo updateInfo;
             try {
                 updateInfo = UpdateChecker.checkForUpdate();
