@@ -263,11 +263,55 @@ public class RegisterPatientForm extends JFrame {
         c.gridy = row * 2;
         c.insets = new Insets(5, 5, 4, 5);
         p.add(createFieldLabel(label), c);
-        
+
         c.gridy = (row * 2) + 1;
         c.insets = new Insets(0, 5, 15, 5);
         styleInputField(field);
-        p.add(field, c);
+        if (field instanceof JPasswordField) {
+            p.add(createPasswordWrapper((JPasswordField) field), c);
+        } else {
+            p.add(field, c);
+        }
+    }
+
+    private JPanel createPasswordWrapper(JPasswordField field) {
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setBackground(Color.WHITE);
+        wrapper.setPreferredSize(new Dimension(0, 42));
+        field.setBorder(BorderFactory.createEmptyBorder(5, 12, 5, 5));
+        field.setOpaque(false);
+
+        JButton eyeBtn = new JButton(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.EYE_SLASH, 14, TEXT_GRAY));
+        eyeBtn.setFocusPainted(false);
+        eyeBtn.setBorderPainted(false);
+        eyeBtn.setContentAreaFilled(false);
+        eyeBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        eyeBtn.setBorder(BorderFactory.createEmptyBorder(0, 5, 0, 10));
+
+        final boolean[] visible = {false};
+        eyeBtn.addActionListener(e -> {
+            visible[0] = !visible[0];
+            field.setEchoChar(visible[0] ? (char) 0 : '\u2022');
+            eyeBtn.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+                visible[0] ? org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.EYE
+                           : org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.EYE_SLASH,
+                14, TEXT_GRAY));
+        });
+
+        Border normal = BorderFactory.createCompoundBorder(
+            new LineBorder(BORDER_COLOR), BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        Border active = BorderFactory.createCompoundBorder(
+            new LineBorder(SECONDARY_BLUE, 1), BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        wrapper.setBorder(normal);
+        field.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) { wrapper.setBorder(active); }
+            public void focusLost(FocusEvent e) { wrapper.setBorder(normal); }
+        });
+
+        wrapper.add(field, BorderLayout.CENTER);
+        wrapper.add(eyeBtn, BorderLayout.EAST);
+        return wrapper;
     }
 
     private JLabel createFieldLabel(String text) {
