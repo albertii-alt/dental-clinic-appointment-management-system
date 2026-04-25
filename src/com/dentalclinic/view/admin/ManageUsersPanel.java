@@ -295,7 +295,7 @@ public class ManageUsersPanel extends JPanel {
                 if (!passwordErrors.isEmpty()) {
                     StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
                     for (String error : passwordErrors) {
-                        errorMsg.append("• ").append(error).append("\n");
+                        errorMsg.append("- ").append(error).append("\n");
                     }
                     JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
                     return;
@@ -314,7 +314,7 @@ public class ManageUsersPanel extends JPanel {
                     if (!passwordErrors.isEmpty()) {
                         StringBuilder errorMsg = new StringBuilder("New password requirements not met:\n");
                         for (String error : passwordErrors) {
-                            errorMsg.append("• ").append(error).append("\n");
+                            errorMsg.append("- ").append(error).append("\n");
                         }
                         JOptionPane.showMessageDialog(this, errorMsg.toString(), "Invalid Password", JOptionPane.ERROR_MESSAGE);
                         return;

@@ -481,7 +481,7 @@ public class RegisterPatientForm extends JFrame {
         if (!passwordErrors.isEmpty()) {
             StringBuilder errorMsg = new StringBuilder("Password requirements not met:\n");
             for (String error : passwordErrors) {
-                errorMsg.append("• ").append(error).append("\n");
+                errorMsg.append("- ").append(error).append("\n");
             }
             ErrorDialog.show(this, "Invalid Password", errorMsg.toString());
             return;

@@ -166,8 +166,8 @@ public class UpdateDialog extends JDialog {
 
         updateBtn.setEnabled(false);
         laterBtn.setEnabled(false);
+        progressBar.setIndeterminate(true);
         progressBar.setVisible(true);
-        progressBar.setValue(0);
         progressLabel.setText("Downloading update...");
 
         new Thread(() -> {
@@ -185,14 +185,12 @@ public class UpdateDialog extends JDialog {
                         out.write(buf, 0, read);
                         downloaded += read;
                         final int dl = downloaded / 1024;
-                        SwingUtilities.invokeLater(() -> {
-                            progressBar.setIndeterminate(false);
-                            progressLabel.setText("Downloading... " + dl + " KB");
-                        });
+                        SwingUtilities.invokeLater(() -> progressLabel.setText("Downloading... " + dl + " KB"));
                     }
                 }
 
                 SwingUtilities.invokeLater(() -> {
+                    progressBar.setIndeterminate(false);
                     progressBar.setValue(100);
                     progressLabel.setForeground(SUCCESS);
                     progressLabel.setText("Download complete! Launching installer...");
