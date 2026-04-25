@@ -175,7 +175,7 @@ public class UpdateDialog extends JDialog {
 
                 HttpURLConnection conn = (HttpURLConnection) new URL(info.downloadUrl).openConnection();
                 conn.setConnectTimeout(10000);
-                conn.setReadTimeout(60000);
+                conn.setReadTimeout(300000);
                 int total = conn.getContentLength();
 
                 try (InputStream in = conn.getInputStream();

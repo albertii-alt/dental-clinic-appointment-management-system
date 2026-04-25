@@ -92,13 +92,22 @@ public class UpdateChecker {
     }
 
     private static String extractDownloadUrl(String json) {
-        // Find the .exe asset browser_download_url
-        int idx = json.indexOf(".exe\"");
-        if (idx < 0) return null;
-        int urlEnd = idx + 4;
-        int urlStart = json.lastIndexOf("\"", idx - 1);
-        if (urlStart < 0) return null;
-        return json.substring(urlStart + 1, urlEnd);
+        // Find browser_download_url inside assets array that ends with .exe
+        String key = "browser_download_url";
+        int searchFrom = 0;
+        while (true) {
+            int keyIdx = json.indexOf(key, searchFrom);
+            if (keyIdx < 0) return null;
+            int colon = json.indexOf(":", keyIdx);
+            if (colon < 0) return null;
+            int start = json.indexOf("\"", colon + 1);
+            if (start < 0) return null;
+            int end = json.indexOf("\"", start + 1);
+            if (end < 0) return null;
+            String url = json.substring(start + 1, end);
+            if (url.endsWith(".exe")) return url;
+            searchFrom = end + 1;
+        }
     }
 
     private static boolean isNewer(String latest, String current) {
