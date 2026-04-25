@@ -173,27 +173,20 @@ public class UpdateDialog extends JDialog {
                 File tempFile = Files.createTempFile("DentalClinicUpdate-", ".exe").toFile();
                 tempFile.deleteOnExit();
 
-                HttpURLConnection conn = (HttpURLConnection) new URL(info.downloadUrl).openConnection();
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(300000);
-                int total = conn.getContentLength();
+                InputStream in = openWithRedirects(info.downloadUrl);
+                if (in == null) throw new IOException("Failed to open download stream");
 
-                try (InputStream in = conn.getInputStream();
-                     FileOutputStream out = new FileOutputStream(tempFile)) {
+                try (InputStream is = in; FileOutputStream out = new FileOutputStream(tempFile)) {
                     byte[] buf = new byte[8192];
                     int read, downloaded = 0;
-                    while ((read = in.read(buf)) != -1) {
+                    while ((read = is.read(buf)) != -1) {
                         out.write(buf, 0, read);
                         downloaded += read;
-                        if (total > 0) {
-                            int pct = (int) ((downloaded / (double) total) * 100);
-                            int dl = downloaded / 1024;
-                            int tot = total / 1024;
-                            SwingUtilities.invokeLater(() -> {
-                                progressBar.setValue(pct);
-                                progressLabel.setText("Downloading... " + dl + " KB / " + tot + " KB");
-                            });
-                        }
+                        final int dl = downloaded / 1024;
+                        SwingUtilities.invokeLater(() -> {
+                            progressBar.setIndeterminate(false);
+                            progressLabel.setText("Downloading... " + dl + " KB");
+                        });
                     }
                 }
 
@@ -215,11 +208,36 @@ public class UpdateDialog extends JDialog {
                 SwingUtilities.invokeLater(() -> {
                     progressBar.setVisible(false);
                     progressLabel.setForeground(Color.RED);
-                    progressLabel.setText("Download failed. Please try again.");
+                    progressLabel.setText("Download failed: " + ex.getMessage());
                     updateBtn.setEnabled(true);
                     laterBtn.setEnabled(true);
                 });
             }
         }).start();
+    }
+
+    private InputStream openWithRedirects(String urlStr) throws IOException {
+        int maxRedirects = 10;
+        String currentUrl = urlStr;
+        for (int i = 0; i < maxRedirects; i++) {
+            HttpURLConnection conn = (HttpURLConnection) new URL(currentUrl).openConnection();
+            conn.setInstanceFollowRedirects(false);
+            conn.setRequestProperty("User-Agent", "DentalClinicUpdater");
+            conn.setConnectTimeout(10000);
+            conn.setReadTimeout(300000);
+            int status = conn.getResponseCode();
+            if (status == HttpURLConnection.HTTP_OK) {
+                return conn.getInputStream();
+            } else if (status == HttpURLConnection.HTTP_MOVED_TEMP
+                    || status == HttpURLConnection.HTTP_MOVED_PERM
+                    || status == 307 || status == 308) {
+                currentUrl = conn.getHeaderField("Location");
+                conn.disconnect();
+                if (currentUrl == null) throw new IOException("Redirect with no Location header");
+            } else {
+                throw new IOException("HTTP " + status + " from " + currentUrl);
+            }
+        }
+        throw new IOException("Too many redirects");
     }
 }
