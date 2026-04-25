@@ -116,14 +116,22 @@ jobs:
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          EMAIL_USER: ${{ secrets.EMAIL_USER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_SMTP_HOST: ${{ secrets.EMAIL_SMTP_HOST }}
+          EMAIL_SMTP_PORT: ${{ secrets.EMAIL_SMTP_PORT }}
         run: |
           $h = $env:DB_HOST.Trim()
           $p = $env:DB_PORT.Trim()
           $n = $env:DB_NAME.Trim()
           $u = $env:DB_USER.Trim()
           $pw = $env:DB_PASSWORD.Trim()
+          $eu = $env:EMAIL_USER.Trim()
+          $ep = $env:EMAIL_PASSWORD.Trim()
+          $esh = if ($env:EMAIL_SMTP_HOST) { $env:EMAIL_SMTP_HOST.Trim() } else { "smtp.gmail.com" }
+          $esp = if ($env:EMAIL_SMTP_PORT) { $env:EMAIL_SMTP_PORT.Trim() } else { "587" }
           $url = "jdbc:mysql://" + $h + ":" + $p + "/" + $n + "?useSSL=true&requireSSL=true&verifyServerCertificate=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&enabledTLSProtocols=TLSv1.2"
-          $text = "db.url=" + $url + "`r`ndb.host=" + $h + "`r`ndb.port=" + $p + "`r`ndb.name=" + $n + "`r`ndb.user=" + $u + "`r`ndb.password=" + $pw
+          $text = "db.url=" + $url + "`r`ndb.host=" + $h + "`r`ndb.port=" + $p + "`r`ndb.name=" + $n + "`r`ndb.user=" + $u + "`r`ndb.password=" + $pw + "`r`n`r`n# Gmail SMTP Configuration`r`nemail.user=" + $eu + "`r`nemail.password=" + $ep + "`r`nemail.smtp.host=" + $esh + "`r`nemail.smtp.port=" + $esp
           [System.IO.File]::WriteAllText("scripts\windows\db.properties.template", $text, (New-Object System.Text.UTF8Encoding $false))
           Write-Host "Template created. URL: $url"
 
