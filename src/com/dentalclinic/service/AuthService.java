@@ -19,8 +19,7 @@ public class AuthService {
     private PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
 
     public boolean isDatabaseAvailable() {
-        // Just check if config is loaded - actual connection tested on first query
-        return DBConnection.isConfigLoaded();
+        return DBConnection.testConnection();
     }
 
     public boolean testDatabaseConnection(String host, String port, String dbName, String user, String pass) {

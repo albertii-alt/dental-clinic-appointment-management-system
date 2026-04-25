@@ -108,7 +108,7 @@ public class DBConnection {
             config.setUsername(USER);
             config.setPassword(PASSWORD);
             config.setMaximumPoolSize(10);
-            config.setConnectionTimeout(30000);
+            config.setConnectionTimeout(8000);
             config.setIdleTimeout(300000);
             config.setInitializationFailTimeout(-1); // Don't fail on startup - connect lazily
             config.setPoolName("DentalClinicHikariPool");
@@ -197,7 +197,7 @@ public class DBConnection {
 
     public static boolean testConnection() {
         try (Connection conn = getConnection()) {
-            boolean valid = conn != null && !conn.isClosed();
+            boolean valid = conn != null && conn.isValid(5);
             if (valid) {
                 LOGGER.info("Database connection test successful");
             }
