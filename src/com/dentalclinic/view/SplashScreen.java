@@ -1,6 +1,8 @@
 package com.dentalclinic.view;
 
 import com.dentalclinic.controller.AppointmentController;
+import com.dentalclinic.util.UpdateChecker;
+import com.dentalclinic.util.UpdateChecker.UpdateInfo;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
@@ -113,7 +115,7 @@ public class SplashScreen extends JWindow {
         bottomPanel.add(progressBar);
         bottomPanel.add(Box.createVerticalStrut(10));
 
-        JLabel version = new JLabel("v1.0.0  |  © 2026 Vantage Dental Clinic");
+        JLabel version = new JLabel("v" + UpdateChecker.getCurrentVersion() + "  |  © 2026 Vantage Dental Clinic");
         version.setFont(new Font("Segoe UI", Font.PLAIN, 10));
         version.setForeground(new Color(127, 140, 141));
         version.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -153,8 +155,7 @@ public class SplashScreen extends JWindow {
                 int todaySent = ac.sendAllDayOfReminders();
                 if (todaySent > 0) System.out.println("Sent " + todaySent + " day-of reminder(s)");
 
-                setProgress(90, "Loading login screen...");
-                Thread.sleep(400);
+                setProgress(90, "Checking for updates...");
 
                 setProgress(100, "Ready!");
                 Thread.sleep(300);
@@ -163,8 +164,20 @@ public class SplashScreen extends JWindow {
                 System.err.println("Startup task failed: " + e.getMessage());
             }
 
+            // Re-check update result on EDT
+            UpdateInfo updateInfo;
+            try {
+                updateInfo = UpdateChecker.checkForUpdate();
+            } catch (Exception e) {
+                updateInfo = null;
+            }
+            final UpdateInfo finalUpdate = updateInfo;
+
             SwingUtilities.invokeLater(() -> {
                 dispose();
+                if (finalUpdate != null && finalUpdate.updateAvailable) {
+                    new UpdateDialog(finalUpdate).setVisible(true);
+                }
                 new LoginPage();
             });
         }).start();

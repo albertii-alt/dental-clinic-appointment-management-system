@@ -16,6 +16,7 @@ dental_clinic_schema.sql
 # but this protects against accidentally copying it here
 db.properties
 *.properties
+!src/com/dentalclinic/resources/version.properties
 .env
 .env.*
 !.env.example

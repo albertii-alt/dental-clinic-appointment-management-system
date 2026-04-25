@@ -39,6 +39,13 @@ jobs:
           }
           "value=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
+      - name: Inject app version into version.properties
+        shell: powershell
+        run: |
+          $version = "${{ steps.version.outputs.value }}"
+          [System.IO.File]::WriteAllText("src\com\dentalclinic\resources\version.properties", "app.version=$version`n", (New-Object System.Text.UTF8Encoding $false))
+          Write-Host "Injected version: $version"
+
       - name: Build desktop JAR
         shell: powershell
         run: |
