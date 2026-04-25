@@ -19,7 +19,33 @@ public class AuthService {
     private PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
 
     public boolean isDatabaseAvailable() {
+        // Fast host reachability check first (2s timeout) before attempting full DB connection
+        try {
+            String host = extractHost();
+            if (host != null) {
+                java.net.InetAddress address = java.net.InetAddress.getByName(host);
+                if (!address.isReachable(2000)) return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
         return DBConnection.testConnection();
+    }
+
+    private String extractHost() {
+        try {
+            String url = System.getProperty("user.home") + java.io.File.separator + ".dental_clinic" + java.io.File.separator + "db.properties";
+            java.util.Properties props = new java.util.Properties();
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(url)) {
+                props.load(fis);
+            }
+            String dbUrl = props.getProperty("db.url", "");
+            // Extract host from jdbc:mysql://host:port/db
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("jdbc:mysql://([^:/]+)").matcher(dbUrl);
+            return m.find() ? m.group(1) : null;
+        } catch (Exception e) {
+            return null;
+        }
     }
 
     public boolean testDatabaseConnection(String host, String port, String dbName, String user, String pass) {

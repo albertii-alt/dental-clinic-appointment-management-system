@@ -108,7 +108,7 @@ public class DBConnection {
             config.setUsername(USER);
             config.setPassword(PASSWORD);
             config.setMaximumPoolSize(10);
-            config.setConnectionTimeout(8000);
+            config.setConnectionTimeout(5000);
             config.setIdleTimeout(300000);
             config.setInitializationFailTimeout(-1); // Don't fail on startup - connect lazily
             config.setPoolName("DentalClinicHikariPool");
