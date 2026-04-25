@@ -803,8 +803,9 @@ public class LoginPage extends JFrame {
                 button.setFocusPainted(false);
                 button.setBackground(Color.WHITE);
                 // Add a simple chevron/arrow icon or text
-                button.setText("▼ "); 
-                button.setForeground(TEXT_GRAY);
+                button.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+                    org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.CHEVRON_DOWN, 11, TEXT_GRAY));
+                button.setText("");
                 button.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 return button;
             }

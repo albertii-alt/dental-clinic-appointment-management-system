@@ -364,13 +364,13 @@ public class UpcomingAppointmentsPanel extends JPanel {
                             "Standard practice is to send reminders 1 day before.\n\n";
        } else if (daysUntil <= 7) {
            warningLevel = "VERY EARLY";
-           warningMessage = "⚠️[!] This appointment is " + daysUntil + " days away.\n\n" +
+           warningMessage = "[!!] This appointment is " + daysUntil + " days away.\n\n" +
                             "This is VERY early for a reminder.\n" +
                             "The patient may forget again by the appointment date.\n\n" +
                             "Are you sure you want to send this now?\n\n";
        } else {
            warningLevel = "TOO EARLY";
-           warningMessage = "🔴🔴🔴 WARNING: This appointment is " + daysUntil + " days away!\n\n" +
+           warningMessage = "[!!!] WARNING: This appointment is " + daysUntil + " days away!\n\n" +
                             "Sending a reminder this early is NOT recommended.\n" +
                             "The patient will likely forget by the appointment date.\n\n" +
                             "Only send this if the patient specifically requested it.\n\n";
@@ -459,7 +459,7 @@ public class UpcomingAppointmentsPanel extends JPanel {
            // Show success message with warning level note if applicable
            String successMessage = "Reminder sent successfully to:\n" + patient.getEmail();
            if (warningLevel.equals("TOO EARLY")) {
-               successMessage += "\n\n⚠️ Note: This reminder was sent very early (" + daysUntil + " days before).\n" +
+               successMessage += "\n\n[!] Note: This reminder was sent very early (" + daysUntil + " days before).\n" +
                                  "Consider sending another reminder 1 day before the appointment.";
            } else if (warningLevel.equals("VERY EARLY")) {
                successMessage += "\n\nNote: This reminder was sent " + daysUntil + " days early.\n" +

@@ -61,8 +61,10 @@ public class UpdateDialog extends JDialog {
         header.add(headerText, BorderLayout.CENTER);
 
         // Update badge icon
-        JLabel badge = new JLabel("🆕");
-        badge.setFont(new Font("Segoe UI", Font.PLAIN, 32));
+        JLabel badge = new JLabel();
+        badge.setIcon(org.kordamp.ikonli.swing.FontIcon.of(
+            org.kordamp.ikonli.fontawesome5.FontAwesomeSolid.ARROW_ALT_CIRCLE_UP, 32, new Color(41, 128, 185)));
+        badge.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 4));
         header.add(badge, BorderLayout.EAST);
 
         add(header, BorderLayout.NORTH);
