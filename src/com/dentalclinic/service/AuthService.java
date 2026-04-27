@@ -19,12 +19,14 @@ public class AuthService {
     private PasswordResetDAO passwordResetDAO = new PasswordResetDAO();
 
     public boolean isDatabaseAvailable() {
-        // Fast host reachability check first (2s timeout) before attempting full DB connection
+        // TCP socket check works on both Linux and Windows without elevated privileges.
+        // InetAddress.isReachable() uses ICMP which requires root on Linux — avoid it.
         try {
-            String host = extractHost();
-            if (host != null) {
-                java.net.InetAddress address = java.net.InetAddress.getByName(host);
-                if (!address.isReachable(2000)) return false;
+            String[] hostPort = extractHostAndPort();
+            if (hostPort != null) {
+                try (java.net.Socket socket = new java.net.Socket()) {
+                    socket.connect(new java.net.InetSocketAddress(hostPort[0], Integer.parseInt(hostPort[1])), 2000);
+                }
             }
         } catch (Exception e) {
             return false;
@@ -32,17 +34,19 @@ public class AuthService {
         return DBConnection.testConnection();
     }
 
-    private String extractHost() {
+    private String[] extractHostAndPort() {
         try {
-            String url = System.getProperty("user.home") + java.io.File.separator + ".dental_clinic" + java.io.File.separator + "db.properties";
+            String path = System.getProperty("user.home") + java.io.File.separator + ".dental_clinic" + java.io.File.separator + "db.properties";
             java.util.Properties props = new java.util.Properties();
-            try (java.io.FileInputStream fis = new java.io.FileInputStream(url)) {
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(path)) {
                 props.load(fis);
             }
             String dbUrl = props.getProperty("db.url", "");
-            // Extract host from jdbc:mysql://host:port/db
-            java.util.regex.Matcher m = java.util.regex.Pattern.compile("jdbc:mysql://([^:/]+)").matcher(dbUrl);
-            return m.find() ? m.group(1) : null;
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile("jdbc:mysql://([^:/]+):(\\d+)").matcher(dbUrl);
+            if (m.find()) return new String[]{m.group(1), m.group(2)};
+            // No port in URL — try host-only match with default port 3306
+            java.util.regex.Matcher mHost = java.util.regex.Pattern.compile("jdbc:mysql://([^:/]+)").matcher(dbUrl);
+            return mHost.find() ? new String[]{mHost.group(1), "3306"} : null;
         } catch (Exception e) {
             return null;
         }

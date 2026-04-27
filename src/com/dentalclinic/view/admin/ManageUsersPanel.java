@@ -278,7 +278,13 @@ public class ManageUsersPanel extends JPanel {
             }
             
             if (checkUsername && adminController.isPatientUsernameTaken(user)) {
-                JOptionPane.showMessageDialog(this, "Username already exists as a PATIENT account. Please choose another username.", 
+                JOptionPane.showMessageDialog(this, "Username already exists as a PATIENT account. Please choose another username.",
+                        "Username Conflict", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            if (checkUsername && adminController.isStaffUsernameTaken(user)) {
+                JOptionPane.showMessageDialog(this, "Username already exists as a STAFF account. Please choose another username.",
                         "Username Conflict", JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -327,12 +333,8 @@ public class ManageUsersPanel extends JPanel {
             }
             resetForm();
             refreshTable();
-        } catch (IllegalArgumentException ex) {
-            // Username already exists in patients table
-            JOptionPane.showMessageDialog(this, "This username is already taken by a patient account. Please choose another username.", 
-                    "Username Unavailable", JOptionPane.ERROR_MESSAGE);
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "An unexpected error occurred. Please try again.", 
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(),
                     "Error", JOptionPane.ERROR_MESSAGE);
         }
     }

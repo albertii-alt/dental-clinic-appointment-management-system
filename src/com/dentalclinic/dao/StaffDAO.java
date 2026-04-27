@@ -114,7 +114,7 @@ public class StaffDAO {
     
     public boolean addStaff(String name, String user, String pass, String email, String role, int adminId, String adminRole) throws SQLException {
         String query = "INSERT INTO staff (full_name, username, password, email, role_id, is_active, force_password_reset) " +
-                       "VALUES (?, ?, ?, ?, (SELECT role_id FROM roles WHERE role_name = ?), 1, 0)";
+                       "VALUES (?, ?, ?, ?, (SELECT role_id FROM roles WHERE role_name = ?), 1, 1)";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, name);

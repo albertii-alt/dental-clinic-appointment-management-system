@@ -17,6 +17,10 @@ public class AdminController {
         return patientService.isUsernameTakenInPatients(username);
     }
 
+    public boolean isStaffUsernameTaken(String username) throws SQLException {
+        return staffService.isUsernameTakenInStaff(username);
+    }
+
     public boolean addStaff(String name, String user, String pass, String email, String role, int adminId, String adminRole) throws SQLException {
         return staffService.addStaff(name, user, pass, email, role, adminId, adminRole);
     }

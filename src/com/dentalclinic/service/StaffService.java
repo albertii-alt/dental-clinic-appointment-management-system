@@ -11,6 +11,10 @@ public class StaffService {
         return staffDAO.getAllStaff();
     }
 
+    public boolean isUsernameTakenInStaff(String username) throws SQLException {
+        return staffDAO.isUsernameTakenInStaff(username);
+    }
+
     public boolean addStaff(String name, String user, String pass, String email, String role, int adminId, String adminRole) throws SQLException {
         return staffDAO.addStaff(name, user, pass, email, role, adminId, adminRole);
     }
