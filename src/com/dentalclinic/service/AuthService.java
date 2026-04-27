@@ -21,11 +21,18 @@ public class AuthService {
     public boolean isDatabaseAvailable() {
         // TCP socket check works on both Linux and Windows without elevated privileges.
         // InetAddress.isReachable() uses ICMP which requires root on Linux — avoid it.
+        // Timeout is 5s to account for slower DNS resolution on Windows.
+        // If socket check fails, fall through to a full JDBC connection test
+        // before giving up — avoids false negatives on Windows cold starts.
         try {
             String[] hostPort = extractHostAndPort();
             if (hostPort != null) {
                 try (java.net.Socket socket = new java.net.Socket()) {
-                    socket.connect(new java.net.InetSocketAddress(hostPort[0], Integer.parseInt(hostPort[1])), 2000);
+                    socket.connect(new java.net.InetSocketAddress(hostPort[0], Integer.parseInt(hostPort[1])), 5000);
+                    return DBConnection.testConnection();
+                } catch (Exception socketEx) {
+                    // Socket failed — try a full JDBC connection as fallback
+                    return DBConnection.testConnection();
                 }
             }
         } catch (Exception e) {
