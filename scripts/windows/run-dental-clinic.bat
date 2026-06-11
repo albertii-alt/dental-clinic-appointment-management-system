@@ -9,10 +9,12 @@ set "CONFIG_DIR=%USERPROFILE%\.dental_clinic"
 set "CONFIG_FILE=%CONFIG_DIR%\db.properties"
 set "CONFIG_TEMPLATE=%APP_DIR%db.properties.template"
 
-REM --- Always write db.properties from template to ensure correct credentials ---
+REM --- Write db.properties from template only if it does not already exist ---
 if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
-if exist "%CONFIG_TEMPLATE%" (
-    copy /Y "%CONFIG_TEMPLATE%" "%CONFIG_FILE%" >nul
+if not exist "%CONFIG_FILE%" (
+    if exist "%CONFIG_TEMPLATE%" (
+        copy /Y "%CONFIG_TEMPLATE%" "%CONFIG_FILE%" >nul
+    )
 )
 
 REM --- Use bundled JRE if available, otherwise fall back to system Java ---
