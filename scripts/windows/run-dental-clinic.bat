@@ -9,12 +9,22 @@ set "CONFIG_DIR=%USERPROFILE%\.dental_clinic"
 set "CONFIG_FILE=%CONFIG_DIR%\db.properties"
 set "CONFIG_TEMPLATE=%APP_DIR%db.properties.template"
 
-REM --- Write db.properties from template only if it does not already exist ---
+REM --- Sync db.properties from template (create if missing, update keys if exists) ---
 if not exist "%CONFIG_DIR%" mkdir "%CONFIG_DIR%"
-if not exist "%CONFIG_FILE%" (
-    if exist "%CONFIG_TEMPLATE%" (
-        copy /Y "%CONFIG_TEMPLATE%" "%CONFIG_FILE%" >nul
-    )
+if exist "%CONFIG_TEMPLATE%" (
+    powershell -NoProfile -Command "
+        $template = Get-Content '%CONFIG_TEMPLATE%';
+        if (-not (Test-Path '%CONFIG_FILE%')) {
+            Copy-Item '%CONFIG_TEMPLATE%' '%CONFIG_FILE%';
+        } else {
+            $existing = Get-Content '%CONFIG_FILE%';
+            $map = @{};
+            foreach ($line in $existing) { if ($line -match '^([^#=]+)=(.*)$') { $map[$Matches[1].Trim()] = $line } };
+            foreach ($line in $template) { if ($line -match '^([^#=]+)=(.*)$') { $map[$Matches[1].Trim()] = $line } };
+            $result = foreach ($line in $existing) { if ($line -match '^([^#=]+)=(.*)$') { $map[$Matches[1].Trim()] } else { $line } };
+            $result | Set-Content '%CONFIG_FILE%';
+        }
+    "
 )
 
 REM --- Use bundled JRE if available, otherwise fall back to system Java ---
